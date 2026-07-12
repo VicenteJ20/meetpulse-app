@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, Upload } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar } from './SidebarProvider';
@@ -64,6 +64,7 @@ const Sidebar: React.FC = () => {
   const { openImportDialog } = useImportDialog();
   const { betaFeatures } = useConfig();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['meetings']));
+  const initializedClientFolders = useRef<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showModelSettings, setShowModelSettings] = useState(false);
   const [modelConfig, setModelConfig] = useState<ModelConfig>({
@@ -95,6 +96,26 @@ const Sidebar: React.FC = () => {
       setExpandedFolders(newExpanded);
     }
   }, [expandedFolders]);
+
+  // Clients are expanded the first time they appear, while projects remain
+  // collapsed until the user explicitly asks to see their meetings.
+  useEffect(() => {
+    const clientIds = sidebarItems
+      .find(item => item.id === 'meetings')
+      ?.children
+      ?.filter(item => item.id.startsWith('client:'))
+      .map(item => item.id) ?? [];
+
+    const unseenClientIds = clientIds.filter(id => !initializedClientFolders.current.has(id));
+    if (unseenClientIds.length === 0) return;
+
+    unseenClientIds.forEach(id => initializedClientFolders.current.add(id));
+    setExpandedFolders(previous => {
+      const next = new Set(previous);
+      unseenClientIds.forEach(id => next.add(id));
+      return next;
+    });
+  }, [sidebarItems]);
 
   // useEffect(() => {
   //   if (settingsSaveSuccess !== null) {
@@ -440,7 +461,7 @@ const Sidebar: React.FC = () => {
               <button
                 onClick={handleRecordingToggle}
                 disabled={isRecording}
-                className={`p-2 ${isRecording ? 'bg-red-500 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'} rounded-full transition-colors duration-150 shadow-sm`}
+                className={`p-2 ${isRecording ? 'bg-red-700 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700'} rounded-full transition-colors duration-150 shadow-sm`}
               >
                 {isRecording ? (
                   <Square className="w-5 h-5 text-white" />
@@ -459,9 +480,9 @@ const Sidebar: React.FC = () => {
               <TooltipTrigger asChild>
                 <button
                   onClick={() => openImportDialog()}
-                  className="p-2 rounded-lg transition-colors duration-150 hover:bg-blue-100 bg-blue-50"
+                  className="p-2 rounded-lg transition-colors duration-150 hover:bg-slate-200 bg-slate-100"
                 >
-                  <Upload className="w-5 h-5 text-blue-600" />
+                  <Upload className="w-5 h-5 text-slate-700" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">
@@ -532,7 +553,7 @@ const Sidebar: React.FC = () => {
         <div
           className={`flex items-center transition-all duration-150 group ${item.type === 'folder' && depth === 0
             ? 'p-3 text-lg font-semibold h-10 mx-3 mt-3 rounded-lg'
-            : `px-3 py-2 my-0.5 rounded-md text-sm ${isActive ? 'bg-blue-100 text-blue-700 font-medium' :
+            : `px-3 py-2 my-0.5 rounded-md text-sm ${isActive ? 'bg-slate-200 text-slate-900 font-medium' :
               hasTranscriptMatch ? 'bg-yellow-50' : 'hover:bg-gray-50'
             } cursor-pointer`
             }`}
@@ -553,9 +574,9 @@ const Sidebar: React.FC = () => {
               {item.id === 'meetings' ? (
                 <Calendar className="w-4 h-4 mr-2" />
               ) : item.id.startsWith('client:') ? (
-                <StickyNote className="w-4 h-4 mr-2 text-blue-500" />
+                <StickyNote className="w-4 h-4 mr-2 text-slate-600" />
               ) : item.id.startsWith('project:') ? (
-                <Calendar className="w-4 h-4 mr-2 text-violet-500" />
+                <Calendar className="w-4 h-4 mr-2 text-slate-500" />
               ) : item.id === 'notes' ? (
                 <Calendar className="w-4 h-4 mr-2" />
               ) : null}
@@ -579,8 +600,8 @@ const Sidebar: React.FC = () => {
                     <File className="w-3.5 h-3.5 text-gray-600" />
                   </div>
                 ) : (
-                  <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full mr-2 bg-blue-100">
-                    <Plus className="w-3.5 h-3.5 text-blue-600" />
+                  <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full mr-2 bg-slate-100">
+                    <Plus className="w-3.5 h-3.5 text-slate-600" />
                   </div>
                 )}
                 <span className="flex-1 break-words">{item.title}</span>
@@ -591,7 +612,7 @@ const Sidebar: React.FC = () => {
                         e.stopPropagation();
                         handleEditStart(item.id, item.title);
                       }}
-                      className="hover:text-blue-600 p-1 rounded-md hover:bg-blue-50 flex-shrink-0"
+                      className="hover:text-slate-900 p-1 rounded-md hover:bg-slate-100 flex-shrink-0"
                       aria-label="Edit meeting title"
                     >
                       <Pencil className="w-4 h-4" />
@@ -612,8 +633,8 @@ const Sidebar: React.FC = () => {
 
               {(item.client || item.project) && (
                 <div className="ml-8 mt-1 flex flex-wrap gap-1">
-                  {item.client && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700">{item.client}</span>}
-                  {item.project && <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-700">{item.project}</span>}
+                  {item.client && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">{item.client}</span>}
+                  {item.project && <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-600">{item.project}</span>}
                 </div>
               )}
 
@@ -651,7 +672,7 @@ const Sidebar: React.FC = () => {
       </button>
 
       <div
-        className={`h-screen bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'
+        className={`h-screen bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'
           }`}
       >
         {/*  Header with traffic light spacing */}
@@ -664,9 +685,6 @@ const Sidebar: React.FC = () => {
           <div className="flex-1">
             {!isCollapsed && (
               <div className="p-3">
-                {/* <span className="text-lg text-center border rounded-full bg-blue-50 border-white font-semibold text-gray-700 mb-2 block items-center">
-                  <span>Meetily</span>
-                </span> */}
                 <Logo isCollapsed={isCollapsed} />
 
                 <div className="relative mb-1">
@@ -752,7 +770,7 @@ const Sidebar: React.FC = () => {
             <button
               onClick={handleRecordingToggle}
               disabled={isRecording}
-              className={`w-full flex items-center justify-center px-3 py-2 text-sm font-medium text-white ${isRecording ? 'bg-red-300 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'} rounded-lg transition-colors shadow-sm`}
+              className={`w-full flex items-center justify-center px-3 py-2 text-sm font-medium text-white ${isRecording ? 'bg-red-700 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800'} rounded-lg transition-colors shadow-sm`}
             >
               {isRecording ? (
                 <>
@@ -770,7 +788,7 @@ const Sidebar: React.FC = () => {
             {betaFeatures.importAndRetranscribe && (
               <button
                 onClick={() => openImportDialog()}
-                className="w-full flex items-center justify-center px-3 py-2 mt-1 text-sm font-medium text-gray-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors shadow-sm"
+                className="w-full flex items-center justify-center px-3 py-2 mt-1 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors shadow-sm"
               >
                 <Upload className="w-4 h-4 mr-2" />
                 <span>Import Audio</span>
@@ -779,7 +797,7 @@ const Sidebar: React.FC = () => {
 
             <button
               onClick={() => router.push('/settings')}
-              className="w-full flex items-center justify-center px-3 py-1.5 mt-1 mb-1 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors shadow-sm"
+              className="w-full flex items-center justify-center px-3 py-1.5 mt-1 mb-1 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors shadow-sm"
             >
               <Settings className="w-4 h-4 mr-2" />
               <span>Settings</span>

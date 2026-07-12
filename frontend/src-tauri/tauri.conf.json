@@ -1,6 +1,6 @@
 {
     "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-    "productName": "meetily",
+    "productName": "MeetPulse",
     "version": "0.4.0",
     "identifier": "com.meetily.ai",
     "build": {
@@ -12,7 +12,7 @@
     "app": {
         "windows": [
             {
-                "title": "meetily",
+                "title": "MeetPulse",
                 "width": 1100,
                 "height": 700,
                 "resizable": true,
@@ -95,7 +95,8 @@
             "icons/app_icon.ico"
         ],
         "resources": [
-            "templates/*.json"
+            "templates/*.json",
+            "THIRD_PARTY_NOTICES.md"
         ],
         "externalBin": [
             "binaries/llama-helper",
