@@ -1,3 +1,17 @@
+# Stop both the current Rust executable name and the future product name.
+Get-Process meetily, MeetPulse -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# 3118 is the Tauri-facing dev server; 3119 is Next's internal compiler port.
+3118, 3119 | ForEach-Object {
+  Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty OwningProcess -Unique |
+    ForEach-Object { Stop-Process -Id $_ -Force }
+}
+
+cd C:\Users\Vicente\Documents\meeting-assistant\meetily\frontend
+
+# Remove an interrupted Next build before starting a new development session.
+Remove-Item -LiteralPath .next -Recurse -Force -ErrorAction SilentlyContinue
 
 Remove-Item Env:\WHISPER_DONT_GENERATE_BINDINGS -ErrorAction SilentlyContinue
 $env:LIBCLANG_PATH = "C:\Program Files\LLVM\bin"
@@ -7,6 +21,7 @@ clang --version
 Test-Path "$env:LIBCLANG_PATH\libclang.dll"
 
 corepack pnpm run tauri:dev:cpu
+
 
 
 <div align="center" style="border-bottom: none">
