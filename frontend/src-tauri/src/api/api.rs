@@ -1115,9 +1115,11 @@ pub async fn open_meeting_folder<R: Runtime>(
 
     let pool = state.db_manager.pool();
 
-    // Get meeting with folder_path
-    let meeting: Option<MeetingModel> = sqlx::query_as(
-        "SELECT id, title, created_at, updated_at, folder_path FROM meetings WHERE id = ?",
+    // This command only needs the folder. Do not deserialize into MeetingModel:
+    // that model also requires client/project/etc., which made SQLx report a
+    // misleading "no column found for name: client" error for this projection.
+    let meeting: Option<(Option<String>,)> = sqlx::query_as(
+        "SELECT folder_path FROM meetings WHERE id = ?",
     )
     .bind(&meeting_id)
     .fetch_optional(pool)
@@ -1125,8 +1127,8 @@ pub async fn open_meeting_folder<R: Runtime>(
     .map_err(|e| format!("Database error: {}", e))?;
 
     match meeting {
-        Some(m) => {
-            if let Some(folder_path) = m.folder_path {
+        Some((folder_path,)) => {
+            if let Some(folder_path) = folder_path {
                 log_info!("Opening meeting folder: {}", folder_path);
 
                 // Verify folder exists
