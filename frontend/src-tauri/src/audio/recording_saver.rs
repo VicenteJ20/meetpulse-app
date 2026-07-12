@@ -54,6 +54,7 @@ pub struct RecordingSaver {
     metadata: Option<MeetingMetadata>,
     transcript_segments: Arc<Mutex<Vec<TranscriptSegment>>>,
     chunk_receiver: Option<mpsc::UnboundedReceiver<AudioChunk>>,
+    accumulation_handle: Option<tokio::task::JoinHandle<()>>,
     is_saving: Arc<Mutex<bool>>,
 }
 
@@ -66,6 +67,7 @@ impl RecordingSaver {
             metadata: None,
             transcript_segments: Arc::new(Mutex::new(Vec::new())),
             chunk_receiver: None,
+            accumulation_handle: None,
             is_saving: Arc::new(Mutex::new(false)),
         }
     }
@@ -172,27 +174,21 @@ impl RecordingSaver {
             }
         }
 
+        // Mark active before spawning. Previously the task could run first,
+        // observe `false`, and exit before writing a single audio chunk.
+        if let Ok(mut is_saving) = self.is_saving.lock() {
+            *is_saving = true;
+        }
+
         // Start accumulation task
-        let is_saving_clone = self.is_saving.clone();
         let incremental_saver_arc = self.incremental_saver.clone();
         let save_audio = auto_save;
 
         if let Some(mut receiver) = self.chunk_receiver.take() {
-            tokio::spawn(async move {
+            self.accumulation_handle = Some(tokio::spawn(async move {
                 info!("Recording saver accumulation task started (save_audio: {})", save_audio);
 
                 while let Some(chunk) = receiver.recv().await {
-                    // Check if we should continue
-                    let should_continue = if let Ok(is_saving) = is_saving_clone.lock() {
-                        *is_saving
-                    } else {
-                        false
-                    };
-
-                    if !should_continue {
-                        break;
-                    }
-
                     // Only process audio chunks if auto_save is enabled
                     if save_audio {
                         // Add chunk to incremental saver
@@ -211,12 +207,7 @@ impl RecordingSaver {
                 }
 
                 info!("Recording saver accumulation task ended");
-            });
-        }
-
-        // Set saving flag
-        if let Ok(mut is_saving) = self.is_saving.lock() {
-            *is_saving = true;
+            }));
         }
 
         sender
@@ -362,13 +353,20 @@ impl RecordingSaver {
     ) -> Result<Option<String>, String> {
         info!("Stopping recording saver");
 
-        // Stop accumulation
+        // The pipeline has already stopped and dropped its sender. Wait until
+        // the accumulation task drains every queued mixed-audio chunk before
+        // finalizing checkpoints; otherwise the final audio file can be empty
+        // even though transcript chunks were successfully persisted.
+        if let Some(handle) = self.accumulation_handle.take() {
+            match tokio::time::timeout(tokio::time::Duration::from_secs(30), handle).await {
+                Ok(Ok(())) => info!("Recording saver drained all queued audio chunks"),
+                Ok(Err(error)) => return Err(format!("Recording saver task failed: {}", error)),
+                Err(_) => return Err("Timed out while draining queued audio chunks".to_string()),
+            }
+        }
         if let Ok(mut is_saving) = self.is_saving.lock() {
             *is_saving = false;
         }
-
-        // Give time for final chunks
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
         // Check if incremental saver exists (indicates auto_save was enabled)
         let should_save_audio = self.incremental_saver.is_some();

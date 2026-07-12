@@ -6,6 +6,8 @@ use std::time::Duration;
 
 const GEMINI_ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta/models";
 const MAX_ATTEMPTS: usize = 3;
+const MAX_TRANSCRIPTION_SECONDS: usize = 30;
+const MAX_OUTPUT_TOKENS: usize = 8_192;
 
 pub struct GeminiTranscriptionProvider {
     client: Client,
@@ -45,7 +47,9 @@ impl GeminiTranscriptionProvider {
                 {"text": Self::prompt(language)},
                 {"inline_data": {"mime_type": "audio/wav", "data": base64_encode(wav)}}
             ]}],
-            "generationConfig": {"temperature": 0.0, "maxOutputTokens": 65536}
+            // A 30-second speech window cannot require 65k output tokens. A
+            // realistic cap prevents a model-specific output-limit failure.
+            "generationConfig": {"temperature": 0.0, "maxOutputTokens": MAX_OUTPUT_TOKENS}
         });
         let url = format!("{}/{}:generateContent", GEMINI_ENDPOINT, self.model);
 
@@ -97,6 +101,14 @@ impl TranscriptionProvider for GeminiTranscriptionProvider {
     async fn transcribe(&self, audio: Vec<f32>, language: Option<String>) -> Result<TranscriptResult, TranscriptionError> {
         if audio.len() < 1600 {
             return Err(TranscriptionError::AudioTooShort { samples: audio.len(), minimum: 1600 });
+        }
+        let maximum_samples = 16_000 * MAX_TRANSCRIPTION_SECONDS;
+        if audio.len() > maximum_samples {
+            return Err(TranscriptionError::Configuration(format!(
+                "Gemini transcription chunks must be at most {} seconds (received {:.1}s)",
+                MAX_TRANSCRIPTION_SECONDS,
+                audio.len() as f64 / 16_000.0
+            )));
         }
         let wav = pcm_f32_to_wav(&audio, 16000);
         let text = self.request(&wav, language.as_deref()).await?;

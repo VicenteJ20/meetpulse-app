@@ -21,6 +21,11 @@ pub struct ContinuousVadProcessor {
     buffer: Vec<f32>,
     speech_segments: VecDeque<SpeechSegment>,
     current_speech: Vec<f32>,
+    /// A long uninterrupted utterance is emitted in bounded windows rather
+    /// than retained until VAD observes silence.
+    max_speech_samples: usize,
+    overlap_samples: usize,
+    emitted_continuous_chunk: bool,
     in_speech: bool,
     processed_samples: usize,
     speech_start_sample: usize,
@@ -74,6 +79,12 @@ impl ContinuousVadProcessor {
             buffer: Vec::with_capacity(vad_chunk_size * 2),
             speech_segments: VecDeque::new(),
             current_speech: Vec::new(),
+            // Cloud providers receive at most 30 seconds of speech. Keep five
+            // seconds of context in the next request so a boundary cannot cut
+            // a word or sentence without surrounding audio.
+            max_speech_samples: VAD_SAMPLE_RATE as usize * 30,
+            overlap_samples: VAD_SAMPLE_RATE as usize * 5,
+            emitted_continuous_chunk: false,
             in_speech: false,
             processed_samples: 0,
             speech_start_sample: 0,
@@ -239,6 +250,7 @@ impl ContinuousVadProcessor {
                     // Use 16000 (VAD processing rate) since processed_samples counts 16kHz samples
                     self.speech_start_sample = self.processed_samples + (timestamp_ms * 16000 / 1000);
                     self.current_speech.clear();
+                    self.emitted_continuous_chunk = false;
                 }
                 VadTransition::SpeechEnd { start_timestamp_ms, end_timestamp_ms, samples } => {
                     // Only log if we were previously in speech state
@@ -249,17 +261,23 @@ impl ContinuousVadProcessor {
                     self.in_speech = false;
 
                     // Use samples from VAD transition if available, otherwise use accumulated samples
-                    let speech_samples = if !samples.is_empty() {
+                    let speech_samples = if self.emitted_continuous_chunk {
+                        // Once a long utterance has been split, the VAD owns a
+                        // full historical copy in `samples`. Sending it would
+                        // duplicate already-transcribed audio.
+                        self.current_speech.clone()
+                    } else if !samples.is_empty() {
                         samples
                     } else {
                         self.current_speech.clone()
                     };
 
                     if !speech_samples.is_empty() {
+                        let end_sample = self.processed_samples + chunk.len();
                         let segment = SpeechSegment {
                             samples: speech_samples,
-                            start_timestamp_ms: start_timestamp_ms as f64,
-                            end_timestamp_ms: end_timestamp_ms as f64,
+                            start_timestamp_ms: (self.speech_start_sample as f64 / 16000.0) * 1000.0,
+                            end_timestamp_ms: (end_sample as f64 / 16000.0) * 1000.0,
                             confidence: 0.9, // VAD confidence
                         };
 
@@ -277,6 +295,27 @@ impl ContinuousVadProcessor {
         // Accumulate speech if we're currently in a speech state
         if self.in_speech {
             self.current_speech.extend_from_slice(chunk);
+
+            if self.current_speech.len() >= self.max_speech_samples {
+                let end_sample = self.processed_samples + chunk.len();
+                let segment = SpeechSegment {
+                    samples: self.current_speech.clone(),
+                    start_timestamp_ms: (self.speech_start_sample as f64 / 16000.0) * 1000.0,
+                    end_timestamp_ms: (end_sample as f64 / 16000.0) * 1000.0,
+                    confidence: 0.9,
+                };
+                info!(
+                    "VAD: Emitting bounded continuous-speech segment: {:.1}s, {} samples",
+                    segment.samples.len() as f64 / 16000.0,
+                    segment.samples.len()
+                );
+                self.speech_segments.push_back(segment);
+
+                let overlap_start = self.current_speech.len().saturating_sub(self.overlap_samples);
+                self.current_speech = self.current_speech[overlap_start..].to_vec();
+                self.speech_start_sample = end_sample - self.current_speech.len();
+                self.emitted_continuous_chunk = true;
+            }
         }
 
         self.processed_samples += chunk.len();
@@ -555,6 +594,22 @@ mod tests {
 
         // Should find speech segments
         assert!(all_segments.len() >= 1, "Expected at least 1 speech segment");
+    }
+
+    #[test]
+    fn continuous_speech_is_bounded_with_overlap() {
+        let mut processor = ContinuousVadProcessor::new(16000, 400).unwrap();
+        processor.max_speech_samples = 960;
+        processor.overlap_samples = 480;
+        processor.in_speech = true;
+
+        processor.process_chunk(&vec![0.1; 480]).unwrap();
+        processor.process_chunk(&vec![0.1; 480]).unwrap();
+
+        let segment = processor.speech_segments.pop_front().unwrap();
+        assert_eq!(segment.samples.len(), 960);
+        assert_eq!(processor.current_speech.len(), 480);
+        assert!(processor.emitted_continuous_chunk);
     }
 
     #[test]
