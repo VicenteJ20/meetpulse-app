@@ -37,6 +37,8 @@ interface SidebarItem {
   title: string;
   type: 'folder' | 'file';
   children?: SidebarItem[];
+  client?: string | null;
+  project?: string | null;
 }
 
 const Sidebar: React.FC = () => {
@@ -255,67 +257,29 @@ const Sidebar: React.FC = () => {
     }
   }, [expandedFolders, searchTranscripts]);
 
-  // Combine search results with sidebar items
+  // Filter recursively so a matching meeting keeps its client/project path.
   const filteredSidebarItems = useMemo(() => {
     if (!searchQuery.trim()) return sidebarItems;
 
-    // If we have search results, highlight matching meetings
-    if (searchResults.length > 0) {
-      // Get the IDs of meetings that matched in transcripts
-      const matchedMeetingIds = new Set(searchResults.map(result => result.id));
+    const query = searchQuery.toLowerCase();
+    const matchedMeetingIds = new Set(searchResults.map(result => result.id));
+    const filterItem = (item: SidebarItem): SidebarItem | undefined => {
+      if (item.type === 'file') {
+        return matchedMeetingIds.has(item.id) || item.title.toLowerCase().includes(query)
+          ? item
+          : undefined;
+      }
 
-      return sidebarItems
-        .map(folder => {
-          // Always include folders in the results
-          if (folder.type === 'folder') {
-            if (!folder.children) return folder;
+      const children = item.children
+        ?.map(filterItem)
+        .filter((child): child is SidebarItem => child !== undefined) ?? [];
+      return children.length > 0 ? { ...item, children } : undefined;
+    };
 
-            // Filter children based on search results or title match
-            const filteredChildren = folder.children.filter(item => {
-              // Include if the meeting ID is in our search results
-              if (matchedMeetingIds.has(item.id)) return true;
-
-              // Or if the title matches the search query
-              return item.title.toLowerCase().includes(searchQuery.toLowerCase());
-            });
-
-            return {
-              ...folder,
-              children: filteredChildren
-            };
-          }
-
-          // For non-folder items, check if they match the search
-          return (matchedMeetingIds.has(folder.id) ||
-            folder.title.toLowerCase().includes(searchQuery.toLowerCase()))
-            ? folder : undefined;
-        })
-        .filter((item): item is SidebarItem => item !== undefined); // Type-safe filter
-    } else {
-      // Fall back to title-only filtering if no transcript results
-      return sidebarItems
-        .map(folder => {
-          // Always include folders in the results
-          if (folder.type === 'folder') {
-            if (!folder.children) return folder;
-
-            // Filter children based on search query
-            const filteredChildren = folder.children.filter(item =>
-              item.title.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-
-            return {
-              ...folder,
-              children: filteredChildren
-            };
-          }
-
-          // For non-folder items, check if they match the search
-          return folder.title.toLowerCase().includes(searchQuery.toLowerCase()) ? folder : undefined;
-        })
-        .filter((item): item is SidebarItem => item !== undefined); // Type-safe filter
-    }
-  }, [sidebarItems, searchQuery, searchResults, expandedFolders]);
+    return sidebarItems
+      .map(filterItem)
+      .filter((item): item is SidebarItem => item !== undefined);
+  }, [sidebarItems, searchQuery, searchResults]);
 
 
   const handleDelete = async (itemId: string) => {
@@ -555,7 +519,7 @@ const Sidebar: React.FC = () => {
     const isExpanded = expandedFolders.has(item.id);
     const paddingLeft = `${depth * 12 + 12}px`;
     const isActive = item.type === 'file' && currentMeeting?.id === item.id;
-    const isMeetingItem = item.id.includes('-') && !item.id.startsWith('intro-call');
+    const isMeetingItem = item.type === 'file' && !item.id.startsWith('intro-call');
 
     // Check if this item has a matching transcript snippet
     const matchingResult = isMeetingItem ? findMatchingSnippet(item.id) : null;
@@ -588,6 +552,10 @@ const Sidebar: React.FC = () => {
             <>
               {item.id === 'meetings' ? (
                 <Calendar className="w-4 h-4 mr-2" />
+              ) : item.id.startsWith('client:') ? (
+                <StickyNote className="w-4 h-4 mr-2 text-blue-500" />
+              ) : item.id.startsWith('project:') ? (
+                <Calendar className="w-4 h-4 mr-2 text-violet-500" />
               ) : item.id === 'notes' ? (
                 <Calendar className="w-4 h-4 mr-2" />
               ) : null}
@@ -641,6 +609,13 @@ const Sidebar: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {(item.client || item.project) && (
+                <div className="ml-8 mt-1 flex flex-wrap gap-1">
+                  {item.client && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700">{item.client}</span>}
+                  {item.project && <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-700">{item.project}</span>}
+                </div>
+              )}
 
               {/* Show transcript match snippet if available */}
               {hasTranscriptMatch && (

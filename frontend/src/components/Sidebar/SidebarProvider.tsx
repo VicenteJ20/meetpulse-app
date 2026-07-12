@@ -8,15 +8,19 @@ import { useRecordingState } from '@/contexts/RecordingStateContext';
 
 
 interface SidebarItem {
-  id: string;
-  title: string;
-  type: 'folder' | 'file';
-  children?: SidebarItem[];
+    id: string;
+    title: string;
+    type: 'folder' | 'file';
+    children?: SidebarItem[];
+    client?: string | null;
+    project?: string | null;
 }
 
 export interface CurrentMeeting {
   id: string;
   title: string;
+  client?: string | null;
+  project?: string | null;
 }
 
 // Search result type for transcript search
@@ -86,10 +90,12 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const fetchMeetings = React.useCallback(async () => {
     if (serverAddress) {
       try {
-        const meetings = await invoke('api_get_meetings') as Array<{ id: string, title: string }>;
+        const meetings = await invoke('api_get_meetings') as Array<CurrentMeeting>;
         const transformedMeetings = meetings.map((meeting: any) => ({
           id: meeting.id,
-          title: meeting.title
+          title: meeting.title,
+          client: meeting.client ?? null,
+          project: meeting.project ?? null,
         }));
         setMeetings(transformedMeetings);
         Analytics.trackBackendConnection(true);
@@ -113,16 +119,37 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     fetchSettings();
   }, []);
 
-  const baseItems: SidebarItem[] = [
-    {
-      id: 'meetings',
-      title: 'Meeting Notes',
+  const baseItems: SidebarItem[] = React.useMemo(() => {
+    const clients = new Map<string, Map<string, CurrentMeeting[]>>();
+
+    for (const meeting of meetings) {
+      const client = meeting.client?.trim() || 'Unassigned client';
+      const project = meeting.project?.trim() || 'Unassigned project';
+      const projects = clients.get(client) ?? new Map<string, CurrentMeeting[]>();
+      projects.set(project, [...(projects.get(project) ?? []), meeting]);
+      clients.set(client, projects);
+    }
+
+    const children = Array.from(clients.entries()).map(([client, projects]) => ({
+      id: `client:${client}`,
+      title: client,
       type: 'folder' as const,
-      children: [
-        ...meetings.map(meeting => ({ id: meeting.id, title: meeting.title, type: 'file' as const }))
-      ]
-    },
-  ];
+      children: Array.from(projects.entries()).map(([project, projectMeetings]) => ({
+        id: `project:${client}:${project}`,
+        title: project,
+        type: 'folder' as const,
+        children: projectMeetings.map((meeting) => ({
+          id: meeting.id,
+          title: meeting.title,
+          type: 'file' as const,
+          client: meeting.client ?? null,
+          project: meeting.project ?? null,
+        })),
+      })),
+    }));
+
+    return [{ id: 'meetings', title: 'Meeting Notes', type: 'folder', children }];
+  }, [meetings]);
 
 
   const toggleCollapse = () => {

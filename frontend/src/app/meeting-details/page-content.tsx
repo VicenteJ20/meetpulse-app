@@ -59,6 +59,7 @@ export default function PageContent({
   const [project, setProject] = useState<string>(meeting.project || '');
   const [isRecording] = useState(false);
   const [summaryResponse] = useState<SummaryResponse | null>(null);
+  const { serverAddress, refetchMeetings } = useSidebar();
 
   useEffect(() => {
     setClient(meeting.client || '');
@@ -75,12 +76,15 @@ export default function PageContent({
           project,
           additionalContext: customPrompt,
         });
+        // Keep the client/project hierarchy in Meeting Notes in sync as soon
+        // as the user changes either field.
+        await refetchMeetings();
       } catch (error) {
         console.error('Failed to auto-save meeting metadata:', error);
       }
     }, 600);
     return () => window.clearTimeout(timeout);
-  }, [meeting.id, client, project, customPrompt]);
+  }, [meeting.id, client, project, customPrompt, refetchMeetings]);
 
   const analysisContext = [
     client.trim() ? `Client: ${client.trim()}` : '',
@@ -90,9 +94,6 @@ export default function PageContent({
 
   // Ref to store the modal open function from SummaryGeneratorButtonGroup
   const openModelSettingsRef = useRef<(() => void) | null>(null);
-
-  // Sidebar context
-  const { serverAddress } = useSidebar();
 
   // Get model config from ConfigContext
   const { modelConfig, setModelConfig } = useConfig();
