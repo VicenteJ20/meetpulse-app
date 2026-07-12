@@ -29,6 +29,66 @@ static METADATA_CACHE: Lazy<ModelMetadataCache> = Lazy::new(|| {
 static CANCELLATION_REGISTRY: Lazy<Arc<Mutex<HashMap<String, CancellationToken>>>> =
     Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
 
+/// Writes the wiki-ready transcript only after analysis of the complete
+/// transcript, never while individual transcription chunks are arriving.
+fn write_wiki_transcript(
+    folder: &Path,
+    meeting: &crate::database::models::MeetingModel,
+    transcript: &str,
+) -> anyhow::Result<()> {
+    if !folder.exists() {
+        return Ok(());
+    }
+
+    let metadata_path = folder.join("metadata.json");
+    let disk_metadata: serde_json::Value = if metadata_path.exists() {
+        serde_json::from_str(&std::fs::read_to_string(&metadata_path)?)
+            .unwrap_or_else(|_| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    let tenant = disk_metadata
+        .get("tenant")
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("local");
+    let participants = disk_metadata
+        .get("participants")
+        .and_then(|value| value.as_array())
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|value| value.as_str())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    // JSON double-quoted strings are valid YAML scalars and safely escape values.
+    let yaml_string =
+        |value: &str| serde_json::to_string(value).unwrap_or_else(|_| "\"\"".to_string());
+    let frontmatter = format!(
+        "---\ntype: Meeting Transcript\ntitle: {}\ntenant: {}\nclient: {}\nproject: {}\ntimestamp: {}\nparticipants: {}\n---\n\n",
+        yaml_string(&meeting.title),
+        yaml_string(tenant),
+        meeting
+            .client
+            .as_deref()
+            .map(yaml_string)
+            .unwrap_or_else(|| "null".to_string()),
+        meeting
+            .project
+            .as_deref()
+            .map(yaml_string)
+            .unwrap_or_else(|| "null".to_string()),
+        meeting.created_at.0.to_rfc3339(),
+        serde_json::to_string(&participants)?,
+    );
+    let path = folder.join("transcript.md");
+    let temporary = folder.join(format!(".transcript.md.{}.tmp", uuid::Uuid::new_v4()));
+    std::fs::write(&temporary, format!("{}{}\n", frontmatter, transcript.trim()))?;
+    std::fs::rename(temporary, path)?;
+    Ok(())
+}
+
 /// Strips the first `#` heading line; returns "" if no `#` is found.
 fn strip_leading_title(markdown: &str) -> String {
     if let Some(hash_pos) = markdown.find('#') {
@@ -576,6 +636,24 @@ impl SummaryService {
                     }
                 }
 
+                // Fetch after the AI title/tag updates so frontmatter reflects
+                // the final meeting metadata and the full transcript text.
+                match MeetingsRepository::get_meeting_metadata(&pool, &meeting_id).await {
+                    Ok(Some(meeting)) => {
+                        if let Some(folder) = meeting.folder_path.as_deref() {
+                            if let Err(error) =
+                                write_wiki_transcript(Path::new(folder), &meeting, &text)
+                            {
+                                warn!("Failed to write wiki transcript for {}: {}", meeting_id, error);
+                            }
+                        }
+                    }
+                    Ok(None) => {
+                        warn!("Meeting not found while writing wiki transcript: {}", meeting_id)
+                    }
+                    Err(error) => warn!("Failed to load meeting for wiki transcript: {}", error),
+                }
+
                 let result_json = build_summary_result_json(
                     &final_markdown,
                     &english_markdown,
@@ -997,5 +1075,35 @@ mod tests {
     fn test_extract_cached_english_from_malformed_json_errors() {
         let raw = r#"{ not valid json"#;
         assert!(extract_cached_english_markdown(raw, &sample_cache_source(), Some("de")).is_err());
+    }
+
+    #[test]
+    fn wiki_transcript_contains_business_metadata_and_full_text() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("metadata.json"),
+            r#"{"tenant":"tenant_A","participants":["Juan Pérez","María Gómez"]}"#,
+        )
+        .unwrap();
+        let meeting = crate::database::models::MeetingModel {
+            id: "meeting-1".to_string(),
+            title: "Reunión de Alineación".to_string(),
+            created_at: crate::database::models::DateTimeUtc(chrono::Utc::now()),
+            updated_at: crate::database::models::DateTimeUtc(chrono::Utc::now()),
+            folder_path: Some(dir.path().display().to_string()),
+            client: Some("cliente_X".to_string()),
+            project: Some("proyecto_1".to_string()),
+            additional_context: None,
+            tags: None,
+        };
+
+        write_wiki_transcript(dir.path(), &meeting, "Transcripción completa.").unwrap();
+        let output = std::fs::read_to_string(dir.path().join("transcript.md")).unwrap();
+        assert!(output.starts_with("---\ntype: Meeting Transcript\n"));
+        assert!(output.contains("tenant: \"tenant_A\""));
+        assert!(output.contains("client: \"cliente_X\""));
+        assert!(output.contains("project: \"proyecto_1\""));
+        assert!(output.contains("participants: [\"Juan Pérez\",\"María Gómez\"]"));
+        assert!(output.ends_with("Transcripción completa.\n"));
     }
 }

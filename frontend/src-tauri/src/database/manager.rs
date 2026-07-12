@@ -1,4 +1,4 @@
-use sqlx::{migrate::MigrateDatabase, Result, Sqlite, SqlitePool, Transaction};
+use sqlx::{migrate::MigrateDatabase, Result, Row, Sqlite, SqlitePool, Transaction};
 use std::fs;
 use std::path::Path;
 use tauri::Manager;
@@ -33,6 +33,7 @@ impl DatabaseManager {
         let pool = SqlitePool::connect(tauri_db_path).await?;
 
         sqlx::migrate!("./migrations").run(&pool).await?;
+        ensure_meeting_columns(&pool).await?;
 
         Ok(DatabaseManager { pool })
     }
@@ -205,4 +206,32 @@ impl DatabaseManager {
 
         Ok(())
     }
+}
+
+/// Repairs copied databases whose migration ledger exists but whose meeting
+/// columns were never persisted by an older desktop build.
+async fn ensure_meeting_columns(pool: &SqlitePool) -> Result<()> {
+    let columns = sqlx::query("PRAGMA table_info(meetings)")
+        .fetch_all(pool)
+        .await?
+        .into_iter()
+        .map(|row| row.get::<String, _>("name"))
+        .collect::<std::collections::HashSet<_>>();
+
+    for (name, definition) in [
+        ("folder_path", "TEXT"),
+        ("client", "TEXT"),
+        ("project", "TEXT"),
+        ("additional_context", "TEXT"),
+        ("tags", "TEXT"),
+    ] {
+        if !columns.contains(name) {
+            log::warn!("Repairing missing meetings.{} column in local database", name);
+            sqlx::query(&format!("ALTER TABLE meetings ADD COLUMN {} {}", name, definition))
+                .execute(pool)
+                .await?;
+        }
+    }
+
+    Ok(())
 }
