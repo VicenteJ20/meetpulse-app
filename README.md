@@ -1,3 +1,14 @@
+
+Remove-Item Env:\WHISPER_DONT_GENERATE_BINDINGS -ErrorAction SilentlyContinue
+$env:LIBCLANG_PATH = "C:\Program Files\LLVM\bin"
+$env:PATH = "C:\Program Files\LLVM\bin;C:\Program Files\nodejs;$env:PATH"
+
+clang --version
+Test-Path "$env:LIBCLANG_PATH\libclang.dll"
+
+corepack pnpm run tauri:dev:cpu
+
+
 <div align="center" style="border-bottom: none">
     <h1>
         <img src="docs/Meetily-6.png" style="border-radius: 10px;" />
