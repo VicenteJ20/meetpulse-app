@@ -10,7 +10,7 @@ import { ParakeetModelManager } from './ParakeetModelManager';
 
 
 export interface TranscriptModelProps {
-    provider: 'localWhisper' | 'parakeet' | 'deepgram' | 'elevenLabs' | 'groq' | 'openai';
+    provider: 'localWhisper' | 'parakeet' | 'deepgram' | 'elevenLabs' | 'groq' | 'openai' | 'gemini';
     model: string;
     apiKey?: string | null;
 }
@@ -27,6 +27,18 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
     const [isApiKeyLocked, setIsApiKeyLocked] = useState<boolean>(true);
     const [isLockButtonVibrating, setIsLockButtonVibrating] = useState<boolean>(false);
     const [uiProvider, setUiProvider] = useState<TranscriptModelProps['provider']>(transcriptModelConfig.provider);
+
+    const persistTranscriptConfig = async (config: TranscriptModelProps) => {
+        try {
+            await invoke('api_save_transcript_config', {
+                provider: config.provider,
+                model: config.model,
+                apiKey: config.apiKey ?? null,
+            });
+        } catch (error) {
+            console.error('Failed to save transcript configuration:', error);
+        }
+    };
 
     // Sync uiProvider when backend config changes (e.g., after model selection or initial load)
     useEffect(() => {
@@ -57,8 +69,9 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
         elevenLabs: ['eleven_multilingual_v2'],
         groq: ['llama-3.3-70b-versatile'],
         openai: ['gpt-4o'],
+        gemini: ['gemini-3.1-flash-lite'],
     };
-    const requiresApiKey = transcriptModelConfig.provider === 'deepgram' || transcriptModelConfig.provider === 'elevenLabs' || transcriptModelConfig.provider === 'openai' || transcriptModelConfig.provider === 'groq';
+    const requiresApiKey = uiProvider === 'deepgram' || uiProvider === 'elevenLabs' || uiProvider === 'openai' || uiProvider === 'groq' || uiProvider === 'gemini';
 
     const handleInputClick = () => {
         if (isApiKeyLocked) {
@@ -114,6 +127,14 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                     setUiProvider(provider);
                                     if (provider !== 'localWhisper' && provider !== 'parakeet') {
                                         fetchApiKey(provider);
+                                        const nextConfig: TranscriptModelProps = {
+                                            ...transcriptModelConfig,
+                                            provider,
+                                            model: modelOptions[provider][0],
+                                            apiKey: null,
+                                        };
+                                        setTranscriptModelConfig(nextConfig);
+                                        void persistTranscriptConfig(nextConfig);
                                     }
                                 }}
                             >
@@ -127,6 +148,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                     <SelectItem value="elevenLabs">☁️ ElevenLabs</SelectItem>
                                     <SelectItem value="groq">☁️ Groq</SelectItem>
                                     <SelectItem value="openai">☁️ OpenAI</SelectItem> */}
+                                    <SelectItem value="gemini">Cloud Gemini (Near real-time)</SelectItem>
                                 </SelectContent>
                             </Select>
 
@@ -135,7 +157,9 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                     value={transcriptModelConfig.model}
                                     onValueChange={(value) => {
                                         const model = value as TranscriptModelProps['model'];
-                                        setTranscriptModelConfig({ ...transcriptModelConfig, provider: uiProvider, model });
+                                        const nextConfig = { ...transcriptModelConfig, provider: uiProvider, model };
+                                        setTranscriptModelConfig(nextConfig);
+                                        void persistTranscriptConfig(nextConfig);
                                     }}
                                 >
                                     <SelectTrigger className='focus:ring-1 focus:ring-blue-500 focus:border-blue-500'>
@@ -172,6 +196,11 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                         </div>
                     )}
 
+                    {uiProvider === 'gemini' && (
+                        <div className="mx-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                            Gemini is a cloud provider. Audio segments will be sent to Google for transcription. Whisper and Parakeet remain fully local.
+                        </div>
+                    )}
 
                     {requiresApiKey && (
                         <div>
@@ -184,7 +213,22 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                     className={`pr-24 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${isApiKeyLocked ? 'bg-gray-100 cursor-not-allowed' : ''
                                         }`}
                                     value={apiKey || ''}
-                                    onChange={(e) => setApiKey(e.target.value)}
+                                    onChange={(e) => {
+                                        setApiKey(e.target.value);
+                                        setTranscriptModelConfig({
+                                            ...transcriptModelConfig,
+                                            provider: uiProvider,
+                                            apiKey: e.target.value,
+                                        });
+                                    }}
+                                    onBlur={() => {
+                                        void persistTranscriptConfig({
+                                            ...transcriptModelConfig,
+                                            provider: uiProvider,
+                                            model: modelOptions[uiProvider][0] || transcriptModelConfig.model,
+                                            apiKey: apiKey || null,
+                                        });
+                                    }}
                                     disabled={isApiKeyLocked}
                                     onClick={handleInputClick}
                                     placeholder="Enter your API key"

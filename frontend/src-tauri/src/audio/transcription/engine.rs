@@ -135,10 +135,20 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
                 }
             }
         }
+        "gemini" => {
+            if config.api_key.as_deref().unwrap_or_default().trim().is_empty() {
+                return Err("Gemini API key is required for cloud transcription.".to_string());
+            }
+            if config.model.trim().is_empty() {
+                return Err("A Gemini transcription model must be selected.".to_string());
+            }
+            info!("Gemini cloud transcription configuration is ready");
+            Ok(())
+        }
         other => {
             warn!("❌ Unsupported transcription provider for local recording: {}", other);
             Err(format!(
-                "Provider '{}' is not supported for local transcription. Please select 'localWhisper' or 'parakeet'.",
+                "Provider '{}' is not supported for transcription. Please select 'localWhisper', 'parakeet', or 'gemini'.",
                 other
             ))
         }
@@ -212,11 +222,18 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
                 }
             }
         }
-        "localWhisper" | _ => {
+        "gemini" => {
+            let api_key = config.api_key.ok_or_else(|| "Gemini API key is required".to_string())?;
+            let provider = crate::audio::transcription::GeminiTranscriptionProvider::new(api_key, config.model)
+                .map_err(|e| e.to_string())?;
+            Ok(TranscriptionEngine::Provider(Arc::new(provider)))
+        }
+        "localWhisper" => {
             info!("🎤 Initializing Whisper transcription engine");
             let whisper_engine = get_or_init_whisper(app).await?;
             Ok(TranscriptionEngine::Whisper(whisper_engine))
         }
+        other => Err(format!("Unsupported transcription provider '{}'.", other)),
     }
 }
 

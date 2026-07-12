@@ -8,6 +8,7 @@ use crate::config::{DEFAULT_WHISPER_MODEL, DEFAULT_PARAKEET_MODEL};
 use crate::parakeet_engine::ParakeetEngine;
 use crate::state::AppState;
 use crate::whisper_engine::WhisperEngine;
+use crate::audio::transcription::{GeminiTranscriptionProvider, TranscriptionProvider};
 use anyhow::{anyhow, Result};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -76,6 +77,14 @@ pub struct RetranscriptionError {
     pub error: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct GeminiRetranscriptionCheckpoint {
+    model: String,
+    language: Option<String>,
+    completed_chunks: usize,
+    transcripts: Vec<(String, f64, f64)>,
+}
+
 /// Check if retranscription is currently in progress
 pub fn is_retranscription_in_progress() -> bool {
     RETRANSCRIPTION_IN_PROGRESS.load(Ordering::SeqCst)
@@ -102,10 +111,13 @@ pub async fn start_retranscription<R: Runtime>(
     RETRANSCRIPTION_CANCELLED.store(false, Ordering::SeqCst);
 
     let use_parakeet = provider.as_deref() == Some("parakeet");
+    let use_gemini = provider.as_deref() == Some("gemini");
     let result = run_retranscription(app.clone(), meeting_id.clone(), meeting_folder_path, language, model, provider).await;
 
     // Unload the engine after the batch job (success, failure, or cancellation)
-    super::common::unload_engine_after_batch(use_parakeet).await;
+    if !use_gemini {
+        super::common::unload_engine_after_batch(use_parakeet).await;
+    }
 
     // Guard will automatically clear flag on drop
     // No need for manual: RETRANSCRIPTION_IN_PROGRESS.store(false, Ordering::SeqCst);
@@ -182,6 +194,10 @@ async fn run_retranscription<R: Runtime>(
 
     // Determine which provider to use (default to whisper)
     let use_parakeet = provider.as_deref() == Some("parakeet");
+    let use_gemini = provider.as_deref() == Some("gemini");
+    if !use_parakeet && !use_gemini && !matches!(provider.as_deref(), None | Some("whisper") | Some("localWhisper")) {
+        return Err(anyhow!("Unsupported retranscription provider: {}", provider.unwrap_or_default()));
+    }
 
     info!(
         "Starting retranscription for meeting {} with language {:?}, model {:?}, provider {:?}",
@@ -299,13 +315,28 @@ async fn run_retranscription<R: Runtime>(
     emit_progress(&app, &meeting_id, "transcribing", 25, "Loading transcription engine...");
 
     // Initialize the appropriate engine once (not per-segment)
-    let whisper_engine = if !use_parakeet {
+    let whisper_engine = if !use_parakeet && !use_gemini {
         Some(get_or_init_whisper(&app, model.as_deref()).await?)
     } else {
         None
     };
     let parakeet_engine = if use_parakeet {
         Some(get_or_init_parakeet(&app, model.as_deref()).await?)
+    } else {
+        None
+    };
+    let mut gemini_model_name = String::new();
+    let gemini_provider = if use_gemini {
+        let config = crate::api::api::api_get_transcript_config(app.clone(), app.clone().state(), None)
+            .await.map_err(|e| anyhow!(e))?
+            .ok_or_else(|| anyhow!("Gemini transcription configuration not found"))?;
+        let api_key = config.api_key.filter(|key| !key.trim().is_empty())
+            .ok_or_else(|| anyhow!("Gemini API key is required"))?;
+        let selected_model = model.clone().filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| config.model.clone());
+        gemini_model_name = selected_model.clone();
+        Some(GeminiTranscriptionProvider::new(api_key, selected_model)
+            .map_err(|e| anyhow!(e.to_string()))?)
     } else {
         None
     };
@@ -332,14 +363,33 @@ async fn run_retranscription<R: Runtime>(
         }
     }
 
+    if use_gemini {
+        processable_segments = group_segments_for_gemini(&processable_segments);
+    }
     let processable_count = processable_segments.len();
     info!("Processing {} segments (after splitting)", processable_count);
 
     // Process each speech segment with progress updates
+    let checkpoint_path = folder_path.join(".gemini-retranscription-checkpoint.json");
     let mut all_transcripts: Vec<(String, f64, f64)> = Vec::new(); // (text, start_ms, end_ms)
+    let mut completed_chunks = 0usize;
+    if use_gemini {
+        if let Ok(contents) = std::fs::read_to_string(&checkpoint_path) {
+            if let Ok(checkpoint) = serde_json::from_str::<GeminiRetranscriptionCheckpoint>(&contents) {
+                if checkpoint.model == gemini_model_name && checkpoint.language == language {
+                    completed_chunks = checkpoint.completed_chunks.min(processable_count);
+                    all_transcripts = checkpoint.transcripts;
+                    info!("Resuming Gemini retranscription after {} completed chunks", completed_chunks);
+                }
+            }
+        }
+    }
     let mut total_confidence = 0.0f32;
 
     for (i, segment) in processable_segments.iter().enumerate() {
+        if i < completed_chunks {
+            continue;
+        }
         // Check for cancellation before each segment
         if RETRANSCRIPTION_CANCELLED.load(Ordering::SeqCst) {
             return Err(anyhow!("Retranscription cancelled"));
@@ -368,7 +418,12 @@ async fn run_retranscription<R: Runtime>(
         }
 
         // Transcribe this segment
-        let (text, conf) = if use_parakeet {
+        let (text, conf) = if use_gemini {
+            let result = gemini_provider.as_ref().unwrap()
+                .transcribe(segment.samples.clone(), language.clone()).await
+                .map_err(|e| anyhow!("Gemini transcription failed on chunk {}: {}", i, e))?;
+            (result.text, result.confidence.unwrap_or(0.85))
+        } else if use_parakeet {
             let engine = parakeet_engine.as_ref().unwrap();
             let text = engine
                 .transcribe_audio(segment.samples.clone())
@@ -394,6 +449,15 @@ async fn run_retranscription<R: Runtime>(
             );
             all_transcripts.push((text, segment.start_timestamp_ms, segment.end_timestamp_ms));
             total_confidence += conf;
+            if use_gemini {
+                let checkpoint = GeminiRetranscriptionCheckpoint {
+                    model: gemini_model_name.clone(),
+                    language: language.clone(),
+                    completed_chunks: i + 1,
+                    transcripts: all_transcripts.clone(),
+                };
+                write_gemini_checkpoint(&checkpoint_path, &checkpoint)?;
+            }
         } else {
             debug!("Segment {}/{}: {:.1}s — empty transcription", i + 1, processable_count, segment_duration_sec);
         }
@@ -490,12 +554,57 @@ async fn run_retranscription<R: Runtime>(
 
     emit_progress(&app, &meeting_id, "complete", 100, "Retranscription complete");
 
+    if use_gemini && checkpoint_path.exists() {
+        if let Err(error) = std::fs::remove_file(&checkpoint_path) {
+            warn!("Failed to remove completed Gemini checkpoint: {}", error);
+        }
+    }
+
     Ok(RetranscriptionResult {
         meeting_id,
         segments_count: segments.len(),
         duration_seconds,
         language,
     })
+}
+
+fn write_gemini_checkpoint(path: &Path, checkpoint: &GeminiRetranscriptionCheckpoint) -> Result<()> {
+    let temporary = path.with_extension("json.tmp");
+    std::fs::write(&temporary, serde_json::to_vec(checkpoint)?)?;
+    std::fs::rename(&temporary, path)?;
+    Ok(())
+}
+
+/// Group VAD segments into requests of at most five minutes. Gaps are restored
+/// as silence, so Gemini receives natural context while chunk timestamps remain
+/// anchored to the original recording.
+fn group_segments_for_gemini(
+    segments: &[crate::audio::vad::SpeechSegment],
+) -> Vec<crate::audio::vad::SpeechSegment> {
+    const MAX_SAMPLES: usize = 5 * 60 * 16000;
+    let mut groups = Vec::new();
+    let mut current: Option<crate::audio::vad::SpeechSegment> = None;
+
+    for segment in segments {
+        match current.as_mut() {
+            Some(group) => {
+                let gap_samples = (((segment.start_timestamp_ms - group.end_timestamp_ms).max(0.0)
+                    / 1000.0) * 16000.0) as usize;
+                if group.samples.len() + gap_samples + segment.samples.len() > MAX_SAMPLES {
+                    groups.push(current.take().unwrap());
+                    current = Some(segment.clone());
+                } else {
+                    group.samples.resize(group.samples.len() + gap_samples, 0.0);
+                    group.samples.extend_from_slice(&segment.samples);
+                    group.end_timestamp_ms = segment.end_timestamp_ms;
+                    group.confidence = group.confidence.min(segment.confidence);
+                }
+            }
+            None => current = Some(segment.clone()),
+        }
+    }
+    if let Some(group) = current { groups.push(group); }
+    groups
 }
 
 /// Emit progress event
@@ -932,6 +1041,46 @@ mod tests {
     fn test_vad_redemption_time_constant() {
         // Batch processing uses 2000ms to bridge natural pauses in full-file VAD
         assert_eq!(VAD_REDEMPTION_TIME_MS, 2000);
+    }
+
+    #[test]
+    fn gemini_grouping_restores_silence_and_timestamps() {
+        let segments = vec![
+            crate::audio::vad::SpeechSegment {
+                samples: vec![0.5; 16000],
+                start_timestamp_ms: 0.0,
+                end_timestamp_ms: 1000.0,
+                confidence: 0.9,
+            },
+            crate::audio::vad::SpeechSegment {
+                samples: vec![0.25; 16000],
+                start_timestamp_ms: 2000.0,
+                end_timestamp_ms: 3000.0,
+                confidence: 0.8,
+            },
+        ];
+        let groups = group_segments_for_gemini(&segments);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].samples.len(), 48000);
+        assert_eq!(groups[0].start_timestamp_ms, 0.0);
+        assert_eq!(groups[0].end_timestamp_ms, 3000.0);
+    }
+
+    #[test]
+    fn gemini_checkpoint_round_trips() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("checkpoint.json");
+        let checkpoint = GeminiRetranscriptionCheckpoint {
+            model: "gemini-3.1-flash-lite".into(),
+            language: Some("es".into()),
+            completed_chunks: 1,
+            transcripts: vec![("hola".into(), 0.0, 1000.0)],
+        };
+        write_gemini_checkpoint(&path, &checkpoint).unwrap();
+        let restored: GeminiRetranscriptionCheckpoint =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        assert_eq!(restored.completed_chunks, 1);
+        assert_eq!(restored.transcripts[0].0, "hola");
     }
 
     #[test]

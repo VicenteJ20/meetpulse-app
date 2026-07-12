@@ -8,7 +8,7 @@ export interface RawModelInfo {
 }
 
 export interface ModelOption {
-  provider: 'whisper' | 'parakeet';
+  provider: 'whisper' | 'parakeet' | 'gemini';
   name: string;
   displayName: string;
   size_mb: number;
@@ -77,6 +77,13 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
       console.error('Failed to fetch Parakeet models:', err);
     }
 
+    allModels.push({
+      provider: 'gemini',
+      name: 'gemini-3.1-flash-lite',
+      displayName: 'Cloud Gemini: gemini-3.1-flash-lite',
+      size_mb: 0,
+    });
+
     setAvailableModels(allModels);
 
     // Set default model based on user's saved configuration
@@ -88,7 +95,8 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
     const configuredMatch = allModels.find(
       (m) =>
         (configuredProvider === 'localWhisper' && m.provider === 'whisper' && m.name === configuredModel) ||
-        (configuredProvider === 'parakeet' && m.provider === 'parakeet' && m.name === configuredModel)
+        (configuredProvider === 'parakeet' && m.provider === 'parakeet' && m.name === configuredModel) ||
+        (configuredProvider === 'gemini' && m.provider === 'gemini' && m.name === configuredModel)
     );
 
     // Only set default model if user hasn't manually selected one

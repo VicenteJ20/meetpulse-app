@@ -13,6 +13,12 @@ use async_trait::async_trait;
 #[derive(Debug, Clone)]
 pub enum TranscriptionError {
     ModelNotLoaded,
+    Configuration(String),
+    Authentication,
+    RateLimited,
+    Network(String),
+    Timeout,
+    InvalidResponse(String),
     AudioTooShort { samples: usize, minimum: usize },
     EngineFailed(String),
     UnsupportedLanguage(String),
@@ -22,6 +28,12 @@ impl std::fmt::Display for TranscriptionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ModelNotLoaded => write!(f, "No transcription model is loaded"),
+            Self::Configuration(msg) => write!(f, "Invalid transcription configuration: {}", msg),
+            Self::Authentication => write!(f, "Transcription provider authentication failed"),
+            Self::RateLimited => write!(f, "Transcription provider rate limit exceeded"),
+            Self::Network(msg) => write!(f, "Transcription network error: {}", msg),
+            Self::Timeout => write!(f, "Transcription request timed out"),
+            Self::InvalidResponse(msg) => write!(f, "Invalid transcription response: {}", msg),
             Self::AudioTooShort { samples, minimum } => write!(
                 f,
                 "Audio too short: {} samples (minimum {})",

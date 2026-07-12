@@ -349,7 +349,7 @@ export function RetranscribeDialog({
                 <SelectContent>
                   {availableModels.map((model) => (
                     <SelectItem key={`${model.provider}:${model.name}`} value={`${model.provider}:${model.name}`}>
-                      {model.displayName} ({Math.round(model.size_mb)} MB)
+                      {model.displayName}{model.size_mb > 0 ? ` (${Math.round(model.size_mb)} MB)` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -357,6 +357,11 @@ export function RetranscribeDialog({
               <p className="text-xs text-muted-foreground">
                 Choose a transcription model
               </p>
+              {selectedModelDetails?.provider === 'gemini' && (
+                <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+                  This mode sends meeting audio chunks to Google Gemini. Existing transcripts are replaced only after all chunks finish successfully.
+                </p>
+              )}
             </div>
           )}
 
