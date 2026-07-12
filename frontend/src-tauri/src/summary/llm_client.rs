@@ -69,6 +69,7 @@ pub enum LLMProvider {
     OpenAI,
     Claude,
     Groq,
+    Gemini,
     Ollama,
     OpenRouter,
     BuiltInAI,
@@ -82,6 +83,7 @@ impl LLMProvider {
             "openai" => Ok(Self::OpenAI),
             "claude" => Ok(Self::Claude),
             "groq" => Ok(Self::Groq),
+            "gemini" => Ok(Self::Gemini),
             "ollama" => Ok(Self::Ollama),
             "openrouter" => Ok(Self::OpenRouter),
             "builtin-ai" | "local-llama" | "localllama" => Ok(Self::BuiltInAI),
@@ -157,6 +159,20 @@ pub async fn generate_summary(
             "https://api.groq.com/openai/v1/chat/completions".to_string(),
             header::HeaderMap::new(),
         ),
+        LLMProvider::Gemini => {
+            let mut header_map = header::HeaderMap::new();
+            header_map.insert(
+                "x-goog-api-key",
+                api_key.parse().map_err(|_| "Invalid Gemini API key format".to_string())?,
+            );
+            (
+                format!(
+                    "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
+                    model_name
+                ),
+                header_map,
+            )
+        }
         LLMProvider::OpenRouter => (
             "https://openrouter.ai/api/v1/chat/completions".to_string(),
             header::HeaderMap::new(),
@@ -201,7 +217,7 @@ pub async fn generate_summary(
     };
 
     // Add authorization header for non-Claude providers
-    if provider != &LLMProvider::Claude {
+    if provider != &LLMProvider::Claude && provider != &LLMProvider::Gemini {
         headers.insert(
             header::AUTHORIZATION,
             format!("Bearer {}", api_key)
@@ -217,7 +233,16 @@ pub async fn generate_summary(
     );
 
     // Build request body based on provider
-    let request_body = if provider != &LLMProvider::Claude {
+    let request_body = if provider == &LLMProvider::Gemini {
+        serde_json::json!({
+            "systemInstruction": { "parts": [{ "text": system_prompt }] },
+            "contents": [{ "role": "user", "parts": [{ "text": user_prompt }] }],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens.unwrap_or(8192),
+                "temperature": temperature.unwrap_or(0.2)
+            }
+        })
+    } else if provider != &LLMProvider::Claude {
         // For CustomOpenAI, apply optional parameters if provided
         let (max_tokens_val, temperature_val, top_p_val) = if provider == &LLMProvider::CustomOpenAI {
             (max_tokens, temperature, top_p)
@@ -269,7 +294,7 @@ pub async fn generate_summary(
             result = request_future => {
                 result.map_err(|e| {
                     if e.is_timeout() {
-                        format!("LLM request timed out after 60 seconds")
+                        format!("LLM request timed out after {} seconds", REQUEST_TIMEOUT_DURATION.as_secs())
                     } else {
                         format!("Failed to send request to LLM: {}", e)
                     }
@@ -282,7 +307,7 @@ pub async fn generate_summary(
     } else {
         request_future.await.map_err(|e| {
             if e.is_timeout() {
-                format!("LLM request timed out after 60 seconds")
+                format!("LLM request timed out after {} seconds", REQUEST_TIMEOUT_DURATION.as_secs())
             } else {
                 format!("Failed to send request to LLM: {}", e)
             }
@@ -313,6 +338,27 @@ pub async fn generate_summary(
             .text
             .trim();
         Ok(content.to_string())
+    } else if provider == &LLMProvider::Gemini {
+        let payload = response
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|e| format!("Failed to parse Gemini response: {}", e))?;
+        let content = payload
+            .get("candidates")
+            .and_then(|value| value.as_array())
+            .and_then(|candidates| candidates.first())
+            .and_then(|candidate| candidate.get("content"))
+            .and_then(|content| content.get("parts"))
+            .and_then(|parts| parts.as_array())
+            .and_then(|parts| parts.iter().find_map(|part| part.get("text").and_then(|text| text.as_str())))
+            .ok_or_else(|| {
+                let reason = payload.get("promptFeedback")
+                    .and_then(|feedback| feedback.get("blockReason"))
+                    .and_then(|reason| reason.as_str())
+                    .unwrap_or("no text candidate");
+                format!("Gemini returned no summary text: {}", reason)
+            })?;
+        Ok(content.trim().to_string())
     } else {
         let chat_response = response
             .json::<ChatResponse>()
@@ -338,9 +384,20 @@ fn provider_name(provider: &LLMProvider) -> &str {
         LLMProvider::OpenAI => "OpenAI",
         LLMProvider::Claude => "Claude",
         LLMProvider::Groq => "Groq",
+        LLMProvider::Gemini => "Gemini",
         LLMProvider::Ollama => "Ollama",
         LLMProvider::BuiltInAI => "Built-in AI",
         LLMProvider::OpenRouter => "OpenRouter",
         LLMProvider::CustomOpenAI => "Custom OpenAI",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LLMProvider;
+
+    #[test]
+    fn recognises_gemini_summary_provider() {
+        assert_eq!(LLMProvider::from_str("gemini").unwrap(), LLMProvider::Gemini);
     }
 }

@@ -31,7 +31,7 @@ import { cn, isOllamaNotInstalledError } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export interface ModelConfig {
-  provider: 'ollama' | 'groq' | 'claude' | 'openai' | 'openrouter' | 'builtin-ai' | 'custom-openai';
+  provider: 'ollama' | 'groq' | 'claude' | 'gemini' | 'openai' | 'openrouter' | 'builtin-ai' | 'custom-openai';
   model: string;
   whisperModel: string;
   apiKey?: string | null;
@@ -100,6 +100,8 @@ const GROQ_FALLBACK_MODELS = [
   'mixtral-8x7b-32768',
   'gemma2-9b-it',
 ];
+
+const GEMINI_FALLBACK_MODELS = ['gemini-3.1-flash-lite'];
 
 interface ModelSettingsModalProps {
   modelConfig: ModelConfig;
@@ -227,6 +229,7 @@ export function ModelSettingsModal({
     ollama: models.map((model) => model.name),
     claude: claudeModels.length > 0 ? claudeModels : CLAUDE_FALLBACK_MODELS,
     groq: groqModels.length > 0 ? groqModels : GROQ_FALLBACK_MODELS,
+    gemini: GEMINI_FALLBACK_MODELS,
     openai: openaiModels.length > 0 ? openaiModels : OPENAI_FALLBACK_MODELS,
     openrouter: openRouterModels.map((m) => m.id),
     'builtin-ai': builtinAiModels.map((m) => m.name),
@@ -236,6 +239,7 @@ export function ModelSettingsModal({
   const requiresApiKey =
     modelConfig.provider === 'claude' ||
     modelConfig.provider === 'groq' ||
+    modelConfig.provider === 'gemini' ||
     modelConfig.provider === 'openai' ||
     modelConfig.provider === 'openrouter';
 
@@ -877,6 +881,7 @@ export function ModelSettingsModal({
                 <SelectItem value="builtin-ai">Built-in AI (Offline, No API needed)</SelectItem>
                 <SelectItem value="claude">Claude</SelectItem>
                 <SelectItem value="custom-openai">Custom Server (OpenAI)</SelectItem>
+                <SelectItem value="gemini">Gemini (Google AI)</SelectItem>
                 <SelectItem value="groq">Groq</SelectItem>
                 <SelectItem value="ollama">Ollama</SelectItem>
                 <SelectItem value="openai">OpenAI</SelectItem>

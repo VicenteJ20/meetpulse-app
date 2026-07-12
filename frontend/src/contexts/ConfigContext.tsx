@@ -79,6 +79,7 @@ interface ConfigContextType {
   // Provider-specific API keys
   providerApiKeys: {
     claude: string | null;
+    gemini: string | null;
     groq: string | null;
     openai: string | null;
     openrouter: string | null;
@@ -113,14 +114,15 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   });
 
   // Provider-specific API keys (loaded once at startup)
-  // Note: Gemini omitted for now - add when UI support is added
   const [providerApiKeys, setProviderApiKeys] = useState<{
     claude: string | null;
+    gemini: string | null;
     groq: string | null;
     openai: string | null;
     openrouter: string | null;
   }>({
     claude: null,
+    gemini: null,
     groq: null,
     openai: null,
     openrouter: null,
@@ -295,7 +297,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadAllApiKeys = async () => {
       try {
-        const providers = ['claude', 'groq', 'openai', 'openrouter'];
+        const providers = ['claude', 'gemini', 'groq', 'openai', 'openrouter'];
         const keys = await Promise.all(
           providers.map(p =>
             invoke<string>('api_get_api_key', { provider: p })
@@ -305,9 +307,10 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
         setProviderApiKeys({
           claude: keys[0],
-          groq: keys[1],
-          openai: keys[2],
-          openrouter: keys[3],
+          gemini: keys[1],
+          groq: keys[2],
+          openai: keys[3],
+          openrouter: keys[4],
         });
         console.log('[ConfigContext] Loaded provider API keys');
       } catch (error) {
@@ -365,6 +368,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const modelOptions: Record<ModelConfig['provider'], string[]> = {
     ollama: models.map(model => model.name),
     claude: ['claude-3-5-sonnet-latest'],
+    gemini: ['gemini-3.1-flash-lite'],
     groq: ['llama-3.3-70b-versatile'],
     openrouter: [],
     openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],

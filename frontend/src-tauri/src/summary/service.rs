@@ -380,7 +380,8 @@ impl SummaryService {
             }
         };
 
-        // Validate and setup api_key, Flexible for Ollama, BuiltInAI, and CustomOpenAI
+        // Validate and setup API key. Local and custom providers obtain their
+        // credentials differently; Gemini uses the standard settings key.
         let api_key = if provider == LLMProvider::Ollama || provider == LLMProvider::BuiltInAI || provider == LLMProvider::CustomOpenAI {
             // These providers don't require API keys from the standard database column
             String::new()
@@ -491,8 +492,13 @@ impl SummaryService {
                     1748  // 2048 - 300 for overhead
                 }
             }
+        } else if provider == LLMProvider::Gemini {
+            // Gemini 3.1 Flash-Lite supports a 1M-token input. Keep a margin
+            // for prompts and the final report, then reduce only exceptionally
+            // long meetings with the existing hierarchical strategy.
+            800_000
         } else {
-            // Cloud providers (OpenAI, Claude, Groq, CustomOpenAI) handle large contexts automatically
+            // Other cloud providers retain the existing conservative threshold.
             100000  // Effectively unlimited for single-pass processing
         };
 
