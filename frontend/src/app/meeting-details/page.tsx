@@ -157,15 +157,26 @@ function MeetingDetailsContent() {
     }
   }, [transcriptError]);
 
-  // Extract fetchMeetingDetails for use in child components (now refetches via hook)
+  // Refresh the persisted summary after generation or metadata changes. The
+  // summary editor can temporarily unmount while paginated transcripts reload;
+  // keeping this parent state in sync prevents a completed summary from being
+  // replaced by the empty "Generate Summary" state on remount.
   const fetchMeetingDetails = useCallback(async () => {
     if (!meetingId || meetingId === 'intro-call') {
       return;
     }
 
-    // The usePaginatedTranscripts hook automatically refetches when meetingId changes
-    // This function is kept for compatibility with onMeetingUpdated callback
-    console.log('fetchMeetingDetails called - pagination hook will handle refetch');
+    try {
+      const response = await invoke('api_get_summary', { meetingId }) as any;
+      const data = response?.data;
+      if (data && typeof data === 'object') {
+        setMeetingSummary(data as Summary);
+      } else {
+        setMeetingSummary(null);
+      }
+    } catch (error) {
+      console.error('Failed to refresh persisted meeting summary:', error);
+    }
   }, [meetingId]);
 
   // Reset states when meetingId changes (prevent race conditions)
