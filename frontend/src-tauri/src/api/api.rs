@@ -123,6 +123,10 @@ pub struct MeetingDetails {
     pub created_at: String,
     pub updated_at: String,
     pub transcripts: Vec<MeetingTranscript>,
+    pub client: Option<String>,
+    pub project: Option<String>,
+    pub additional_context: Option<String>,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -148,6 +152,10 @@ pub struct MeetingMetadata {
     pub updated_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub folder_path: Option<String>,
+    pub client: Option<String>,
+    pub project: Option<String>,
+    pub additional_context: Option<String>,
+    pub tags: Vec<String>,
 }
 
 /// Paginated transcripts response with total count
@@ -828,6 +836,10 @@ pub async fn api_get_meeting_metadata<R: Runtime>(
                 created_at: meeting.created_at.0.to_rfc3339(),
                 updated_at: meeting.updated_at.0.to_rfc3339(),
                 folder_path: meeting.folder_path,
+                client: meeting.client,
+                project: meeting.project,
+                additional_context: meeting.additional_context,
+                tags: meeting.tags.and_then(|value| serde_json::from_str(&value).ok()).unwrap_or_default(),
             })
         }
         Ok(None) => {
@@ -923,6 +935,95 @@ pub async fn api_save_meeting_title<R: Runtime>(
             log_error!("Failed to update meeting {}", e);
             Err(format!("Failed to update meeting: {}", e))
         }
+    }
+}
+
+#[tauri::command]
+pub async fn api_save_meeting_metadata<R: Runtime>(
+    _app: AppHandle<R>,
+    state: tauri::State<'_, AppState>,
+    meeting_id: String,
+    client: Option<String>,
+    project: Option<String>,
+    additional_context: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let clean = |value: Option<String>| value.and_then(|text| {
+        let trimmed = text.trim().to_string();
+        if trimmed.is_empty() { None } else { Some(trimmed) }
+    });
+    let client = clean(client);
+    let project = clean(project);
+    let additional_context = clean(additional_context);
+    let pool = state.db_manager.pool();
+
+    let updated = MeetingsRepository::update_business_metadata(
+        pool,
+        &meeting_id,
+        client.as_deref(),
+        project.as_deref(),
+        additional_context.as_deref(),
+    ).await.map_err(|error| format!("Failed to save meeting metadata: {}", error))?;
+    if !updated {
+        return Err(format!("No meeting found with id {}", meeting_id));
+    }
+
+    if let Some(meeting) = MeetingsRepository::get_meeting_metadata(pool, &meeting_id)
+        .await.map_err(|error| error.to_string())?
+    {
+        let tags: Vec<String> = meeting.tags.as_deref()
+            .and_then(|value| serde_json::from_str(value).ok()).unwrap_or_default();
+        if let Some(folder) = meeting.folder_path.as_deref() {
+            write_meeting_business_metadata_file(
+                folder,
+                meeting.client.as_deref(),
+                meeting.project.as_deref(),
+                meeting.additional_context.as_deref(),
+                &tags,
+            )?;
+        }
+    }
+
+    Ok(serde_json::json!({"status": "success"}))
+}
+
+pub(crate) fn write_meeting_business_metadata_file(
+    folder_path: &str,
+    client: Option<&str>,
+    project: Option<&str>,
+    additional_context: Option<&str>,
+    tags: &[String],
+) -> Result<(), String> {
+    let folder = std::path::Path::new(folder_path);
+    if !folder.exists() { return Ok(()); }
+    let path = folder.join("metadata.json");
+    let temporary = folder.join(format!(".metadata.json.{}.tmp", uuid::Uuid::new_v4()));
+    let mut value = if path.exists() {
+        serde_json::from_str(&std::fs::read_to_string(&path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?
+    } else {
+        serde_json::json!({})
+    };
+    let object = value.as_object_mut().ok_or_else(|| "metadata.json must contain an object".to_string())?;
+    set_optional_metadata_field(object, "client", client);
+    set_optional_metadata_field(object, "project", project);
+    set_optional_metadata_field(object, "additional_context", additional_context);
+    object.insert("tags".to_string(), serde_json::json!(tags));
+    std::fs::write(&temporary, serde_json::to_string_pretty(&value).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    std::fs::rename(&temporary, &path).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn set_optional_metadata_field(
+    object: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: Option<&str>,
+) {
+    match value {
+        Some(value) if !value.trim().is_empty() => {
+            object.insert(key.to_string(), serde_json::json!(value.trim()));
+        }
+        _ => { object.remove(key); }
     }
 }
 

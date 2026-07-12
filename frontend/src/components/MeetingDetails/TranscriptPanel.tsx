@@ -10,6 +10,11 @@ interface TranscriptPanelProps {
   transcripts: Transcript[];
   customPrompt: string;
   onPromptChange: (value: string) => void;
+  client: string;
+  project: string;
+  tags: string[];
+  onClientChange: (value: string) => void;
+  onProjectChange: (value: string) => void;
   onCopyTranscript: () => void;
   onOpenMeetingFolder: () => Promise<void>;
   isRecording: boolean;
@@ -34,6 +39,11 @@ export function TranscriptPanel({
   transcripts,
   customPrompt,
   onPromptChange,
+  client,
+  project,
+  tags,
+  onClientChange,
+  onProjectChange,
   onCopyTranscript,
   onOpenMeetingFolder,
   isRecording,
@@ -99,13 +109,48 @@ export function TranscriptPanel({
 
       {/* Custom prompt input at bottom of transcript section */}
       {!isRecording && convertedSegments.length > 0 && (
-        <div className="p-1 border-t border-gray-200">
+        <div className="space-y-3 border-t border-gray-200 bg-gray-50/70 p-3">
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Meeting metadata</p>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                placeholder="Client"
+                aria-label="Client"
+                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={client}
+                onChange={(event) => onClientChange(event.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Project"
+                aria-label="Project"
+                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={project}
+                onChange={(event) => onProjectChange(event.target.value)}
+              />
+            </div>
+          </div>
           <textarea
-            placeholder="Add context for AI summary. For example people involved, meeting overview, objective etc..."
+            placeholder="Additional context for the AI analysis: participants, objectives, constraints..."
             className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm min-h-[80px] resize-y"
             value={customPrompt}
             onChange={(e) => onPromptChange(e.target.value)}
           />
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">AI-generated tags</p>
+            {tags.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map((tag) => (
+                  <span key={tag} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs text-blue-700">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">Tags will appear after the AI analysis finishes.</p>
+            )}
+        </div>
         </div>
       )}
     </div>

@@ -54,9 +54,39 @@ export default function PageContent({
   });
 
   // State
-  const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [customPrompt, setCustomPrompt] = useState<string>(meeting.additional_context || '');
+  const [client, setClient] = useState<string>(meeting.client || '');
+  const [project, setProject] = useState<string>(meeting.project || '');
   const [isRecording] = useState(false);
   const [summaryResponse] = useState<SummaryResponse | null>(null);
+
+  useEffect(() => {
+    setClient(meeting.client || '');
+    setProject(meeting.project || '');
+    setCustomPrompt(meeting.additional_context || '');
+  }, [meeting.id, meeting.client, meeting.project, meeting.additional_context]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(async () => {
+      try {
+        await invoke('api_save_meeting_metadata', {
+          meetingId: meeting.id,
+          client,
+          project,
+          additionalContext: customPrompt,
+        });
+      } catch (error) {
+        console.error('Failed to auto-save meeting metadata:', error);
+      }
+    }, 600);
+    return () => window.clearTimeout(timeout);
+  }, [meeting.id, client, project, customPrompt]);
+
+  const analysisContext = [
+    client.trim() ? `Client: ${client.trim()}` : '',
+    project.trim() ? `Project: ${project.trim()}` : '',
+    customPrompt.trim() ? `Additional context:\n${customPrompt.trim()}` : '',
+  ].filter(Boolean).join('\n\n');
 
   // Ref to store the modal open function from SummaryGeneratorButtonGroup
   const openModelSettingsRef = useRef<(() => void) | null>(null);
@@ -146,7 +176,7 @@ export default function PageContent({
     const autoGenerate = async () => {
       if (shouldAutoGenerate && meetingData.transcripts.length > 0 && !cancelled) {
         console.log(`🤖 Auto-generating summary with ${modelConfig.provider}/${modelConfig.model}...`);
-        await summaryGeneration.handleGenerateSummary('');
+        await summaryGeneration.handleGenerateSummary(analysisContext);
 
         // Notify parent that auto-generation is complete (only if not cancelled)
         if (onAutoGenerateComplete && !cancelled) {
@@ -175,6 +205,11 @@ export default function PageContent({
           transcripts={meetingData.transcripts}
           customPrompt={customPrompt}
           onPromptChange={setCustomPrompt}
+          client={client}
+          project={project}
+          tags={meeting.tags || []}
+          onClientChange={setClient}
+          onProjectChange={setProject}
           onCopyTranscript={copyOperations.handleCopyTranscript}
           onOpenMeetingFolder={meetingOperations.handleOpenMeetingFolder}
           isRecording={isRecording}
@@ -213,7 +248,7 @@ export default function PageContent({
           onSaveModelConfig={handleSaveModelConfig}
           onGenerateSummary={summaryGeneration.handleGenerateSummary}
           onStopGeneration={summaryGeneration.handleStopGeneration}
-          customPrompt={customPrompt}
+          customPrompt={analysisContext}
           summaryResponse={summaryResponse}
           onSaveSummary={meetingData.handleSaveSummary}
           onSummaryChange={meetingData.handleSummaryChange}

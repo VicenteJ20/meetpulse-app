@@ -534,7 +534,7 @@ impl SummaryService {
         Self::cleanup_cancellation_token(&meeting_id);
 
         match result {
-            Ok((final_markdown, english_markdown, num_chunks)) => {
+            Ok((final_markdown, english_markdown, num_chunks, tags)) => {
                 info!(
                     "✓ Successfully processed {} chunks for meeting_id: {}. Duration: {:.2}s",
                     num_chunks, meeting_id, duration
@@ -551,6 +551,28 @@ impl SummaryService {
                         error!("Failed to update meeting name for {}: {}", meeting_id, e);
                     } else {
                         info!("Successfully updated meeting name for {}", meeting_id);
+                    }
+                }
+
+                if !tags.is_empty() {
+                    match MeetingsRepository::update_meeting_tags(&pool, &meeting_id, &tags).await {
+                        Ok(true) => {
+                            if let Ok(Some(meeting)) = MeetingsRepository::get_meeting_metadata(&pool, &meeting_id).await {
+                                if let Some(folder) = meeting.folder_path.as_deref() {
+                                    if let Err(error) = crate::api::api::write_meeting_business_metadata_file(
+                                        folder,
+                                        meeting.client.as_deref(),
+                                        meeting.project.as_deref(),
+                                        meeting.additional_context.as_deref(),
+                                        &tags,
+                                    ) {
+                                        warn!("Failed to mirror generated tags to metadata.json: {}", error);
+                                    }
+                                }
+                            }
+                        }
+                        Ok(false) => warn!("Meeting not found while saving generated tags: {}", meeting_id),
+                        Err(error) => warn!("Failed to save generated tags: {}", error),
                     }
                 }
 

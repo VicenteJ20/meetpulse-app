@@ -17,6 +17,10 @@ interface MeetingDetailsResponse {
   updated_at: string;
   transcripts: Transcript[];
   folder_path?: string;
+  client?: string | null;
+  project?: string | null;
+  additional_context?: string | null;
+  tags: string[];
 }
 
 function MeetingDetailsContent() {
@@ -134,6 +138,10 @@ function MeetingDetailsContent() {
         updated_at: metadata.updated_at,
         transcripts: transcripts, // Paginated transcripts from hook
         folder_path: metadata.folder_path, // For retranscription feature
+        client: metadata.client,
+        project: metadata.project,
+        additional_context: metadata.additional_context,
+        tags: metadata.tags || [],
       });
 
       // Sync with sidebar context
@@ -368,6 +376,7 @@ function MeetingDetailsContent() {
       await fetchMeetingDetails();
       // Refetch meetings list to update sidebar
       await refetchMeetings();
+      await refetch();
     }}
     onRefetchTranscripts={refetch}
     // Pagination props for efficient transcript loading

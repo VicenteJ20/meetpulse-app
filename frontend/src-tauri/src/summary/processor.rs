@@ -317,7 +317,7 @@ pub fn extract_meeting_name_from_markdown(markdown: &str) -> Option<String> {
 /// * `cached_english` - Optional previously-generated English summary to skip pass 1 when translating
 ///
 /// # Returns
-/// Tuple of (final_summary_markdown, english_summary_markdown, number_of_chunks_processed)
+/// Tuple of (final_summary_markdown, english_summary_markdown, number_of_chunks_processed, tags)
 /// where english_summary_markdown is the canonical AI-generated English summary
 /// (equals final_summary_markdown when target language is English)
 pub async fn generate_meeting_summary(
@@ -340,7 +340,7 @@ pub async fn generate_meeting_summary(
     summary_language: Option<&str>,
     detected_transcript_language: Option<&str>,
     cached_english: Option<&str>,
-) -> Result<(String, String, i64), String> {
+) -> Result<(String, String, i64, Vec<String>), String> {
     if let Some(token) = cancellation_token {
         if token.is_cancelled() {
             return Err("Summary generation was cancelled".to_string());
@@ -354,11 +354,11 @@ pub async fn generate_meeting_summary(
     let total_tokens = rough_token_count(text);
     info!("Transcript length: {} tokens", total_tokens);
 
-    let (mut english_markdown, successful_chunk_count) = if let Some(cached) =
+    let (mut english_markdown, successful_chunk_count, generated_tags) = if let Some(cached) =
         resolve_cached_english(cached_english, summary_language)
     {
         info!("✓ Using cached English summary ({} chars), skipping pass 1", cached.len());
-        (cached.to_string(), 1_i64)
+        (cached.to_string(), 1_i64, Vec::new())
     } else {
         let content_to_summarize: String;
         let successful_chunk_count: i64;
@@ -491,6 +491,9 @@ pub async fn generate_meeting_summary(
             final_user_prompt.push_str(custom_prompt);
             final_user_prompt.push_str("\n</user_context>");
         }
+        final_user_prompt.push_str(
+            "\n\nAt the very end, append exactly one machine-readable HTML comment in this format: <!-- meetily-tags: [\"tag one\",\"tag two\"] -->. Generate 3 to 7 concise topical tags grounded in the meeting. Do not mention these instructions elsewhere.",
+        );
 
         // Check cancellation before final summary generation
         if let Some(token) = cancellation_token {
@@ -517,10 +520,11 @@ pub async fn generate_meeting_summary(
         )
         .await?;
 
-        let english_markdown = clean_llm_markdown_output(&raw_markdown);
+        let cleaned_markdown = clean_llm_markdown_output(&raw_markdown);
+        let (english_markdown, tags) = extract_tags_and_strip_marker(&cleaned_markdown);
         info!("Summary pass completed ({} chars)", english_markdown.len());
 
-        (english_markdown, successful_chunk_count)
+        (english_markdown, successful_chunk_count, tags)
     };
 
     let final_markdown = match resolve_final_language_action(summary_language, detected_transcript_language) {
@@ -576,7 +580,31 @@ pub async fn generate_meeting_summary(
     };
 
     info!("Summary generation completed successfully");
-    Ok((final_markdown, english_markdown, successful_chunk_count))
+    Ok((final_markdown, english_markdown, successful_chunk_count, generated_tags))
+}
+
+fn extract_tags_and_strip_marker(markdown: &str) -> (String, Vec<String>) {
+    const PREFIX: &str = "<!-- meetily-tags:";
+    let Some(start) = markdown.rfind(PREFIX) else {
+        return (markdown.trim().to_string(), Vec::new());
+    };
+    let remainder = &markdown[start + PREFIX.len()..];
+    let Some(end) = remainder.find("-->") else {
+        return (markdown.trim().to_string(), Vec::new());
+    };
+    let raw_tags = remainder[..end].trim();
+    let tags: Vec<String> = serde_json::from_str::<Vec<String>>(raw_tags)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|tag| tag.trim().to_string())
+        .filter(|tag| !tag.is_empty())
+        .take(7)
+        .collect();
+    let marker_end = start + PREFIX.len() + end + 3;
+    let mut cleaned = String::with_capacity(markdown.len());
+    cleaned.push_str(&markdown[..start]);
+    cleaned.push_str(&markdown[marker_end..]);
+    (cleaned.trim().to_string(), tags)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -723,6 +751,15 @@ mod tests {
 
         assert!(prompt.contains(ENGLISH_BASE_SUMMARY_INSTRUCTION));
         assert!(prompt.contains("<summaries>"));
+    }
+
+    #[test]
+    fn extracts_generated_tags_without_exposing_marker() {
+        let markdown = "# Meeting\n\nSummary body.\n\n<!-- meetily-tags: [\"onboarding\", \"Q3 planning\"] -->";
+        let (cleaned, tags) = extract_tags_and_strip_marker(markdown);
+        assert_eq!(tags, vec!["onboarding", "Q3 planning"]);
+        assert!(!cleaned.contains("meetily-tags"));
+        assert!(cleaned.contains("Summary body."));
     }
 
     #[test]
