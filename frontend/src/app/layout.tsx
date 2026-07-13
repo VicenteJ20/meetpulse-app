@@ -232,6 +232,12 @@ export default function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/icon.png" sizes="512x512" type="image/png" />
+        <link rel="apple-touch-icon" href="/pwa/icon_152x152.png" sizes="152x152" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#0b5fa5" />
+      </head>
       <body className={`${sourceSans3.variable} font-sans antialiased`}>
         <AnalyticsProvider>
           <RecordingStateProvider>

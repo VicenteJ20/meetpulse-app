@@ -44,7 +44,7 @@ export function About() {
             <div className="text-center">
                 <div className="mb-3">
                     <Image
-                        src="icon_128x128.png"
+                        src="/icon.png"
                         alt="MeetPulse Logo"
                         width={64}
                         height={64}

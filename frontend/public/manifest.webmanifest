@@ -1,0 +1,35 @@
+{
+  "name": "MeetPulse",
+  "short_name": "MeetPulse",
+  "description": "Privacy-first AI meeting assistant",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b5fa5",
+  "icons": [
+    {
+      "src": "/pwa/icon_128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa/icon_152x152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa/icon_384x384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa/icon_432x432.png",
+      "sizes": "432x432",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa/icon_1024x1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}
