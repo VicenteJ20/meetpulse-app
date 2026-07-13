@@ -440,6 +440,21 @@ const Sidebar: React.FC = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
+                onClick={toggleCollapse}
+                className="rounded-full border border-slate-200 bg-white p-1 text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
+                aria-label="Expand sidebar"
+              >
+                <ChevronRightCircle className="w-5 h-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Expand sidebar</p>
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
                 onClick={() => router.push('/')}
                 className={`p-2 rounded-lg transition-colors duration-150 ${isHomePage ? 'bg-gray-100' : 'hover:bg-gray-100'
                   }`}
@@ -642,17 +657,6 @@ const Sidebar: React.FC = () => {
         className={`relative h-screen bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'
           }`}
       >
-        <button
-          onClick={toggleCollapse}
-          className="absolute right-3 top-24 z-50 rounded-full border border-slate-200 bg-white p-1 text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {isCollapsed ? (
-            <ChevronRightCircle className="w-5 h-5" />
-          ) : (
-            <ChevronLeftCircle className="w-5 h-5" />
-          )}
-        </button>
         {/*  Header with traffic light spacing */}
         <div className="flex-shrink-0 h-22 flex items-center">
 
@@ -663,7 +667,18 @@ const Sidebar: React.FC = () => {
           <div className="flex-1">
             {!isCollapsed && (
               <div className="p-3 pb-4">
-                <Logo isCollapsed={isCollapsed} />
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Logo isCollapsed={isCollapsed} />
+                  </div>
+                  <button
+                    onClick={toggleCollapse}
+                    className="flex-none rounded-full border border-slate-200 bg-white p-1 text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
+                    aria-label="Collapse sidebar"
+                  >
+                    <ChevronLeftCircle className="w-5 h-5" />
+                  </button>
+                </div>
 
                 <div className="relative">
                   <InputGroup >
