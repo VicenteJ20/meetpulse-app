@@ -1,4 +1,5 @@
 import type { WikiConfig } from './wiki-config';
+import { currentGoogleSession } from './auth-service';
 
 export interface WikiSummary { tenant_id: string; client_count: number; project_count: number; source_count: number; wiki_page_count: number; last_activity_at: string | null; }
 export interface WikiClient { client_id: string; project_count: number; source_count: number; last_activity_at: string | null; key: string; }
@@ -23,9 +24,11 @@ export class WikiApi {
     return url.toString();
   }
 
-  private async get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+  private async request<T>(path: string, init: RequestInit = {}, params?: Record<string, string | number | undefined>): Promise<T> {
+    const session = await currentGoogleSession();
+    if (!session) throw new WikiApiError('Sign in with Google before accessing the Wiki.', 401);
     let response: Response;
-    try { response = await fetch(this.url(path, params)); }
+    try { response = await fetch(this.url(path, params), { ...init, headers: { authorization: `Bearer ${session.idToken}`, ...(init.headers || {}) } }); }
     catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
     if (!response.ok) {
       let detail = `Wiki API request failed (${response.status}).`;
@@ -35,16 +38,10 @@ export class WikiApi {
     return response.json() as Promise<T>;
   }
 
+  private get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> { return this.request<T>(path, {}, params); }
+
   private async post<T>(path: string, body: FormData): Promise<T> {
-    let response: Response;
-    try { response = await fetch(this.url(path), { method: 'POST', body }); }
-    catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
-    if (!response.ok) {
-      let detail = `Wiki API request failed (${response.status}).`;
-      try { const payload = await response.json(); detail = typeof payload.detail === 'string' ? payload.detail : detail; } catch { /* response has no JSON body */ }
-      throw new WikiApiError(detail, response.status);
-    }
-    return response.json() as Promise<T>;
+    return this.request<T>(path, { method: 'POST', body });
   }
 
   summary() { return this.get<WikiSummary>(`/dashboard/${encodeURIComponent(this.config.tenantId)}/summary`); }
@@ -65,17 +62,6 @@ export class WikiApi {
     return this.post<{ source_key: string; updated_keys: string[] }>('/ingest', body);
   }
   async updateProjectContext(clientId: string, projectId: string, contentMarkdown: string) {
-    let response: Response;
-    try {
-      response = await fetch(this.url(`/wiki/${encodeURIComponent(this.config.tenantId)}/documents/context`, { client_id: clientId, project_id: projectId }), {
-        method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ content_markdown: contentMarkdown }),
-      });
-    } catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
-    if (!response.ok) {
-      let detail = `Wiki API request failed (${response.status}).`;
-      try { const payload = await response.json(); detail = typeof payload.detail === 'string' ? payload.detail : detail; } catch { /* response has no JSON body */ }
-      throw new WikiApiError(detail, response.status);
-    }
-    return response.json() as Promise<WikiDocumentContent>;
+    return this.request<WikiDocumentContent>(`/wiki/${encodeURIComponent(this.config.tenantId)}/documents/context`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ content_markdown: contentMarkdown }) }, { client_id: clientId, project_id: projectId });
   }
 }

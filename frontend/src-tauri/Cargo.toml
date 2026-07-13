@@ -122,6 +122,10 @@ dirs = "5.0.1"
 
 # Additional dependencies for notification system
 url = "2.5.0"
+base64 = "0.22"
+keyring = "3.6"
+sha2 = "0.10"
+webbrowser = "1.0"
 
 
 # System monitoring for resource management

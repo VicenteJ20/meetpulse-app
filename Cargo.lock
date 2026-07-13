@@ -3344,6 +3344,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "keyring"
+version = "3.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eebcc3aff044e5944a8fbaf69eb277d11986064cba30c468730e8b9909fb551c"
+dependencies = [
+ "log",
+ "zeroize",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3615,6 +3625,7 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "base64 0.22.1",
  "bytemuck",
  "bytes",
  "chrono",
@@ -3635,6 +3646,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "infer 0.15.0",
+ "keyring",
  "lazy_static",
  "log",
  "memory-stats",
@@ -3653,6 +3665,7 @@ dependencies = [
  "rubato 0.15.0",
  "serde",
  "serde_json",
+ "sha2",
  "silero",
  "sqlx",
  "strsim 0.10.0",
@@ -3678,6 +3691,7 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "uuid",
+ "webbrowser",
  "whatlang",
  "which 6.0.3",
  "whisper-rs",
@@ -7962,6 +7976,22 @@ dependencies = [
  "phf_codegen",
  "string_cache",
  "string_cache_codegen",
+]
+
+[[package]]
+name = "webbrowser"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fc95580916af1e68ff6a7be07446fc5db73ebf71cf092de939bbf5f7e189f72"
+dependencies = [
+ "core-foundation 0.10.1",
+ "jni 0.22.4",
+ "log",
+ "ndk-context",
+ "objc2",
+ "objc2-foundation",
+ "url",
+ "web-sys",
 ]
 
 [[package]]

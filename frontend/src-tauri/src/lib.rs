@@ -36,6 +36,7 @@ pub(crate) use perf_trace;
 
 // Declare audio module
 pub mod analytics;
+pub mod auth;
 pub mod api;
 pub mod audio;
 pub mod config;
@@ -524,6 +525,9 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            auth::sign_in_with_google,
+            auth::get_google_auth_token,
+            auth::sign_out_google,
             start_recording,
             stop_recording,
             is_recording,

@@ -25,6 +25,8 @@ import { RecordingPostProcessingProvider } from '@/contexts/RecordingPostProcess
 import { ImportAudioDialog, ImportDropOverlay } from '@/components/ImportAudio'
 import { ImportDialogProvider } from '@/contexts/ImportDialogContext'
 import { isAudioExtension, getAudioFormatsDisplayList } from '@/constants/audioFormats'
+import { AuthProvider } from '@/contexts/AuthContext'
+import { AuthGate } from '@/components/AuthGate'
 
 
 const sourceSans3 = Source_Sans_3({
@@ -239,7 +241,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#0b5fa5" />
       </head>
       <body className={`${sourceSans3.variable} font-sans antialiased`}>
-        <AnalyticsProvider>
+        <AuthProvider><AuthGate><AnalyticsProvider>
           <RecordingStateProvider>
             <TranscriptProvider>
               <ConfigProvider>
@@ -280,7 +282,7 @@ export default function RootLayout({
               </ConfigProvider>
             </TranscriptProvider>
           </RecordingStateProvider>
-        </AnalyticsProvider>
+        </AnalyticsProvider></AuthGate></AuthProvider>
 
         <Toaster position="bottom-center" richColors closeButton />
       </body>

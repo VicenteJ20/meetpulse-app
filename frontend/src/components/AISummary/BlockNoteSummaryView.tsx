@@ -26,6 +26,7 @@ interface BlockNoteSummaryViewProps {
     created_at: string;
   };
   onDirtyChange?: (isDirty: boolean) => void;
+  editable?: boolean;
 }
 
 export interface BlockNoteSummaryViewRef {
@@ -73,7 +74,8 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
   error = null,
   onRegenerateSummary,
   meeting,
-  onDirtyChange
+  onDirtyChange,
+  editable = true
 }, ref) => {
   const { format, data } = detectSummaryFormat(summaryData);
   const [isDirty, setIsDirty] = useState(false);
@@ -245,7 +247,7 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
               console.log('📝 Editor blocks changed:', blocks.length);
               handleEditorChange(blocks);
             }}
-            editable={true}
+            editable={editable}
           />
         </div>
       </div>
@@ -260,7 +262,7 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
         <div className="w-full">
           <BlockNoteView
             editor={editor}
-            editable={true}
+            editable={editable}
             onChange={() => {
               if (isContentLoaded.current) {
                 handleEditorChange(editor.document);
