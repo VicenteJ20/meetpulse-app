@@ -21,6 +21,7 @@ import { TranscriptRecovery } from '@/components/TranscriptRecovery';
 import { indexedDBService } from '@/services/indexedDBService';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { HomeWikiStats } from '@/components/HomeWikiStats';
 
 export default function Home() {
   // Local page state (not moved to contexts)
@@ -217,6 +218,7 @@ export default function Home() {
           isProcessingStop={isProcessingStop}
           isStopping={isStopping}
           showModal={showModal}
+          homeStats={!recordingState.isRecording ? <HomeWikiStats /> : undefined}
         />
 
         {/* Recording controls - only show when permissions are granted or already recording and not showing status messages */}

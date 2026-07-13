@@ -60,6 +60,9 @@ interface SummaryPanelProps {
   onTemplateSelect: (templateId: string, templateName: string) => void;
   isModelConfigLoading?: boolean;
   onOpenModelSettings?: (openFn: () => void) => void;
+  onSaveToWiki: () => Promise<void>;
+  isSavingToWiki: boolean;
+  isSavedToWiki: boolean;
 }
 
 export function SummaryPanel({
@@ -95,7 +98,10 @@ export function SummaryPanel({
   selectedTemplate,
   onTemplateSelect,
   isModelConfigLoading = false,
-  onOpenModelSettings
+  onOpenModelSettings,
+  onSaveToWiki,
+  isSavingToWiki,
+  isSavedToWiki
 }: SummaryPanelProps) {
   const [summaryLang, setSummaryLang] = useState<string | null>(null);
   const [summaryLangStorage, setSummaryLangStorage] = useState<SummaryLanguageStorage>('metadata');
@@ -301,6 +307,9 @@ export function SummaryPanel({
                 }}
                 onOpenFolder={onOpenFolder}
                 hasSummary={!!aiSummary}
+                onSaveToWiki={onSaveToWiki}
+                isSavingToWiki={isSavingToWiki}
+                isSavedToWiki={isSavedToWiki}
               />
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
-import { Copy, Save, Loader2, Search, FolderOpen } from 'lucide-react';
+import { Copy, Save, Loader2, Search, FolderOpen, BookOpen } from 'lucide-react';
 import Analytics from '@/lib/analytics';
 
 interface SummaryUpdaterButtonGroupProps {
@@ -13,6 +13,9 @@ interface SummaryUpdaterButtonGroupProps {
   onFind?: () => void;
   onOpenFolder: () => Promise<void>;
   hasSummary: boolean;
+  onSaveToWiki: () => Promise<void>;
+  isSavingToWiki: boolean;
+  isSavedToWiki: boolean;
 }
 
 export function SummaryUpdaterButtonGroup({
@@ -22,7 +25,10 @@ export function SummaryUpdaterButtonGroup({
   onCopy,
   onFind,
   onOpenFolder,
-  hasSummary
+  hasSummary,
+  onSaveToWiki,
+  isSavingToWiki,
+  isSavedToWiki
 }: SummaryUpdaterButtonGroupProps) {
   return (
     <ButtonGroup>
@@ -49,6 +55,11 @@ export function SummaryUpdaterButtonGroup({
             <span className="hidden lg:inline">Save</span>
           </>
         )}
+      </Button>
+
+      <Button variant="outline" size="sm" title={isSavedToWiki ? 'Saved to Wiki' : 'Save this note to Wiki'} onClick={onSaveToWiki} disabled={!hasSummary || isSavingToWiki || isSavedToWiki} className="cursor-pointer">
+        {isSavingToWiki ? <Loader2 className="animate-spin" /> : <BookOpen />}
+        <span className="hidden lg:inline">{isSavedToWiki ? 'Saved to Wiki' : 'Save to Wiki'}</span>
       </Button>
 
       {/* Copy button */}

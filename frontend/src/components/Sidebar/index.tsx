@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, BookOpen } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar } from './SidebarProvider';
 import type { CurrentMeeting } from '@/components/Sidebar/SidebarProvider';
@@ -431,6 +431,7 @@ const Sidebar: React.FC = () => {
     const isHomePage = pathname === '/';
     const isMeetingPage = pathname?.includes('/meeting-details');
     const isSettingsPage = pathname === '/settings';
+    const isWikiPage = pathname === '/wiki';
 
     return (
       <TooltipProvider>
@@ -450,6 +451,18 @@ const Sidebar: React.FC = () => {
             <TooltipContent side="right">
               <p>Expand sidebar</p>
             </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => router.push('/wiki')}
+                className={`p-2 rounded-lg transition-colors duration-150 ${isWikiPage ? 'bg-gray-100' : 'hover:bg-gray-100'}`}
+              >
+                <BookOpen className="w-5 h-5 text-gray-600" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right"><p>Wiki</p></TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -709,13 +722,10 @@ const Sidebar: React.FC = () => {
           {/* Fixed navigation items */}
           <div className="flex-shrink-0">
             {!isCollapsed && (
-              <div
-                onClick={() => router.push('/')}
-                className="p-3  text-lg font-semibold items-center hover:bg-gray-100 h-10   flex mx-3 mt-3 rounded-lg cursor-pointer"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                <span>Home</span>
-              </div>
+              <>
+                <div onClick={() => router.push('/')} className={`p-3 text-lg font-semibold items-center hover:bg-gray-100 h-10 flex mx-3 mt-3 rounded-lg cursor-pointer ${pathname === '/' ? 'bg-gray-100' : ''}`}><Home className="w-4 h-4 mr-2" /><span>Home</span></div>
+                <div onClick={() => router.push('/wiki')} className={`p-3 text-lg font-semibold items-center hover:bg-gray-100 h-10 flex mx-3 mt-2 rounded-lg cursor-pointer ${pathname === '/wiki' ? 'bg-gray-100' : ''}`}><BookOpen className="w-4 h-4 mr-2" /><span>Wiki</span></div>
+              </>
             )}
           </div>
 

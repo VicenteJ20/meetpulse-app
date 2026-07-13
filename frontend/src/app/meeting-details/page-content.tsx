@@ -17,6 +17,8 @@ import { useTemplates } from '@/hooks/meeting-details/useTemplates';
 import { useCopyOperations } from '@/hooks/meeting-details/useCopyOperations';
 import { useMeetingOperations } from '@/hooks/meeting-details/useMeetingOperations';
 import { useConfig } from '@/contexts/ConfigContext';
+import { getWikiConfig } from '@/services/wiki-config';
+import { WikiApi, WikiApiError } from '@/services/wiki-api';
 
 export default function PageContent({
   meeting,
@@ -59,6 +61,8 @@ export default function PageContent({
   const [project, setProject] = useState<string>(meeting.project || '');
   const [isRecording] = useState(false);
   const [summaryResponse] = useState<SummaryResponse | null>(null);
+  const [isSavingToWiki, setIsSavingToWiki] = useState(false);
+  const [isSavedToWiki, setIsSavedToWiki] = useState(false);
   const { serverAddress, refetchMeetings } = useSidebar();
 
   useEffect(() => {
@@ -165,6 +169,39 @@ export default function PageContent({
     meeting,
   });
 
+  const handleSaveToWiki = async () => {
+    const config = getWikiConfig();
+    if (!config.tenantId) { toast.error('Configure a Wiki tenant in Settings first'); return; }
+    if (!client.trim() || !project.trim()) { toast.error('Add both client and project before saving this note to Wiki'); return; }
+    setIsSavingToWiki(true);
+    try {
+      await meetingData.saveAllChanges();
+      let markdown = await meetingData.blockNoteSummaryRef.current?.getMarkdown?.() || '';
+      if (!markdown && meetingData.aiSummary && 'markdown' in meetingData.aiSummary) {
+        markdown = (meetingData.aiSummary as any).markdown || '';
+      }
+      if (!markdown) { toast.error('Add a summary before saving this note to Wiki'); return; }
+      const participants = Array.isArray((meeting as any).participants) && (meeting as any).participants.length
+        ? (meeting as any).participants.map(String)
+        : ['Not specified'];
+      await new WikiApi(config).ingest({
+        clientId: client.trim(),
+        projectId: project.trim(),
+        title: meetingData.meetingTitle.trim() || meeting.title,
+        dateTime: meeting.created_at || new Date().toISOString(),
+        participants,
+        markdown,
+      });
+      setIsSavedToWiki(true);
+      toast.success('Note saved to Wiki');
+    } catch (error) {
+      if (error instanceof WikiApiError && error.status === 409) toast.info('This note is already saved in Wiki');
+      else toast.error(error instanceof Error ? error.message : 'Failed to save note to Wiki');
+    } finally {
+      setIsSavingToWiki(false);
+    }
+  };
+
   // Track page view
   useEffect(() => {
     Analytics.trackPageView('meeting_details');
@@ -262,6 +299,9 @@ export default function PageContent({
           onTemplateSelect={templates.handleTemplateSelection}
           isModelConfigLoading={false}
           onOpenModelSettings={handleRegisterModalOpen}
+          onSaveToWiki={handleSaveToWiki}
+          isSavingToWiki={isSavingToWiki}
+          isSavedToWiki={isSavedToWiki}
         />
       </div>
     </motion.div>

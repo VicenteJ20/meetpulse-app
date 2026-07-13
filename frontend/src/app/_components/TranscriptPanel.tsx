@@ -9,7 +9,7 @@ import { useRecordingState } from '@/contexts/RecordingStateContext';
 import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 import { ModalType } from '@/hooks/useModalState';
 import { useIsLinux } from '@/hooks/usePlatform';
-import { useMemo } from 'react';
+import { ReactNode, useMemo } from 'react';
 
 /**
  * TranscriptPanel Component
@@ -23,12 +23,14 @@ interface TranscriptPanelProps {
   isProcessingStop: boolean;
   isStopping: boolean;
   showModal: (name: ModalType, message?: string) => void;
+  homeStats?: ReactNode;
 }
 
 export function TranscriptPanel({
   isProcessingStop,
   isStopping,
-  showModal
+  showModal,
+  homeStats
 }: TranscriptPanelProps) {
   // Contexts
   const { transcripts, transcriptContainerRef, copyTranscript } = useTranscripts();
@@ -100,6 +102,8 @@ export function TranscriptPanel({
           />
         </div>
       )}
+
+      {homeStats}
 
       {/* Transcript content */}
       <div className="pb-20">
