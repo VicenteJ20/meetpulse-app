@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, BookOpen } from 'lucide-react';
+import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, BookOpen, LogOut } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar } from './SidebarProvider';
 import type { CurrentMeeting } from '@/components/Sidebar/SidebarProvider';
@@ -14,6 +14,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 import {
   Dialog,
@@ -59,6 +60,7 @@ const Sidebar: React.FC = () => {
 
   // Get recording state from RecordingStateContext (single source of truth)
   const { isRecording } = useRecordingState();
+  const { signOut } = useAuth();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['meetings']));
   const initializedClientFolders = useRef<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -75,6 +77,11 @@ const Sidebar: React.FC = () => {
     model: 'parakeet-tdt-0.6b-v3-int8',
   });
   const [settingsSaveSuccess, setSettingsSaveSuccess] = useState<boolean | null>(null);
+
+  const handleSignOut = async () => {
+    try { await signOut(); toast.success('Signed out from Google'); }
+    catch (error) { toast.error('Unable to sign out', { description: error instanceof Error ? error.message : String(error) }); }
+  };
 
   // State for edit modal
   const [editModalState, setEditModalState] = useState<{ isOpen: boolean; meetingId: string | null; currentTitle: string }>({
@@ -455,6 +462,15 @@ const Sidebar: React.FC = () => {
 
           <Tooltip>
             <TooltipTrigger asChild>
+              <button onClick={handleSignOut} className="p-2 rounded-lg transition-colors duration-150 hover:bg-gray-100" aria-label="Sign out">
+                <LogOut className="w-5 h-5 text-gray-600" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right"><p>Sign out</p></TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
               <button
                 onClick={() => router.push('/wiki')}
                 className={`p-2 rounded-lg transition-colors duration-150 ${isWikiPage ? 'bg-gray-100' : 'hover:bg-gray-100'}`}
@@ -794,6 +810,10 @@ const Sidebar: React.FC = () => {
             >
               <Settings className="w-4 h-4 mr-2" />
               <span>Settings</span>
+            </button>
+            <button onClick={handleSignOut} className="w-full flex items-center justify-center px-3 py-1.5 mb-1 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+              <LogOut className="w-4 h-4 mr-2" />
+              <span>Sign out</span>
             </button>
             <Info isCollapsed={isCollapsed} />
             <div className="w-full flex items-center justify-center px-3 py-1 text-xs text-gray-400">
