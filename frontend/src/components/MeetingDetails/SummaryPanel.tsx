@@ -258,6 +258,21 @@ export function SummaryPanel({
     </Popover>
   );
 
+  const summaryActions = aiSummary && !isSummaryLoading ? (
+    <SummaryUpdaterButtonGroup
+      isSaving={isSaving}
+      isDirty={isTitleDirty || (summaryRef.current?.isDirty || false)}
+      onSave={onSaveAll}
+      onCopy={onCopySummary}
+      onFind={() => console.log('Find in summary clicked')}
+      onOpenFolder={onOpenFolder}
+      hasSummary={!!aiSummary}
+      onSaveToWiki={onSaveToWiki}
+      isSavingToWiki={isSavingToWiki}
+      isSavedToWiki={isSavedToWiki}
+    />
+  ) : null;
+
   return (
     <div className="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
       {/* Title area */}
@@ -294,24 +309,6 @@ export function SummaryPanel({
               />
             </div>
 
-            {/* Right-aligned: Summary Updater Button Group */}
-            <div className="flex-shrink-0">
-              <SummaryUpdaterButtonGroup
-                isSaving={isSaving}
-                isDirty={isTitleDirty || (summaryRef.current?.isDirty || false)}
-                onSave={onSaveAll}
-                onCopy={onCopySummary}
-                onFind={() => {
-                  // TODO: Implement find in summary functionality
-                  console.log('Find in summary clicked');
-                }}
-                onOpenFolder={onOpenFolder}
-                hasSummary={!!aiSummary}
-                onSaveToWiki={onSaveToWiki}
-                isSavingToWiki={isSavingToWiki}
-                isSavedToWiki={isSavedToWiki}
-              />
-            </div>
           </div>
         )}
       </div>
@@ -450,6 +447,7 @@ export function SummaryPanel({
           )}
         </div>
       )}
+      {summaryActions && <footer className="flex shrink-0 justify-center border-t border-gray-200 bg-white px-4 py-3">{summaryActions}</footer>}
     </div>
   );
 }
