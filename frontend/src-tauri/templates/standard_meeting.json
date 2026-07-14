@@ -1,14 +1,19 @@
 {
   "name": "Standard Meeting Notes",
-  "description": "Acta estructurada de propósito, contexto, temas, decisiones y compromisos.",
+  "description": "Acta estructurada de proposito, contexto, temas, decisiones y compromisos.",
   "sections": [
-    { "title": "Metadatos", "instruction": "Indica tipo de reunión, fecha extraída del contexto o Pendiente, y asistentes identificados por nombre o rol", "format": "list" },
-    { "title": "Objetivo de la Sesión", "instruction": "Describe en una o dos oraciones el propósito central y qué se esperaba resolver o avanzar", "format": "paragraph" },
-    { "title": "Contexto y Estado Actual", "instruction": "Resume avances, bloqueos y antecedentes relevantes que dan sentido a la discusión", "format": "paragraph" },
-    { "title": "Temas Discutidos", "instruction": "Organiza por temas, no cronológicamente; usa subsecciones ### con hallazgos, problemas, opiniones, datos y herramientas involucradas", "format": "paragraph" },
-    { "title": "Decisiones Tomadas", "instruction": "Lista decisiones concretas; si no hubo decisiones formales, indícalo explícitamente", "format": "list" },
-    { "title": "Compromisos y Próximos Pasos", "instruction": "Usa listas de verificación de Notion con responsable, tarea clara y el contexto del acuerdo", "format": "list", "item_format": "- [ ] @Responsable — Descripción clara de la tarea. _(Contexto: por qué se acordó)_" },
-    { "title": "Riesgos, Bloqueos o Pendientes", "instruction": "Incluye sólo riesgos o bloqueos mencionados y su impacto o urgencia si se indicó; omite esta sección si no aplica", "format": "list" },
-    { "title": "Puntos sin Resolver", "instruction": "Lista asuntos abiertos, sin decisión o que requieren seguimiento; marca incertidumbres como [Por confirmar]", "format": "list" }
+    {
+      "title": "Metadatos",
+      "instruction": "Presentalos como una tabla Markdown compacta de dos columnas: Campo y Valor. Incluye exactamente Tipo de reunion, Fecha y Asistentes; usa [Por confirmar] o Pendiente cuando corresponda",
+      "format": "list",
+      "item_format": "| Campo | Valor |\n| --- | --- |\n| Tipo de reunion | ... |\n| Fecha | ... |\n| Asistentes | ... |"
+    },
+    { "title": "Objetivo de la Sesion", "instruction": "Describe en una o dos oraciones el proposito central y que se esperaba resolver o avanzar", "format": "paragraph" },
+    { "title": "Contexto y Estado Actual", "instruction": "Resume avances, bloqueos y antecedentes relevantes que dan sentido a la discusion", "format": "paragraph" },
+    { "title": "Temas Discutidos", "instruction": "Organiza por temas, no cronologicamente; usa subsecciones ### con hallazgos, problemas, opiniones, datos y herramientas involucradas", "format": "paragraph" },
+    { "title": "Decisiones Tomadas", "instruction": "Lista decisiones concretas; si no hubo decisiones formales, indicalo explicitamente", "format": "list" },
+    { "title": "Compromisos y Proximos Pasos", "instruction": "Usa listas de verificacion de Notion con responsable, tarea clara y el contexto del acuerdo", "format": "list", "item_format": "- [ ] @Responsable - Descripcion clara de la tarea. _(Contexto: por que se acordo)_" },
+    { "title": "Riesgos, Bloqueos o Pendientes", "instruction": "Incluye solo riesgos o bloqueos mencionados y su impacto o urgencia si se indico; omite esta seccion si no aplica", "format": "list" },
+    { "title": "Puntos sin Resolver", "instruction": "Lista asuntos abiertos, sin decision o que requieren seguimiento; marca incertidumbres como [Por confirmar]", "format": "list" }
   ]
 }

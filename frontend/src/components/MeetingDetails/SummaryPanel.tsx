@@ -417,7 +417,7 @@ export function SummaryPanel({
               ) : null}
             </div>
           )}
-          <div className="p-6 w-full">
+          <div className="meeting-summary-editor w-full p-6">
             <BlockNoteSummaryView
               ref={summaryRef}
               summaryData={aiSummary}

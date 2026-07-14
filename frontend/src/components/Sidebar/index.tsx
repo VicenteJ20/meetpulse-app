@@ -656,7 +656,7 @@ const Sidebar: React.FC = () => {
   return (
     <div className="fixed top-0 left-0 h-screen z-40">
       <div
-        className={`relative h-screen bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'
+        className={`relative h-screen border-r border-slate-200/80 bg-[#f8fbff]/95 shadow-[12px_0_42px_-30px_rgba(15,23,42,0.35)] backdrop-blur-xl flex flex-col transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'
           }`}
       >
         {/*  Header with traffic light spacing */}

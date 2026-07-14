@@ -72,10 +72,15 @@ impl Template {
 
     /// Generates a clean markdown template structure
     pub fn to_markdown_structure(&self) -> String {
-        let mut markdown = String::from("# <Add Title here>\n\n");
+        let title = if self.name == "Standard Meeting Notes" {
+            "Resumen de la Reunión"
+        } else {
+            "<Add Title here>"
+        };
+        let mut markdown = format!("# {title}\n\n");
 
         for section in &self.sections {
-            markdown.push_str(&format!("**{}**\n\n", section.title));
+            markdown.push_str(&format!("## {}\n\n", section.title));
         }
 
         markdown
@@ -83,9 +88,11 @@ impl Template {
 
     /// Generates section-specific instructions for the LLM
     pub fn to_section_instructions(&self) -> String {
-        let mut instructions = String::from(
-            "- **For the main title (`# [AI-Generated Title]`):** Analyze the entire transcript and create a concise, descriptive title for the meeting.\n"
-        );
+        let mut instructions = if self.name == "Standard Meeting Notes" {
+            String::from("- **Para el título principal:** usa exactamente `# Resumen de la Reunión`.\n")
+        } else {
+            String::from("- **For the main title (`# [AI-Generated Title]`):** Analyze the entire transcript and create a concise, descriptive title for the meeting.\n")
+        };
 
         for section in &self.sections {
             instructions.push_str(&format!(
