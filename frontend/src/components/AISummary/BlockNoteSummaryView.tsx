@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { Summary, SummaryDataResponse, SummaryFormat, BlockNoteBlock } from '@/types';
 import { AISummary } from './index';
@@ -27,12 +27,33 @@ interface BlockNoteSummaryViewProps {
   };
   onDirtyChange?: (isDirty: boolean) => void;
   editable?: boolean;
+  language?: string;
 }
 
 export interface BlockNoteSummaryViewRef {
   saveSummary: () => Promise<void>;
   getMarkdown: () => Promise<string>;
   isDirty: boolean;
+}
+
+function EditorLanguageScope({
+  language,
+  children,
+}: {
+  language: string;
+  children: ReactNode;
+}) {
+  const scopeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const editableNodes = scopeRef.current?.querySelectorAll<HTMLElement>('[contenteditable="true"]');
+    editableNodes?.forEach((node) => {
+      node.lang = language;
+      node.spellcheck = true;
+    });
+  }, [language]);
+
+  return <div ref={scopeRef} lang={language}>{children}</div>;
 }
 
 // Format detection helper
@@ -75,8 +96,12 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
   onRegenerateSummary,
   meeting,
   onDirtyChange,
-  editable = true
+  editable = true,
+  language: requestedLanguage,
 }, ref) => {
+  const language = requestedLanguage || (
+    typeof navigator !== 'undefined' ? navigator.language : 'en'
+  );
   const { format, data } = detectSummaryFormat(summaryData);
   const [isDirty, setIsDirty] = useState(false);
   const [currentBlocks, setCurrentBlocks] = useState<Block[]>([]);
@@ -241,14 +266,16 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
     return (
       <div className="flex flex-col w-full">
         <div className="w-full">
-          <Editor
-            initialContent={data.summary_json}
+          <EditorLanguageScope language={language}>
+            <Editor
+              initialContent={data.summary_json}
             onChange={(blocks) => {
               console.log('📝 Editor blocks changed:', blocks.length);
               handleEditorChange(blocks);
             }}
-            editable={editable}
-          />
+              editable={editable}
+            />
+          </EditorLanguageScope>
         </div>
       </div>
     );
@@ -260,16 +287,18 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
     return (
       <div className="flex flex-col w-full">
         <div className="w-full">
-          <BlockNoteView
-            editor={editor}
+          <EditorLanguageScope language={language}>
+            <BlockNoteView
+              editor={editor}
             editable={editable}
             onChange={() => {
               if (isContentLoaded.current) {
                 handleEditorChange(editor.document);
               }
             }}
-            theme="light"
-          />
+              theme="light"
+            />
+          </EditorLanguageScope>
         </div>
       </div>
     );

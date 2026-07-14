@@ -17,6 +17,7 @@ import { LanguagePickerPopover } from '@/components/LanguagePickerPopover';
 import { useRecentLanguages } from '@/hooks/useRecentLanguages';
 import { labelForCode } from '@/lib/summary-languages';
 import {
+  readCachedDetectedSummaryLanguage,
   readMeetingSummaryLanguage,
   saveMeetingSummaryLanguage,
   SummaryLanguageStorage,
@@ -104,6 +105,7 @@ export function SummaryPanel({
   isSavedToWiki
 }: SummaryPanelProps) {
   const [summaryLang, setSummaryLang] = useState<string | null>(null);
+  const [detectedSummaryLang, setDetectedSummaryLang] = useState<string | null>(null);
   const [summaryLangStorage, setSummaryLangStorage] = useState<SummaryLanguageStorage>('metadata');
   const [langPickerOpen, setLangPickerOpen] = useState(false);
   const languageLoadVersionRef = useRef(0);
@@ -127,6 +129,9 @@ export function SummaryPanel({
   const autoSubtitle = isLocalFallbackLanguage
     ? 'Saved on this device for folderless meetings'
     : 'Uses dominant transcript language';
+  const editorLanguage = summaryLang
+    || detectedSummaryLang
+    || (typeof navigator !== 'undefined' ? navigator.language : 'en');
 
   useEffect(() => {
     let cancelled = false;
@@ -135,9 +140,13 @@ export function SummaryPanel({
 
     const loadSummaryLanguage = async () => {
       try {
-        const stored = await readMeetingSummaryLanguage(meeting.id);
+        const [stored, detected] = await Promise.all([
+          readMeetingSummaryLanguage(meeting.id),
+          readCachedDetectedSummaryLanguage(meeting.id),
+        ]);
         if (!cancelled && languageLoadVersionRef.current === loadVersion) {
           setSummaryLang(stored.language);
+          setDetectedSummaryLang(detected);
           setSummaryLangStorage(stored.storage);
         }
       } catch (err) {
@@ -145,7 +154,10 @@ export function SummaryPanel({
         toast.warning('Could not load saved summary language', {
           description: 'Using Auto until meeting metadata can be read.',
         });
-        if (!cancelled && languageLoadVersionRef.current === loadVersion) setSummaryLang(null);
+        if (!cancelled && languageLoadVersionRef.current === loadVersion) {
+          setSummaryLang(null);
+          setDetectedSummaryLang(null);
+        }
       }
     };
 
@@ -435,6 +447,7 @@ export function SummaryPanel({
                 title: meetingTitle,
                 created_at: meeting.created_at
               }}
+              language={editorLanguage}
             />
           </div>
           {summaryStatus !== 'idle' && (
