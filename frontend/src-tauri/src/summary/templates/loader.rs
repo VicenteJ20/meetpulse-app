@@ -7,6 +7,11 @@ use std::sync::RwLock;
 
 // Global storage for the bundled templates directory path
 static BUNDLED_TEMPLATES_DIR: Lazy<RwLock<Option<PathBuf>>> = Lazy::new(|| RwLock::new(None));
+const REMOVED_TEMPLATE_IDS: [&str; 3] = ["retrospective", "psychatric_session", "project_sync"];
+
+fn is_removed_template(template_id: &str) -> bool {
+    REMOVED_TEMPLATE_IDS.contains(&template_id)
+}
 
 /// Set the bundled templates directory path (called once at app startup)
 pub fn set_bundled_templates_dir(path: PathBuf) {
@@ -93,6 +98,9 @@ fn load_custom_template(template_id: &str) -> Option<String> {
 /// # Returns
 /// Parsed and validated Template struct
 pub fn get_template(template_id: &str) -> Result<Template, String> {
+    if is_removed_template(template_id) {
+        return Err(format!("Template '{}' is no longer available", template_id));
+    }
     info!("Loading template: {}", template_id);
 
     // Try custom template first, then bundled, then built-in
@@ -193,6 +201,7 @@ pub fn list_template_ids() -> Vec<String> {
         }
     }
 
+    ids.retain(|id| !is_removed_template(id));
     ids.sort();
     ids
 }

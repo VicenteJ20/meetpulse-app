@@ -1,27 +1,14 @@
 {
   "name": "Standard Meeting Notes",
-  "description": "A standard template for general meetings, focusing on key outcomes and actions.",
+  "description": "Acta estructurada de propósito, contexto, temas, decisiones y compromisos.",
   "sections": [
-    {
-      "title": "Summary",
-      "instruction": "Provide a brief, one-paragraph executive summary of the entire meeting.",
-      "format": "paragraph"
-    },
-    {
-      "title": "Key Decisions",
-      "instruction": "List the most important decisions made during the meeting.",
-      "format": "list"
-    },
-    {
-      "title": "Action Items",
-      "instruction": "List all assigned tasks with their owners and due date. Always add reference transcript segment and timestamp in the table.",
-      "format": "list",
-      "item_format": "| **Owner** | Task | Due | Reference Transcript Segment | Segment Time stamp |\n| --- | --- | --- | --- | --- |"
-    },
-    {
-      "title": "Discussion Highlights",
-      "instruction": "Summarize the main topics of discussion, key arguments, and important insights.",
-      "format": "paragraph"
-    }
+    { "title": "Metadatos", "instruction": "Indica tipo de reunión, fecha extraída del contexto o Pendiente, y asistentes identificados por nombre o rol", "format": "list" },
+    { "title": "Objetivo de la Sesión", "instruction": "Describe en una o dos oraciones el propósito central y qué se esperaba resolver o avanzar", "format": "paragraph" },
+    { "title": "Contexto y Estado Actual", "instruction": "Resume avances, bloqueos y antecedentes relevantes que dan sentido a la discusión", "format": "paragraph" },
+    { "title": "Temas Discutidos", "instruction": "Organiza por temas, no cronológicamente; usa subsecciones ### con hallazgos, problemas, opiniones, datos y herramientas involucradas", "format": "paragraph" },
+    { "title": "Decisiones Tomadas", "instruction": "Lista decisiones concretas; si no hubo decisiones formales, indícalo explícitamente", "format": "list" },
+    { "title": "Compromisos y Próximos Pasos", "instruction": "Usa listas de verificación de Notion con responsable, tarea clara y el contexto del acuerdo", "format": "list", "item_format": "- [ ] @Responsable — Descripción clara de la tarea. _(Contexto: por qué se acordó)_" },
+    { "title": "Riesgos, Bloqueos o Pendientes", "instruction": "Incluye sólo riesgos o bloqueos mencionados y su impacto o urgencia si se indicó; omite esta sección si no aplica", "format": "list" },
+    { "title": "Puntos sin Resolver", "instruction": "Lista asuntos abiertos, sin decisión o que requieren seguimiento; marca incertidumbres como [Por confirmar]", "format": "list" }
   ]
 }
