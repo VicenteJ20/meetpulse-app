@@ -57,9 +57,9 @@ export function SummaryUpdaterButtonGroup({
         )}
       </Button>
 
-      <Button variant="outline" size="sm" title={isSavedToWiki ? 'Saved to Wiki' : 'Save this note to Wiki'} onClick={onSaveToWiki} disabled={!hasSummary || isSavingToWiki || isSavedToWiki} className="cursor-pointer">
+      <Button variant="outline" size="sm" title={isSavedToWiki ? 'Saved to Wiki' : 'Choose a Wiki destination'} onClick={onSaveToWiki} disabled={!hasSummary || isSavingToWiki || isSavedToWiki} className="cursor-pointer">
         {isSavingToWiki ? <Loader2 className="animate-spin" /> : <BookOpen />}
-        <span className="hidden lg:inline">{isSavedToWiki ? 'Saved to Wiki' : 'Save to Wiki'}</span>
+        <span className="hidden lg:inline">{isSavedToWiki ? 'Saved to Wiki' : 'Choose Wiki'}</span>
       </Button>
 
       {/* Copy button */}

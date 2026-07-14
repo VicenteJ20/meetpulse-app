@@ -1,4 +1,4 @@
-import type { WikiConfig } from './wiki-config';
+import { getWikiConfig, type WikiConfig } from './wiki-config';
 import { currentGoogleSession } from './auth-service';
 
 export interface WikiSummary { tenant_id: string; client_count: number; project_count: number; source_count: number; wiki_page_count: number; last_activity_at: string | null; }
@@ -9,9 +9,21 @@ export interface WikiDocumentContent extends WikiDocument { content_markdown: st
 export interface WikiIngestInput { clientId: string; projectId: string; title: string; dateTime: string; participants: string[]; markdown: string; }
 export interface Paginated<T> { total: number; items: T[]; limit: number; offset: number; }
 export interface WikiActivity { timestamp: string; client_id?: string; project_id?: string; [key: string]: unknown; }
+export interface WikiTenant { tenant_id: string; display_name: string; role: 'owner' | 'guest'; }
 
 export class WikiApiError extends Error {
   constructor(message: string, public readonly status?: number) { super(message); }
+}
+
+export async function listWikiTenants(): Promise<WikiTenant[]> {
+  const session = await currentGoogleSession();
+  if (!session) throw new WikiApiError('Sign in with Google before accessing the Wiki.', 401);
+  const baseUrl = getWikiConfig().baseUrl;
+  let response: Response;
+  try { response = await fetch(new URL('/api/v1/tenants', baseUrl), { headers: { authorization: `Bearer ${session.idToken}` } }); }
+  catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
+  if (!response.ok) throw new WikiApiError(`Unable to load Wiki tenants (${response.status}).`, response.status);
+  return ((await response.json()) as { items?: WikiTenant[] }).items || [];
 }
 
 export class WikiApi {

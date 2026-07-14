@@ -18,7 +18,8 @@ import { useCopyOperations } from '@/hooks/meeting-details/useCopyOperations';
 import { useMeetingOperations } from '@/hooks/meeting-details/useMeetingOperations';
 import { useConfig } from '@/contexts/ConfigContext';
 import { getWikiConfig } from '@/services/wiki-config';
-import { WikiApi, WikiApiError } from '@/services/wiki-api';
+import { WikiApi, WikiApiError, listWikiTenants, type WikiTenant } from '@/services/wiki-api';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function PageContent({
   meeting,
@@ -63,6 +64,9 @@ export default function PageContent({
   const [summaryResponse] = useState<SummaryResponse | null>(null);
   const [isSavingToWiki, setIsSavingToWiki] = useState(false);
   const [isSavedToWiki, setIsSavedToWiki] = useState(false);
+  const [wikiTenantPickerOpen, setWikiTenantPickerOpen] = useState(false);
+  const [wikiTenants, setWikiTenants] = useState<WikiTenant[]>([]);
+  const [selectedWikiTenant, setSelectedWikiTenant] = useState('');
   const { serverAddress, refetchMeetings } = useSidebar();
 
   useEffect(() => {
@@ -169,9 +173,20 @@ export default function PageContent({
     meeting,
   });
 
+  const openWikiTenantPicker = async () => {
+    try {
+      const tenants = await listWikiTenants();
+      if (!tenants.length) { toast.error('Create or join a Wiki tenant before saving notes.'); return; }
+      const configured = getWikiConfig().tenantId;
+      setWikiTenants(tenants);
+      setSelectedWikiTenant(tenants.some(tenant => tenant.tenant_id === configured) ? configured : tenants[0].tenant_id);
+      setWikiTenantPickerOpen(true);
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Unable to load Wiki tenants'); }
+  };
+
   const handleSaveToWiki = async () => {
-    const config = getWikiConfig();
-    if (!config.tenantId) { toast.error('Configure a Wiki tenant in Settings first'); return; }
+    if (!selectedWikiTenant) return;
+    const config = { ...getWikiConfig(), tenantId: selectedWikiTenant };
     if (!client.trim() || !project.trim()) { toast.error('Add both client and project before saving this note to Wiki'); return; }
     setIsSavingToWiki(true);
     try {
@@ -232,6 +247,7 @@ export default function PageContent({
   }, [shouldAutoGenerate, meeting.id]); // Re-run if meeting changes
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -299,11 +315,29 @@ export default function PageContent({
           onTemplateSelect={templates.handleTemplateSelection}
           isModelConfigLoading={false}
           onOpenModelSettings={handleRegisterModalOpen}
-          onSaveToWiki={handleSaveToWiki}
+          onSaveToWiki={openWikiTenantPicker}
           isSavingToWiki={isSavingToWiki}
           isSavedToWiki={isSavedToWiki}
         />
       </div>
     </motion.div>
+    <Dialog open={wikiTenantPickerOpen} onOpenChange={setWikiTenantPickerOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Save note to Wiki</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600">Choose the workspace that should receive this meeting note.</p>
+          <select value={selectedWikiTenant} onChange={event => setSelectedWikiTenant(event.target.value)} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm">
+            {wikiTenants.map(tenant => <option key={tenant.tenant_id} value={tenant.tenant_id}>{tenant.display_name || tenant.tenant_id} · {tenant.role === 'owner' ? 'Propietario' : 'Invitado'}</option>)}
+          </select>
+        </div>
+        <DialogFooter>
+          <button onClick={() => setWikiTenantPickerOpen(false)} className="rounded-md border px-3 py-2 text-sm">Cancel</button>
+          <button onClick={() => { setWikiTenantPickerOpen(false); handleSaveToWiki(); }} disabled={!selectedWikiTenant || isSavingToWiki} className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">Save to selected Wiki</button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

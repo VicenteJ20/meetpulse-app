@@ -436,13 +436,12 @@ const Sidebar: React.FC = () => {
     if (!isCollapsed) return null;
 
     const isHomePage = pathname === '/';
-    const isMeetingPage = pathname?.includes('/meeting-details');
     const isSettingsPage = pathname === '/settings';
     const isWikiPage = pathname === '/wiki';
 
     return (
       <TooltipProvider>
-        <div className="flex flex-col items-center space-y-4 mt-4">
+        <div className="flex h-full flex-col items-center gap-4 py-4">
           <Logo isCollapsed={isCollapsed} />
 
           <Tooltip>
@@ -462,11 +461,27 @@ const Sidebar: React.FC = () => {
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={handleSignOut} className="p-2 rounded-lg transition-colors duration-150 hover:bg-gray-100" aria-label="Sign out">
-                <LogOut className="w-5 h-5 text-gray-600" />
+              <button
+                onClick={() => router.push('/')}
+                className={`p-2 rounded-lg transition-colors duration-150 ${isHomePage ? 'bg-gray-100' : 'hover:bg-gray-100'}`}
+              >
+                <Home className="w-5 h-5 text-gray-600" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right"><p>Sign out</p></TooltipContent>
+            <TooltipContent side="right"><p>Home</p></TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleRecordingToggle}
+                disabled={isRecording}
+                className={`p-2 ${isRecording ? 'bg-red-700 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700'} rounded-full transition-colors duration-150 shadow-sm`}
+              >
+                {isRecording ? <Square className="w-5 h-5 text-white" /> : <Mic className="w-5 h-5 text-white" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right"><p>{isRecording ? 'Recording in progress...' : 'Start Recording'}</p></TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -479,58 +494,6 @@ const Sidebar: React.FC = () => {
               </button>
             </TooltipTrigger>
             <TooltipContent side="right"><p>Wiki</p></TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => router.push('/')}
-                className={`p-2 rounded-lg transition-colors duration-150 ${isHomePage ? 'bg-gray-100' : 'hover:bg-gray-100'
-                  }`}
-              >
-                <Home className="w-5 h-5 text-gray-600" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Home</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={handleRecordingToggle}
-                disabled={isRecording}
-                className={`p-2 ${isRecording ? 'bg-red-700 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700'} rounded-full transition-colors duration-150 shadow-sm`}
-              >
-                {isRecording ? (
-                  <Square className="w-5 h-5 text-white" />
-                ) : (
-                  <Mic className="w-5 h-5 text-white" />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>{isRecording ? "Recording in progress..." : "Start Recording"}</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => {
-                  if (isCollapsed) toggleCollapse();
-                  toggleFolder('meetings');
-                }}
-                className={`p-2 rounded-lg transition-colors duration-150 ${isMeetingPage ? 'bg-gray-100' : 'hover:bg-gray-100'
-                  }`}
-              >
-                <NotebookPen className="w-5 h-5 text-gray-600" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Meeting Notes</p>
-            </TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -549,6 +512,16 @@ const Sidebar: React.FC = () => {
           </Tooltip>
 
           <Info isCollapsed={isCollapsed} />
+          <div className="mt-auto">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={handleSignOut} className="rounded-lg p-2 transition-colors duration-150 hover:bg-gray-100" aria-label="Sign out">
+                  <LogOut className="w-5 h-5 text-gray-600" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right"><p>Sign out</p></TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       </TooltipProvider>
     );
