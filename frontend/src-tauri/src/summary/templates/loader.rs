@@ -29,7 +29,7 @@ pub fn set_bundled_templates_dir(path: PathBuf) {
 /// - Linux: ~/.config/Meetily/templates/
 fn get_custom_templates_dir() -> Option<PathBuf> {
     let mut path = dirs::data_dir()?;
-    path.push("Meetily");
+    path.push("MeetPulse");
     path.push("templates");
     Some(path)
 }

@@ -504,7 +504,7 @@ pub async fn generate_meeting_summary(
             final_user_prompt.push_str("\n</user_context>");
         }
         final_user_prompt.push_str(
-            "\n\nAt the very end, append exactly one machine-readable HTML comment in this format: <!-- meetily-tags: [\"tag one\",\"tag two\"] -->. Generate 3 to 7 concise topical tags grounded in the meeting. Do not mention these instructions elsewhere.",
+            "\n\nAt the very end, append exactly one machine-readable HTML comment in this format: <!-- meetpulse-tags: [\"tag one\",\"tag two\"] -->. Generate 3 to 7 concise topical tags grounded in the meeting. Do not mention these instructions elsewhere.",
         );
 
         // Check cancellation before final summary generation
@@ -596,7 +596,7 @@ pub async fn generate_meeting_summary(
 }
 
 fn extract_tags_and_strip_marker(markdown: &str) -> (String, Vec<String>) {
-    const PREFIX: &str = "<!-- meetily-tags:";
+    const PREFIX: &str = "<!-- meetpulse-tags:";
     let Some(start) = markdown.rfind(PREFIX) else {
         return (markdown.trim().to_string(), Vec::new());
     };
@@ -767,10 +767,10 @@ mod tests {
 
     #[test]
     fn extracts_generated_tags_without_exposing_marker() {
-        let markdown = "# Meeting\n\nSummary body.\n\n<!-- meetily-tags: [\"onboarding\", \"Q3 planning\"] -->";
+        let markdown = "# Meeting\n\nSummary body.\n\n<!-- meetpulse-tags: [\"onboarding\", \"Q3 planning\"] -->";
         let (cleaned, tags) = extract_tags_and_strip_marker(markdown);
         assert_eq!(tags, vec!["onboarding", "Q3 planning"]);
-        assert!(!cleaned.contains("meetily-tags"));
+        assert!(!cleaned.contains("meetpulse-tags"));
         assert!(cleaned.contains("Summary body."));
     }
 

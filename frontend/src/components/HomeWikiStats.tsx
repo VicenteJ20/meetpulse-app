@@ -4,13 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BookOpen, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
-import { getWikiConfig, type WikiConfig } from '@/services/wiki-config';
+import { DEFAULT_WIKI_CONFIG, getWikiConfig, type WikiConfig } from '@/services/wiki-config';
 import { WikiApi, type WikiSummary } from '@/services/wiki-api';
 
 export function HomeWikiStats() {
   const router = useRouter();
   const { meetings } = useSidebar();
-  const [config, setConfig] = useState<WikiConfig>({ baseUrl: 'http://localhost:8000', tenantId: '' });
+  const [config, setConfig] = useState<WikiConfig>(DEFAULT_WIKI_CONFIG);
   const [summary, setSummary] = useState<WikiSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const local = useMemo(() => {

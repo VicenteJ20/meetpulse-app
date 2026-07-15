@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Building2, ChevronRight, Clipboard, FileText, FolderKanban, Loader2, RefreshCw, Search, Settings, Sparkles, FileCheck2, Users, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getWikiConfig, type WikiConfig } from '@/services/wiki-config';
+import { DEFAULT_WIKI_CONFIG, getWikiConfig, type WikiConfig } from '@/services/wiki-config';
 import { WikiApi, WikiApiError, type WikiActivity, type WikiClient, type WikiDocument, type WikiDocumentContent, type WikiProject, type WikiSummary } from '@/services/wiki-api';
 import { BlockNoteSummaryView, type BlockNoteSummaryViewRef } from '@/components/AISummary/BlockNoteSummaryView';
 import { WikiTenantControls } from '@/components/WikiTenantControls';
@@ -12,7 +12,7 @@ const formatDate = (value: string | null | undefined) => value ? new Date(value)
 
 export default function WikiPage() {
   const router = useRouter();
-  const [config, setConfig] = useState<WikiConfig>({ baseUrl: 'http://localhost:8000', tenantId: '' });
+  const [config, setConfig] = useState<WikiConfig>(DEFAULT_WIKI_CONFIG);
   const [summary, setSummary] = useState<WikiSummary | null>(null);
   const [clients, setClients] = useState<WikiClient[]>([]);
   const [projects, setProjects] = useState<WikiProject[]>([]);

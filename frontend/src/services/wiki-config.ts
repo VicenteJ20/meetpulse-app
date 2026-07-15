@@ -4,7 +4,12 @@ export interface WikiConfig {
 }
 
 const STORAGE_KEY = 'meetpulse.wiki.config';
-export const DEFAULT_WIKI_CONFIG: WikiConfig = { baseUrl: 'http://localhost:8000', tenantId: '' };
+const DEFAULT_WIKI_API_URL = 'https://meetpulse-wiki.vercel.app';
+
+export const DEFAULT_WIKI_CONFIG: WikiConfig = {
+  baseUrl: (process.env.NEXT_PUBLIC_WIKI_API_URL || DEFAULT_WIKI_API_URL).trim().replace(/\/$/, ''),
+  tenantId: '',
+};
 
 export function getWikiConfig(): WikiConfig {
   if (typeof window === 'undefined') return DEFAULT_WIKI_CONFIG;
