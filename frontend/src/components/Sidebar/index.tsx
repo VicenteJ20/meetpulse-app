@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, BookOpen, LogOut } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronRightCircle, File, Settings, PanelLeftClose, PanelLeftOpen, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Pencil, SearchIcon, X, BookOpen, LogOut, Info as InfoIcon } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar } from './SidebarProvider';
 import type { CurrentMeeting } from '@/components/Sidebar/SidebarProvider';
@@ -30,6 +30,8 @@ import Info from '../Info';
 import { ComplianceNotification } from '../ComplianceNotification';
 import { Input } from '../ui/input';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { APP_NAME, APP_VERSION } from '@/config/app';
 
 interface SidebarItem {
   id: string;
@@ -61,6 +63,7 @@ const Sidebar: React.FC = () => {
   // Get recording state from RecordingStateContext (single source of truth)
   const { isRecording } = useRecordingState();
   const { signOut } = useAuth();
+  const { t } = useTranslation();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['meetings']));
   const initializedClientFolders = useRef<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -653,148 +656,113 @@ const Sidebar: React.FC = () => {
     );
   };
 
-  return (
-    <div className="fixed top-0 left-0 h-screen z-40">
-      <div
-        className={`relative h-screen border-r border-slate-200/80 bg-[#f8fbff]/95 shadow-[12px_0_42px_-30px_rgba(15,23,42,0.35)] backdrop-blur-xl flex flex-col transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'
+  const railItem = (
+    label: string,
+    Icon: typeof Home,
+    onClick: () => void,
+    active = false,
+    emphasis: 'default' | 'recording' = 'default',
+  ) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={onClick}
+          aria-label={label}
+          className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition ${
+            emphasis === 'recording'
+              ? 'bg-recording text-recording-foreground shadow-lg shadow-red-950/20 hover:brightness-105'
+              : active
+                ? 'bg-white/12 text-white'
+                : 'text-[hsl(var(--sidebar-foreground))] hover:bg-white/8 hover:text-white'
           }`}
+        >
+          {active && emphasis === 'default' && <span className="absolute -left-[14px] h-5 w-1 rounded-r-full bg-[hsl(var(--sidebar-active))]" />}
+          <Icon className="h-[18px] w-[18px]" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  );
+
+  return (
+    <>
+      <TooltipProvider>
+        <nav className="z-40 flex h-screen min-h-0 flex-col items-center border-r border-white/5 bg-[hsl(var(--sidebar))] px-3 py-3">
+          <Logo isCollapsed />
+          <div className="mt-4 flex flex-col items-center gap-2">
+            {railItem(t('nav.home'), Home, () => router.push('/'), pathname === '/')}
+            {railItem(
+              isRecording ? t('recording.active') : t('recording.start'),
+              isRecording ? Square : Mic,
+              handleRecordingToggle,
+              false,
+              'recording',
+            )}
+            {railItem(t('nav.meetings'), isCollapsed ? PanelLeftOpen : PanelLeftClose, toggleCollapse, !isCollapsed)}
+            {railItem(t('nav.wiki'), BookOpen, () => router.push('/wiki'), pathname === '/wiki')}
+            {railItem(t('nav.settings'), Settings, () => router.push('/settings'), pathname === '/settings')}
+          </div>
+          <div className="mt-auto flex flex-col items-center gap-2">
+            {railItem(t('nav.about'), InfoIcon, () => {
+              document.querySelector<HTMLButtonElement>('button[title="About MeetPulse"]')?.click();
+            })}
+            {railItem(t('nav.signOut'), LogOut, handleSignOut)}
+          </div>
+          <div className="hidden"><Info isCollapsed ref={undefined} /></div>
+        </nav>
+      </TooltipProvider>
+
+      <aside
+        className={`z-30 flex h-screen min-w-0 flex-col overflow-hidden border-r border-border/80 bg-card/95 backdrop-blur-xl transition-[width,opacity,transform] duration-300 ${
+          isCollapsed ? 'pointer-events-none w-0 -translate-x-3 opacity-0' : 'w-[19rem] translate-x-0 opacity-100'
+        }`}
       >
-        {/*  Header with traffic light spacing */}
-        <div className="flex-shrink-0 h-22 flex items-center">
-
-          {/* Title container */}
-
-
-
-          <div className="flex-1">
-            {!isCollapsed && (
-              <div className="p-3 pb-4">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <Logo isCollapsed={isCollapsed} />
-                  </div>
-                  <button
-                    onClick={toggleCollapse}
-                    className="flex-none rounded-full border border-slate-200 bg-white p-1 text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
-                    aria-label="Collapse sidebar"
-                  >
-                    <ChevronLeftCircle className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="relative">
-                  <InputGroup >
-                    <InputGroupInput placeholder='Search meeting content...' value={searchQuery}
-                      onChange={(e) => handleSearchChange(e.target.value)}
-                    />
-                    <InputGroupAddon>
-                      <SearchIcon />
-                    </InputGroupAddon>
-                    {searchQuery &&
-                      <InputGroupAddon align={'inline-end'}>
-                        <InputGroupButton
-                          onClick={() => handleSearchChange('')}
-                        >
-                          <X />
-                        </InputGroupButton>
-                      </InputGroupAddon>
-                    }
-                  </InputGroup>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Main content - scrollable area */}
-        <div className="flex-1 flex flex-col min-h-0">
-          {/* Fixed navigation items */}
-          <div className="flex-shrink-0">
-            {!isCollapsed && (
-              <>
-                <div onClick={() => router.push('/')} className={`p-3 text-lg font-semibold items-center hover:bg-gray-100 h-10 flex mx-3 mt-3 rounded-lg cursor-pointer ${pathname === '/' ? 'bg-gray-100' : ''}`}><Home className="w-4 h-4 mr-2" /><span>Home</span></div>
-                <div onClick={() => router.push('/wiki')} className={`p-3 text-lg font-semibold items-center hover:bg-gray-100 h-10 flex mx-3 mt-2 rounded-lg cursor-pointer ${pathname === '/wiki' ? 'bg-gray-100' : ''}`}><BookOpen className="w-4 h-4 mr-2" /><span>Wiki</span></div>
-              </>
-            )}
-          </div>
-
-          {/* Content area */}
-          <div className="flex-1 flex flex-col min-h-0">
-            {renderCollapsedIcons()}
-            {/* Meeting Notes folder header - fixed */}
-            {!isCollapsed && (
-              <div className="flex-shrink-0">
-                {filteredSidebarItems.filter(item => item.type === 'folder').map(item => (
-                  <div key={item.id}>
-                    <div
-                      className="flex items-center transition-all duration-150 p-3 text-lg font-semibold h-10 mx-3 mt-3 rounded-lg"
-                    >
-                      <NotebookPen className="w-4 h-4 mr-2 text-gray-600" />
-                      <span className="text-gray-700">{item.title}</span>
-                      {searchQuery && item.id === 'meetings' && isSearching && (
-                        <span className="ml-2 text-xs text-blue-500 animate-pulse">Searching...</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Scrollable meeting items */}
-            {!isCollapsed && (
-              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
-                {filteredSidebarItems
-                  .filter(item => item.type === 'folder' && expandedFolders.has(item.id) && item.children)
-                  .map(item => (
-                    <div key={`${item.id}-children`} className="mx-3">
-                      {item.children!.map(child => renderItem(child, 1))}
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        {!isCollapsed && (
-
-          <div className="flex-shrink-0 p-2 border-t border-gray-100">
-            <button
-              onClick={handleRecordingToggle}
-              disabled={isRecording}
-              className={`w-full flex items-center justify-center px-3 py-2 text-sm font-medium text-white ${isRecording ? 'bg-red-700 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800'} rounded-lg transition-colors shadow-sm`}
-            >
-              {isRecording ? (
-                <>
-                  <Square className="w-4 h-4 mr-2" />
-                  <span>Recording in progress...</span>
-                </>
-              ) : (
-                <>
-                  <Mic className="w-4 h-4 mr-2" />
-                  <span>Start Recording</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={() => router.push('/settings')}
-              className="w-full flex items-center justify-center px-3 py-1.5 mt-1 mb-1 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors shadow-sm"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              <span>Settings</span>
-            </button>
-            <button onClick={handleSignOut} className="w-full flex items-center justify-center px-3 py-1.5 mb-1 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-              <LogOut className="w-4 h-4 mr-2" />
-              <span>Sign out</span>
-            </button>
-            <Info isCollapsed={isCollapsed} />
-            <div className="w-full flex items-center justify-center px-3 py-1 text-xs text-gray-400">
-              v0.4.0
+        <header className="border-b border-border/70 px-4 pb-4 pt-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t('nav.meetings')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{meetings.length} {meetings.length === 1 ? 'meeting' : 'meetings'}</p>
             </div>
+            <button onClick={toggleCollapse} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={t('nav.collapseMeetings')}>
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
           </div>
-        )}
-      </div>
+          <InputGroup>
+            <InputGroupAddon><SearchIcon /></InputGroupAddon>
+            <InputGroupInput
+              placeholder={t('nav.searchMeetings')}
+              value={searchQuery}
+              onChange={event => handleSearchChange(event.target.value)}
+            />
+            {searchQuery && <InputGroupAddon align="inline-end"><InputGroupButton onClick={() => handleSearchChange('')}><X /></InputGroupButton></InputGroupAddon>}
+          </InputGroup>
+        </header>
+
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-2 py-3">
+          {meetings.length === 0 && !searchQuery ? (
+            <div className="px-5 py-10 text-center">
+              <Calendar className="mx-auto h-7 w-7 text-muted-foreground/50" />
+              <p className="mt-3 text-sm text-muted-foreground">{t('nav.noMeetings')}</p>
+            </div>
+          ) : (
+            filteredSidebarItems
+              .filter(item => item.type === 'folder' && expandedFolders.has(item.id) && item.children)
+              .map(item => <div key={`${item.id}-children`}>{item.children!.map(child => renderItem(child, 0))}</div>)
+          )}
+        </div>
+
+        <footer className="border-t border-border/70 p-3">
+          <button
+            onClick={handleRecordingToggle}
+            disabled={isRecording}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-foreground px-3 py-2.5 text-sm font-semibold text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            {isRecording ? t('recording.active') : t('recording.new')}
+          </button>
+          <p className="mt-3 text-center text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{APP_NAME} · v{APP_VERSION}</p>
+        </footer>
+      </aside>
 
       {/* Confirmation Modal for Delete */}
       <ConfirmationModal
@@ -854,7 +822,7 @@ const Sidebar: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 };
 

@@ -28,12 +28,14 @@ function normalizeSession(session: NativeGoogleSession | null): GoogleSession | 
   };
 }
 
+const REFRESH_SKEW_MS = 60_000;
+
 function isUsable(session: GoogleSession): boolean {
-  return session.expiresAt === 0 || session.expiresAt * 1000 > Date.now() + 30_000;
+  return session.expiresAt === 0 || session.expiresAt * 1000 > Date.now() + REFRESH_SKEW_MS;
 }
 
-export async function currentGoogleSession(): Promise<GoogleSession | null> {
-  if (sessionCache !== undefined && (sessionCache === null || isUsable(sessionCache))) return sessionCache;
+export async function currentGoogleSession(options: { forceRefresh?: boolean } = {}): Promise<GoogleSession | null> {
+  if (!options.forceRefresh && sessionCache !== undefined && (sessionCache === null || isUsable(sessionCache))) return sessionCache;
   if (!sessionLoad) {
     const generation = sessionGeneration;
     sessionLoad = invoke<NativeGoogleSession | null>('get_google_auth_token', {
@@ -48,6 +50,11 @@ export async function currentGoogleSession(): Promise<GoogleSession | null> {
       .finally(() => { sessionLoad = null; });
   }
   return sessionLoad;
+}
+
+export function googleSessionRefreshDelay(session: GoogleSession): number | null {
+  if (!session.expiresAt) return null;
+  return Math.max(0, session.expiresAt * 1000 - Date.now() - REFRESH_SKEW_MS);
 }
 
 export async function signInWithGoogle(): Promise<GoogleSession> {

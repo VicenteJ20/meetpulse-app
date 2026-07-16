@@ -78,26 +78,37 @@
 
 @layer base {
   :root {
-    --background: 215 45% 98%;
-    --foreground: 222 47% 11%;
+    --background: 220 27% 97%;
+    --foreground: 222 35% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 222 35% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 222 47% 14%;
+    --popover-foreground: 222 35% 12%;
+    --primary: 222 38% 14%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 214 42% 95%;
-    --secondary-foreground: 222 47% 16%;
-    --muted: 214 35% 95%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 213 92% 95%;
-    --accent-foreground: 222 47% 16%;
+    --secondary: 216 24% 94%;
+    --secondary-foreground: 222 35% 16%;
+    --muted: 216 24% 94%;
+    --muted-foreground: 217 13% 43%;
+    --accent: 213 70% 94%;
+    --accent-foreground: 215 70% 25%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 214 32% 89%;
-    --input: 214 32% 89%;
-    --ring: 217 91% 60%;
-    --radius: 0.75rem;
+    --border: 216 22% 87%;
+    --input: 216 22% 87%;
+    --ring: 215 90% 55%;
+    --brand: 215 90% 52%;
+    --brand-foreground: 0 0% 100%;
+    --recording: 4 82% 57%;
+    --recording-foreground: 0 0% 100%;
+    --success: 153 60% 38%;
+    --warning: 37 92% 48%;
+    --surface-raised: 0 0% 100%;
+    --surface-subtle: 218 30% 96%;
+    --sidebar: 222 32% 12%;
+    --sidebar-foreground: 215 22% 78%;
+    --sidebar-active: 215 88% 60%;
+    --radius: 0.875rem;
     --chart-1: 217 91% 60%;
     --chart-2: 189 94% 43%;
     --chart-3: 222 47% 24%;
@@ -106,25 +117,36 @@
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 222 27% 8%;
+    --foreground: 214 30% 94%;
+    --card: 222 24% 11%;
+    --card-foreground: 214 30% 94%;
+    --popover: 222 24% 11%;
+    --popover-foreground: 214 30% 94%;
+    --primary: 214 30% 94%;
+    --primary-foreground: 222 27% 8%;
+    --secondary: 220 20% 16%;
+    --secondary-foreground: 214 25% 90%;
+    --muted: 220 20% 16%;
+    --muted-foreground: 216 14% 64%;
+    --accent: 215 35% 20%;
+    --accent-foreground: 211 75% 82%;
+    --destructive: 0 65% 48%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --border: 220 18% 20%;
+    --input: 220 18% 22%;
+    --ring: 215 90% 62%;
+    --brand: 215 90% 62%;
+    --brand-foreground: 222 35% 10%;
+    --recording: 4 82% 62%;
+    --recording-foreground: 0 0% 100%;
+    --success: 153 55% 48%;
+    --warning: 37 90% 58%;
+    --surface-raised: 222 24% 11%;
+    --surface-subtle: 222 22% 13%;
+    --sidebar: 224 30% 6%;
+    --sidebar-foreground: 216 18% 72%;
+    --sidebar-active: 215 90% 65%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -141,9 +163,18 @@
   /* html, */
   body {
     @apply bg-background text-foreground;
-    background-image: radial-gradient(circle at 100% 0%, rgba(191, 219, 254, 0.34), transparent 32%), radial-gradient(circle at 0% 100%, rgba(207, 250, 254, 0.3), transparent 28%);
+    background-image:
+      radial-gradient(circle at 100% 0%, hsl(var(--brand) / 0.09), transparent 28rem),
+      radial-gradient(circle at 0% 100%, hsl(188 75% 48% / 0.06), transparent 24rem);
     overflow: hidden;
     height: 100%;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 
   /* Make the window draggable */
@@ -214,9 +245,51 @@
   }
 
   .meetpulse-surface {
-    background: rgba(255, 255, 255, 0.84);
-    border: 1px solid rgba(203, 213, 225, 0.72);
-    box-shadow: 0 18px 45px -32px rgba(15, 23, 42, 0.34);
+    background: hsl(var(--card) / 0.9);
+    border: 1px solid hsl(var(--border) / 0.82);
+    box-shadow: 0 18px 48px -32px hsl(222 40% 8% / 0.45);
+  }
+
+  .product-surface {
+    @apply rounded-2xl border border-border/80 bg-card text-card-foreground;
+    box-shadow: 0 1px 2px hsl(222 40% 8% / 0.04), 0 18px 50px -36px hsl(222 40% 8% / 0.34);
+  }
+
+  .product-surface-interactive {
+    @apply transition duration-200 hover:-translate-y-0.5 hover:border-brand/30;
+    box-shadow: 0 1px 2px hsl(222 40% 8% / 0.04), 0 18px 50px -36px hsl(222 40% 8% / 0.34);
+  }
+
+  .text-brand {
+    color: hsl(var(--brand));
+  }
+
+  .bg-brand {
+    background: hsl(var(--brand));
+    color: hsl(var(--brand-foreground));
+  }
+
+  .app-shell {
+    display: grid;
+    grid-template-columns: 4.25rem auto minmax(0, 1fr);
+    height: 100vh;
+    transition: grid-template-columns 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .app-shell-content {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  @media (max-width: 860px) {
+    .app-shell,
+    .app-shell[data-panel-open="true"] {
+      grid-template-columns: 4.25rem minmax(0, 1fr);
+    }
+
+    .app-shell-content {
+      grid-column: 2;
+    }
   }
 
   .meeting-summary-editor {

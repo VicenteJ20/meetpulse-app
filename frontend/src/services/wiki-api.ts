@@ -22,6 +22,12 @@ export async function listWikiTenants(): Promise<WikiTenant[]> {
   let response: Response;
   try { response = await fetch(new URL('/api/v1/tenants', baseUrl), { headers: { authorization: `Bearer ${session.idToken}` } }); }
   catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
+  if (response.status === 401) {
+    const refreshed = await currentGoogleSession({ forceRefresh: true });
+    if (!refreshed) throw new WikiApiError('Sign in with Google before accessing the Wiki.', 401);
+    try { response = await fetch(new URL('/api/v1/tenants', baseUrl), { headers: { authorization: `Bearer ${refreshed.idToken}` } }); }
+    catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
+  }
   if (!response.ok) throw new WikiApiError(`Unable to load Wiki tenants (${response.status}).`, response.status);
   return ((await response.json()) as { items?: WikiTenant[] }).items || [];
 }
@@ -42,6 +48,12 @@ export class WikiApi {
     let response: Response;
     try { response = await fetch(this.url(path, params), { ...init, headers: { authorization: `Bearer ${session.idToken}`, ...(init.headers || {}) } }); }
     catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
+    if (response.status === 401) {
+      const refreshed = await currentGoogleSession({ forceRefresh: true });
+      if (!refreshed) throw new WikiApiError('Sign in with Google before accessing the Wiki.', 401);
+      try { response = await fetch(this.url(path, params), { ...init, headers: { authorization: `Bearer ${refreshed.idToken}`, ...(init.headers || {}) } }); }
+      catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
+    }
     if (!response.ok) {
       let detail = `Wiki API request failed (${response.status}).`;
       try { const body = await response.json(); detail = typeof body.detail === 'string' ? body.detail : detail; } catch { /* response has no JSON body */ }

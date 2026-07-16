@@ -1,138 +1,67 @@
 'use client';
 
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { ArrowLeft, Settings2, Mic, Database as DatabaseIcon, SparkleIcon, FlaskConical, BookOpen } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import { BookOpen, Database as DatabaseIcon, FlaskConical, Mic, Settings2, Sparkles } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { motion } from 'framer-motion';
 import { TranscriptSettings } from '@/components/TranscriptSettings';
 import { RecordingSettings } from '@/components/RecordingSettings';
 import { PreferenceSettings } from '@/components/PreferenceSettings';
 import { SummaryModelSettings } from '@/components/SummaryModelSettings';
 import { BetaSettings } from '@/components/BetaSettings';
 import { useConfig } from '@/contexts/ConfigContext';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WikiSettings } from '@/components/WikiSettings';
-
-// Tabs configuration (constant)
-const TABS = [
-  { value: 'general', label: 'General', icon: Settings2 },
-  { value: 'recording', label: 'Recordings', icon: Mic },
-  { value: 'Transcriptionmodels', label: 'Transcription', icon: DatabaseIcon },
-  { value: 'summaryModels', label: 'Summary', icon: SparkleIcon },
-  { value: 'beta', label: 'Beta', icon: FlaskConical },
-  { value: 'wiki', label: 'Wiki', icon: BookOpen }
-] as const;
+import { PageHeader, Surface } from '@/components/ui/product';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 export default function SettingsPage() {
-  const router = useRouter();
+  const { t } = useTranslation();
   const { transcriptModelConfig, setTranscriptModelConfig } = useConfig();
-
-  // Animation state for tabs
   const [activeTab, setActiveTab] = useState('general');
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
 
-  // Load saved transcript configuration on mount
   useEffect(() => {
-    const loadTranscriptConfig = async () => {
-      try {
-        const config = await invoke('api_get_transcript_config') as any;
-        if (config) {
-          console.log('Loaded saved transcript config:', config);
-          setTranscriptModelConfig({
-            provider: config.provider || 'localWhisper',
-            model: config.model || 'large-v3',
-            apiKey: config.apiKey || null
-          });
-        }
-      } catch (error) {
-        console.error('Failed to load transcript config:', error);
-      }
-    };
-    loadTranscriptConfig();
+    invoke<any>('api_get_transcript_config').then(config => {
+      if (config) setTranscriptModelConfig({ provider: config.provider || 'localWhisper', model: config.model || 'large-v3', apiKey: config.apiKey || null });
+    }).catch(error => console.error('Failed to load transcript config:', error));
   }, [setTranscriptModelConfig]);
 
-  // Update underline position when active tab changes
-  useLayoutEffect(() => {
-    const activeIndex = TABS.findIndex(tab => tab.value === activeTab);
-    const activeTabElement = tabRefs.current[activeIndex];
-
-    if (activeTabElement) {
-      const { offsetLeft, offsetWidth } = activeTabElement;
-      setUnderlineStyle({ left: offsetLeft, width: offsetWidth });
-    }
-  }, [activeTab]);
+  const tabs = [
+    { value: 'general', label: t('settings.general'), icon: Settings2 },
+    { value: 'recording', label: t('settings.recording'), icon: Mic },
+    { value: 'transcription', label: t('settings.transcription'), icon: DatabaseIcon },
+    { value: 'summary', label: t('settings.summary'), icon: Sparkles },
+    { value: 'wiki', label: t('settings.wiki'), icon: BookOpen },
+    { value: 'beta', label: t('settings.beta'), icon: FlaskConical },
+  ];
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
-      {/* Fixed Header */}
-      <div className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-8 py-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.back()}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back</span>
-            </button>
-            <h1 className="text-3xl font-bold">Settings</h1>
-          </div>
-        </div>
-      </div>
-
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto p-8 pt-6">
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="bg-transparent relative rounded-none border-b border-gray-200 p-0 h-auto">
-              {TABS.map((tab, index) => {
-                const Icon = tab.icon;
-                return (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    ref={el => { tabRefs.current[index] = el }}
-                    className="flex items-center gap-2 px-6 py-4 bg-transparent rounded-none border-0 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none text-gray-600 hover:text-gray-900 relative z-10"
-                  >
-                    <Icon className="w-4 h-4" />
-                    {tab.label}
-                  </TabsTrigger>
-                );
-              })}
-
-              <motion.div
-                className="absolute bottom-0 z-20 h-0.5 bg-blue-600"
-                layoutId="underline"
-                style={{ left: underlineStyle.left, width: underlineStyle.width }}
-                transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-              />
+    <main className="custom-scrollbar h-screen overflow-y-auto">
+      <div className="mx-auto max-w-[1280px] px-6 py-7 lg:px-10 lg:py-9">
+        <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
+        <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical" className="mt-8 grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+          <Surface className="sticky top-7 overflow-hidden p-2">
+            <TabsList className="flex h-auto w-full flex-col items-stretch gap-1 bg-transparent p-0">
+              {tabs.map(tab => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="justify-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:bg-muted data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                >
+                  <tab.icon className="h-4 w-4" /> {tab.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
-
-            <TabsContent value="general">
-              <PreferenceSettings />
-            </TabsContent>
-            <TabsContent value="recording">
-              <RecordingSettings />
-            </TabsContent>
-            <TabsContent value="Transcriptionmodels">
-              <TranscriptSettings
-                transcriptModelConfig={transcriptModelConfig}
-                setTranscriptModelConfig={setTranscriptModelConfig}
-              />
-            </TabsContent>
-            <TabsContent value="summaryModels">
-              <SummaryModelSettings />
-            </TabsContent>
-            <TabsContent value="beta" className="mt-6">
-              <BetaSettings />
-            </TabsContent>
-            <TabsContent value="wiki"><WikiSettings /></TabsContent>
-          </Tabs>
-        </div>
+          </Surface>
+          <Surface className="min-w-0 px-5 py-2 sm:px-7">
+            <TabsContent value="general" className="mt-0"><PreferenceSettings /></TabsContent>
+            <TabsContent value="recording" className="mt-0"><RecordingSettings /></TabsContent>
+            <TabsContent value="transcription" className="mt-0"><TranscriptSettings transcriptModelConfig={transcriptModelConfig} setTranscriptModelConfig={setTranscriptModelConfig} /></TabsContent>
+            <TabsContent value="summary" className="mt-0"><SummaryModelSettings /></TabsContent>
+            <TabsContent value="wiki" className="mt-0"><WikiSettings /></TabsContent>
+            <TabsContent value="beta" className="mt-0 py-5"><BetaSettings /></TabsContent>
+          </Surface>
+        </Tabs>
       </div>
-    </div>
+    </main>
   );
-};
+}

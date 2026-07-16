@@ -9,7 +9,7 @@ type Tenant = { tenant_id: string; display_name: string; role: 'owner' | 'guest'
 type Member = { google_sub: string; email: string; name?: string; role: 'owner' | 'guest' };
 type Invitation = { invitation_id: string; tenant_id: string; created_at: string };
 type TenantAvailability = { tenant_id: string; available: boolean };
-const roleLabel = (role: string) => role === 'owner' ? 'Propietario' : 'Invitado';
+const roleLabel = (role: string) => role === 'owner' ? 'Owner' : 'Guest';
 
 function errorMessage(detail: unknown): string {
   if (typeof detail === 'string') return detail;

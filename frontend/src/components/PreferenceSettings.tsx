@@ -2,13 +2,16 @@
 
 import { useEffect, useState, useRef } from "react"
 import { Switch } from "./ui/switch"
-import { FolderOpen } from "lucide-react"
+import { Check, FolderOpen, Laptop, Moon, Sun } from "lucide-react"
 import { invoke } from "@tauri-apps/api/core"
 import Analytics from "@/lib/analytics"
 import AnalyticsConsentSwitch from "./AnalyticsConsentSwitch"
 import { useConfig, NotificationSettings } from "@/contexts/ConfigContext"
+import { ThemePreference, UiLocale, useTranslation, useUiPreferences } from "@/contexts/UiPreferencesContext"
 
 export function PreferenceSettings() {
+  const { t } = useTranslation();
+  const { theme, setTheme, locale, setLocale } = useUiPreferences();
   const {
     notificationSettings,
     storageLocations,
@@ -135,36 +138,57 @@ export function PreferenceSettings() {
 
   // Show loading only if we're actually loading and don't have cached data
   if (isLoadingPreferences && !notificationSettings && !storageLocations) {
-    return <div className="max-w-2xl mx-auto p-6">Loading Preferences...</div>
+    return <div className="py-8 text-sm text-muted-foreground">{t('common.loading')}</div>
   }
 
   // Show loading if notificationsEnabled hasn't been determined yet
   if (notificationsEnabled === null && !isLoadingPreferences) {
-    return <div className="max-w-2xl mx-auto p-6">Loading Preferences...</div>
+    return <div className="py-8 text-sm text-muted-foreground">{t('common.loading')}</div>
   }
 
   // Ensure we have a boolean value for the Switch component
   const notificationsEnabledValue = notificationsEnabled ?? false;
 
   return (
-    <div className="space-y-6">
+    <div className="divide-y divide-border/70">
+      <section className="py-7 first:pt-5">
+        <h2 className="text-lg font-semibold">{t('settings.appearance')}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t('settings.appearanceDescription')}</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          {([
+            ['system', Laptop, t('settings.theme.system')],
+            ['light', Sun, t('settings.theme.light')],
+            ['dark', Moon, t('settings.theme.dark')],
+          ] as [ThemePreference, typeof Laptop, string][]).map(([value, Icon, label]) => (
+            <button key={value} onClick={() => setTheme(value)} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${theme === value ? 'border-brand/50 bg-brand/8 text-foreground' : 'border-border hover:bg-muted/50'}`}>
+              <Icon className="h-4 w-4 text-muted-foreground" /><span className="flex-1 text-sm font-medium">{label}</span>{theme === value && <Check className="h-4 w-4 text-brand" />}
+            </button>
+          ))}
+        </div>
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold">{t('settings.language')}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{t('settings.languageDescription')}</p>
+          <div className="mt-3 inline-flex rounded-xl border border-border bg-muted/40 p-1">
+            {(['en', 'es'] as UiLocale[]).map(value => <button key={value} onClick={() => setLocale(value)} className={`rounded-lg px-4 py-2 text-sm font-medium transition ${locale === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>{t(`settings.language.${value}`)}</button>)}
+          </div>
+        </div>
+      </section>
+
       {/* Notifications Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+      <section className="flex items-center justify-between gap-6 py-7">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Notifications</h3>
-            <p className="text-sm text-gray-600">Enable or disable notifications of start and end of meeting</p>
+            <h3 className="text-lg font-semibold">{t('settings.notifications')}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{t('settings.notificationsDescription')}</p>
           </div>
-          <Switch checked={notificationsEnabledValue} onCheckedChange={setNotificationsEnabled} />
         </div>
-      </div>
+        <Switch checked={notificationsEnabledValue} onCheckedChange={setNotificationsEnabled} />
+      </section>
 
       {/* Data Storage Locations Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Data Storage Locations</h3>
-        <p className="text-sm text-gray-600 mb-6">
-          View and access where MeetPulse stores your data
-        </p>
+      <section className="py-7">
+        <h3 className="text-lg font-semibold">{t('settings.recordingsLocation')}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{t('settings.storageDescription')}</p>
 
         <div className="space-y-4">
           {/* Database Location */}
@@ -198,32 +222,26 @@ export function PreferenceSettings() {
           </div> */}
 
           {/* Recordings Location */}
-          <div className="p-4 border rounded-lg bg-gray-50">
-            <div className="font-medium mb-2">Meeting Recordings</div>
-            <div className="text-sm text-gray-600 mb-3 break-all font-mono text-xs">
+          <div className="mt-5 rounded-xl border border-border bg-muted/35 p-4">
+            <div className="text-sm font-medium">{t('settings.recordingsLocation')}</div>
+            <div className="mb-3 mt-2 break-all font-mono text-xs text-muted-foreground">
               {storageLocations?.recordings || 'Loading...'}
             </div>
             <button
               onClick={() => handleOpenFolder('recordings')}
-              className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
             >
               <FolderOpen className="w-4 h-4" />
-              Open Folder
+              {t('settings.openFolder')}
             </button>
           </div>
         </div>
-
-        <div className="mt-4 p-3 bg-blue-50 rounded-md">
-          <p className="text-xs text-blue-800">
-            <strong>Note:</strong> Database and models are stored together in your application data directory for unified management.
-          </p>
-        </div>
-      </div>
+      </section>
 
       {/* Analytics Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+      <section className="py-7">
         <AnalyticsConsentSwitch />
-      </div>
+      </section>
     </div>
   )
 }

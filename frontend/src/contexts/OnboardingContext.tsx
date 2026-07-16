@@ -135,17 +135,6 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     }
   };
 
-  const requestSummaryModelDownload = (modelName: string) => {
-    console.log('[OnboardingContext] Starting Summary Model download');
-    invoke('builtin_ai_download_model', { modelName })
-      .catch(err => {
-        if (String(err).includes('Download already in progress')) {
-          return;
-        }
-        console.error('[OnboardingContext] Summary Model download failed:', err);
-      });
-  };
-
   // Load status on mount and initialize database
   useEffect(() => {
     loadOnboardingStatus();
@@ -472,27 +461,10 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         saveTimeoutRef.current = undefined;
       }
 
-      let modelToSave = selectedSummaryModel;
-      if (!modelToSave) {
-        modelToSave = await invoke<string>('builtin_ai_get_recommended_model');
-        setSelectedSummaryModel(modelToSave);
-      }
-
-      const selectedModelReady = await invoke<boolean>('builtin_ai_is_model_ready', {
-        modelName: modelToSave,
-        refresh: true,
-      });
-      setSummaryModelDownloaded(selectedModelReady);
-      if (!selectedModelReady) {
-        requestSummaryModelDownload(modelToSave);
-      }
-
-      // Onboarding always uses builtin-ai with selected model
-      await invoke('complete_onboarding', {
-        model: modelToSave,
-      });
+      // A local summary model is optional and can be downloaded later from Settings.
+      await invoke('complete_onboarding');
       setCompleted(true);
-      console.log('[OnboardingContext] Onboarding completed with model:', modelToSave);
+      console.log('[OnboardingContext] Onboarding completed');
 
       // Reset the flag so subsequent state updates can be saved
       isCompletingRef.current = false;
@@ -535,10 +507,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
           .catch(err => console.error('[OnboardingContext] Parakeet download failed:', err));
       }
 
-      // Start selected Summary Model download immediately so completion cannot race the request.
-      if (shouldStartSummary && summaryModel) {
-        requestSummaryModelDownload(summaryModel);
-      }
+      // Summary model downloads are intentionally only started from Settings.
     } catch (error) {
       console.error('[OnboardingContext] Failed to start background downloads:', error);
       setIsBackgroundDownloading(false);

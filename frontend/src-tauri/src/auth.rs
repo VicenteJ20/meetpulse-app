@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 const SERVICE: &str = "MeetPulse";
 const ACCOUNT: &str = "google-oauth";
+const REFRESH_SKEW_SECS: u64 = 60;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,7 +37,7 @@ fn refresh(mut session: GoogleSession, client_id: &str, client_secret: Option<St
   if let Some(secret) = client_secret.filter(|value| !value.is_empty()) { params.push(("client_secret", secret)); }
   let token = exchange(params)?;
   session.id_token = token.id_token;
-  session.expires_at = now() + token.expires_in.saturating_sub(30);
+  session.expires_at = now() + token.expires_in;
   session.client_id = client_id.to_string();
   let (email, name) = claims(&session.id_token)?;
   session.email = email;
@@ -70,7 +71,8 @@ fn focus_main_window(app: &tauri::AppHandle) {
 #[tauri::command]
 pub fn get_google_auth_token(client_id: String, client_secret: Option<String>) -> Result<Option<GoogleSession>, String> {
   let Some(session) = load()? else { return Ok(None) };
-  if session.expires_at > now() { return Ok(Some(session)); }
+  if session.expires_at > now() + REFRESH_SKEW_SECS { return Ok(Some(session)); }
+  let client_id = if client_id.is_empty() { session.client_id.clone() } else { client_id };
   if client_id.is_empty() { return Err("Google OAuth client ID is not configured".into()); }
   refresh(session, &client_id, client_secret).map(Some)
 }
@@ -100,7 +102,7 @@ pub fn sign_in_with_google(app: tauri::AppHandle, client_id: String, client_secr
     if let Some(secret) = client_secret.clone().filter(|value| !value.is_empty()) { params.push(("client_secret", secret)); }
     let token = exchange(params)?;
     let (email, name) = claims(&token.id_token)?;
-    let session = GoogleSession { id_token: token.id_token, refresh_token: token.refresh_token.ok_or("Google did not return a refresh token")?, email, name, expires_at: now() + token.expires_in.saturating_sub(30), client_id };
+    let session = GoogleSession { id_token: token.id_token, refresh_token: token.refresh_token.ok_or("Google did not return a refresh token")?, email, name, expires_at: now() + token.expires_in, client_id };
     save(&session)?;
     Ok(session)
   })();

@@ -20,6 +20,8 @@ import { useConfig } from '@/contexts/ConfigContext';
 import { getWikiConfig } from '@/services/wiki-config';
 import { WikiApi, WikiApiError, listWikiTenants, type WikiTenant } from '@/services/wiki-api';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CalendarDays } from 'lucide-react';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 export default function PageContent({
   meeting,
@@ -68,6 +70,7 @@ export default function PageContent({
   const [wikiTenants, setWikiTenants] = useState<WikiTenant[]>([]);
   const [selectedWikiTenant, setSelectedWikiTenant] = useState('');
   const { serverAddress, refetchMeetings } = useSidebar();
+  const { t, formatDate } = useTranslation();
 
   useEffect(() => {
     setClient(meeting.client || '');
@@ -252,8 +255,18 @@ export default function PageContent({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="flex flex-col h-screen bg-gray-50"
+      className="flex h-screen flex-col bg-background"
     >
+      <header className="flex shrink-0 items-center justify-between gap-5 border-b border-border bg-card/90 px-5 py-3 backdrop-blur">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="truncate text-lg font-semibold tracking-[-0.02em]">{meetingData.meetingTitle || meeting.title}</h1>
+            {(client || project) && <span className="hidden truncate rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground lg:inline">{[client, project].filter(Boolean).join(' / ')}</span>}
+          </div>
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{meeting.created_at ? formatDate(meeting.created_at, { dateStyle: 'medium', timeStyle: 'short' }) : t('meeting.details')}</p>
+        </div>
+        <div className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">{t('meeting.summary')}</div>
+      </header>
       <div className="flex flex-1 overflow-hidden">
         <TranscriptPanel
           transcripts={meetingData.transcripts}
@@ -329,7 +342,7 @@ export default function PageContent({
         <div className="space-y-3">
           <p className="text-sm text-slate-600">Choose the workspace that should receive this meeting note.</p>
           <select value={selectedWikiTenant} onChange={event => setSelectedWikiTenant(event.target.value)} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm">
-            {wikiTenants.map(tenant => <option key={tenant.tenant_id} value={tenant.tenant_id}>{tenant.display_name || tenant.tenant_id} · {tenant.role === 'owner' ? 'Propietario' : 'Invitado'}</option>)}
+            {wikiTenants.map(tenant => <option key={tenant.tenant_id} value={tenant.tenant_id}>{tenant.display_name || tenant.tenant_id} · {tenant.role === 'owner' ? t('wiki.owner') : t('wiki.guest')}</option>)}
           </select>
         </div>
         <DialogFooter>

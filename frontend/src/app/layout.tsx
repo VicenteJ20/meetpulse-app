@@ -27,6 +27,7 @@ import { ImportDialogProvider } from '@/contexts/ImportDialogContext'
 import { isAudioExtension, getAudioFormatsDisplayList } from '@/constants/audioFormats'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AuthGate } from '@/components/AuthGate'
+import { UiPreferencesProvider } from '@/contexts/UiPreferencesContext'
 
 
 const sourceSans3 = Source_Sans_3({
@@ -225,23 +226,22 @@ export default function RootLayout({
   }, []);
 
   const handleOnboardingComplete = () => {
-    console.log('[Layout] Onboarding completed, reloading app')
+    console.log('[Layout] Onboarding completed, showing main app')
     setShowOnboarding(false)
     setOnboardingCompleted(true)
-    // Optionally reload the window to ensure all state is fresh
-    window.location.reload()
   }
 
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var p=localStorage.getItem('meetpulse-theme')||'system';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.dataset.theme=d?'dark':'light';document.documentElement.style.colorScheme=d?'dark':'light';var l=localStorage.getItem('meetpulse-ui-locale');document.documentElement.lang=l==='es'||l==='en'?l:(navigator.language||'en').toLowerCase().indexOf('es')===0?'es':'en';}catch(e){}})();` }} />
         <link rel="icon" href="/icon.png" sizes="512x512" type="image/png" />
         <link rel="apple-touch-icon" href="/pwa/icon_152x152.png" sizes="152x152" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="theme-color" content="#0b5fa5" />
       </head>
       <body className={`${sourceSans3.variable} font-sans antialiased`}>
-        <AuthProvider><AuthGate><AnalyticsProvider>
+        <UiPreferencesProvider><AuthProvider><AuthGate><AnalyticsProvider>
           <RecordingStateProvider>
             <TranscriptProvider>
               <ConfigProvider>
@@ -259,7 +259,7 @@ export default function RootLayout({
                               {showOnboarding ? (
                                 <OnboardingFlow onComplete={handleOnboardingComplete} />
                               ) : (
-                                <div className="flex">
+                                <div className="app-shell">
                                   <Sidebar />
                                   <MainContent>{children}</MainContent>
                                 </div>
@@ -282,7 +282,7 @@ export default function RootLayout({
               </ConfigProvider>
             </TranscriptProvider>
           </RecordingStateProvider>
-        </AnalyticsProvider></AuthGate></AuthProvider>
+        </AnalyticsProvider></AuthGate></AuthProvider></UiPreferencesProvider>
 
         <Toaster position="bottom-center" richColors closeButton />
       </body>

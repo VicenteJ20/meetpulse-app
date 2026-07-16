@@ -2,7 +2,7 @@ import { VirtualizedTranscriptView } from '@/components/VirtualizedTranscriptVie
 import { PermissionWarning } from '@/components/PermissionWarning';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
-import { Copy, GlobeIcon } from 'lucide-react';
+import { Copy, GlobeIcon, Radio } from 'lucide-react';
 import { useTranscripts } from '@/contexts/TranscriptContext';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
@@ -10,6 +10,7 @@ import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 import { ModalType } from '@/hooks/useModalState';
 import { useIsLinux } from '@/hooks/usePlatform';
 import { ReactNode, useMemo } from 'react';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 /**
  * TranscriptPanel Component
@@ -38,6 +39,7 @@ export function TranscriptPanel({
   const { isRecording, isPaused } = useRecordingState();
   const { checkPermissions, isChecking, hasSystemAudio, hasMicrophone } = usePermissionCheck();
   const isLinux = useIsLinux();
+  const { t } = useTranslation();
 
   // Convert transcripts to segments for virtualized view
   const segments = useMemo(() =>
@@ -52,12 +54,18 @@ export function TranscriptPanel({
   );
 
   return (
-    <div ref={transcriptContainerRef} className="w-full border-r border-gray-200 bg-white flex flex-col overflow-y-auto">
+    <div ref={transcriptContainerRef} className="flex w-full flex-col overflow-y-auto bg-background">
       {/* Title area - Sticky header */}
-      <div className="sticky top-0 z-10 bg-white p-4 border-gray-200">
-        <div className="flex flex-col space-y-3">
-          <div className="flex  flex-col space-y-2">
-            <div className="flex justify-center  items-center space-x-2">
+      <div className="sticky top-0 z-10 border-b border-border/70 bg-background/90 px-6 py-4 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${isRecording ? 'bg-recording/12 text-recording' : 'bg-muted text-muted-foreground'}`}><Radio className="h-5 w-5" /></span>
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-semibold">{isRecording ? t('recording.active') : t('meeting.transcript')}</h1>
+              <p className="mt-0.5 text-xs text-muted-foreground">{isRecording ? t('recording.listening') : `${segments.length} segments`}</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
               <ButtonGroup>
                 {transcripts?.length > 0 && (
                   <Button
@@ -68,7 +76,7 @@ export function TranscriptPanel({
                   >
                     <Copy />
                     <span className='hidden md:inline'>
-                      Copy
+                      {t('common.copy')}
                     </span>
                   </Button>
                 )}
@@ -81,12 +89,11 @@ export function TranscriptPanel({
                   >
                     <GlobeIcon />
                     <span className='hidden md:inline'>
-                      Language
+                      {t('settings.language')}
                     </span>
                   </Button>
                 }
               </ButtonGroup>
-            </div>
           </div>
         </div>
       </div>
@@ -107,8 +114,8 @@ export function TranscriptPanel({
 
       {/* Transcript content */}
       <div className="pb-20">
-        <div className="flex justify-center">
-          <div className="w-2/3 max-w-[750px]">
+        <div className="flex justify-center px-5">
+          <div className="w-full max-w-4xl">
             <VirtualizedTranscriptView
               segments={segments}
               isRecording={isRecording}

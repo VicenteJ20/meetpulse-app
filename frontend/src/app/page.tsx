@@ -21,7 +21,7 @@ import { TranscriptRecovery } from '@/components/TranscriptRecovery';
 import { indexedDBService } from '@/services/indexedDBService';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { HomeWikiStats } from '@/components/HomeWikiStats';
+import { HomeWorkspace } from '@/components/HomeWorkspace';
 
 export default function Home() {
   // Local page state (not moved to contexts)
@@ -38,7 +38,7 @@ export default function Home() {
   const { status, isStopping, isProcessing, isSaving } = recordingState;
 
   // Hooks
-  const { hasMicrophone } = usePermissionCheck();
+  const { hasMicrophone, hasSystemAudio } = usePermissionCheck();
   const { setIsMeetingActive, isCollapsed: sidebarCollapsed, refetchMeetings } = useSidebar();
   const { modals, messages, showModal, hideModal } = useModalState(transcriptModelConfig);
   const { isRecordingDisabled, setIsRecordingDisabled } = useRecordingStateSync(isRecording, setIsRecordingState, setIsMeetingActive);
@@ -190,6 +190,29 @@ export default function Home() {
   // Computed values using global status
   const isProcessingStop = status === RecordingStatus.PROCESSING_TRANSCRIPTS || isProcessing;
 
+  if (!recordingState.isRecording && !isRecording && !isProcessingStop && status !== RecordingStatus.SAVING) {
+    return (
+      <>
+        <SettingsModals modals={modals} messages={messages} onClose={hideModal} />
+        <TranscriptRecovery
+          isOpen={showRecoveryDialog}
+          onClose={handleDialogClose}
+          recoverableMeetings={recoverableMeetings}
+          onRecover={handleRecovery}
+          onDelete={deleteRecoverableMeeting}
+          onLoadPreview={loadMeetingTranscripts}
+        />
+        <HomeWorkspace
+          onStartRecording={handleRecordingStart}
+          hasMicrophone={hasMicrophone}
+          hasSystemAudio={hasSystemAudio}
+          recoverableCount={recoverableMeetings.length}
+          onOpenRecovery={() => setShowRecoveryDialog(true)}
+        />
+      </>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -218,22 +241,17 @@ export default function Home() {
           isProcessingStop={isProcessingStop}
           isStopping={isStopping}
           showModal={showModal}
-          homeStats={!recordingState.isRecording ? <HomeWikiStats /> : undefined}
+          homeStats={undefined}
         />
 
         {/* Recording controls - only show when permissions are granted or already recording and not showing status messages */}
         {(hasMicrophone || isRecording) &&
           status !== RecordingStatus.PROCESSING_TRANSCRIPTS &&
           status !== RecordingStatus.SAVING && (
-            <div className="fixed bottom-12 left-0 right-0 z-10">
-              <div
-                className="flex justify-center pl-8 transition-[margin] duration-300"
-                style={{
-                  marginLeft: sidebarCollapsed ? '4rem' : '16rem'
-                }}
-              >
+            <div className="fixed bottom-7 left-[4.25rem] right-0 z-20">
+              <div className="flex justify-center px-6">
                 <div className="w-2/3 max-w-[750px] flex justify-center">
-                  <div className="meetpulse-surface flex rounded-2xl bg-white/90 backdrop-blur">
+                  <div className="meetpulse-surface flex rounded-2xl bg-card/90 p-1 backdrop-blur">
                     <RecordingControls
                       isRecording={recordingState.isRecording}
                       onRecordingStop={(callApi = true) => handleRecordingStop(callApi)}
