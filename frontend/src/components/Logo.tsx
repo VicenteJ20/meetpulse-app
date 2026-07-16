@@ -20,7 +20,7 @@ const Logo = React.forwardRef<HTMLButtonElement, LogoProps>(({ isCollapsed }, re
             title="MeetPulse"
           >
             <Image src="/icon.png" alt="MeetPulse" width={28} height={28} priority />
-            <span className="text-[9px] font-semibold leading-none text-slate-700">MeetPulse</span>
+            <span className="text-[9px] font-semibold leading-none text-[hsl(var(--sidebar-foreground))]">MeetPulse</span>
           </button>
         </DialogTrigger>
       ) : (

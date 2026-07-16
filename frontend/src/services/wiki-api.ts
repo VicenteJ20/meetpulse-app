@@ -15,21 +15,43 @@ export class WikiApiError extends Error {
   constructor(message: string, public readonly status?: number) { super(message); }
 }
 
-export async function listWikiTenants(): Promise<WikiTenant[]> {
-  const session = await currentGoogleSession();
-  if (!session) throw new WikiApiError('Sign in with Google before accessing the Wiki.', 401);
+export async function wikiAccountRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const baseUrl = getWikiConfig().baseUrl;
-  let response: Response;
-  try { response = await fetch(new URL('/api/v1/tenants', baseUrl), { headers: { authorization: `Bearer ${session.idToken}` } }); }
-  catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
-  if (response.status === 401) {
-    const refreshed = await currentGoogleSession({ forceRefresh: true });
-    if (!refreshed) throw new WikiApiError('Sign in with Google before accessing the Wiki.', 401);
-    try { response = await fetch(new URL('/api/v1/tenants', baseUrl), { headers: { authorization: `Bearer ${refreshed.idToken}` } }); }
-    catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
+  const request = async (forceRefresh = false) => {
+    const session = await currentGoogleSession(forceRefresh ? { forceRefresh: true } : undefined);
+    if (!session) throw new WikiApiError('Sign in with Google before accessing the Wiki.', 401);
+    try {
+      return await fetch(new URL(`/api/v1${path}`, baseUrl), {
+        ...init,
+        headers: {
+          authorization: `Bearer ${session.idToken}`,
+          ...(init.body ? { 'content-type': 'application/json' } : {}),
+          ...(init.headers || {}),
+        },
+      });
+    } catch {
+      throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.');
+    }
+  };
+
+  let response = await request();
+  if (response.status === 401) response = await request(true);
+  if (!response.ok) {
+    let detail = `Wiki API request failed (${response.status}).`;
+    try {
+      const body = await response.json();
+      if (typeof body.detail === 'string') detail = body.detail;
+      else if (Array.isArray(body.detail)) detail = body.detail.map((item: { msg?: string }) => item.msg || 'Invalid request').join('. ');
+    } catch { /* response has no JSON body */ }
+    throw new WikiApiError(detail, response.status);
   }
-  if (!response.ok) throw new WikiApiError(`Unable to load Wiki tenants (${response.status}).`, response.status);
-  return ((await response.json()) as { items?: WikiTenant[] }).items || [];
+  if (response.status === 204 || response.headers.get('content-length') === '0') return undefined as T;
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+export async function listWikiTenants(): Promise<WikiTenant[]> {
+  return (await wikiAccountRequest<{ items?: WikiTenant[] }>('/tenants')).items || [];
 }
 
 export class WikiApi {

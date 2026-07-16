@@ -1,62 +1,76 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Building2, Plus, UserPlus, Users } from 'lucide-react';
-import { currentGoogleSession } from '@/services/auth-service';
-import { getWikiConfig, saveWikiConfig } from '@/services/wiki-config';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Building2, Check, ChevronDown, Mail, MoreHorizontal, Plus, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
+import { wikiAccountRequest, type WikiTenant } from '@/services/wiki-api';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
-type Tenant = { tenant_id: string; display_name: string; role: 'owner' | 'guest' };
 type Member = { google_sub: string; email: string; name?: string; role: 'owner' | 'guest' };
 type Invitation = { invitation_id: string; tenant_id: string; created_at: string };
 type TenantAvailability = { tenant_id: string; available: boolean };
-const roleLabel = (role: string) => role === 'owner' ? 'Owner' : 'Guest';
 
-function errorMessage(detail: unknown): string {
-  if (typeof detail === 'string') return detail;
-  if (Array.isArray(detail)) return detail.map(item => typeof item?.msg === 'string' ? item.msg : 'Invalid request').join('. ');
-  if (detail && typeof detail === 'object' && 'message' in detail && typeof detail.message === 'string') return detail.message;
-  return 'Wiki request failed.';
+interface WikiTenantControlsProps {
+  tenants: WikiTenant[];
+  currentTenantId: string;
+  onSelect: (tenantId: string) => void;
+  onChanged: (preferredTenantId?: string) => Promise<void>;
+  emptyState?: boolean;
 }
 
-async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const session = await currentGoogleSession();
-  if (!session) throw new Error('Google sign-in is required.');
-  const response = await fetch(new URL(`/api/v1${path}`, getWikiConfig().baseUrl), { ...init, headers: { authorization: `Bearer ${session.idToken}`, 'content-type': 'application/json', ...(init.headers || {}) } });
-  if (!response.ok) throw new Error(errorMessage((await response.json().catch(() => ({}))).detail));
-  return response.json();
-}
-
-export function WikiTenantControls({ emptyState = false, onResolved }: { emptyState?: boolean; onResolved?: () => void }) {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [current, setCurrent] = useState('');
-  const [members, setMembers] = useState<Member[]>([]);
-  const [email, setEmail] = useState('');
-  const [pending, setPending] = useState<Invitation[]>([]);
+export function WikiTenantControls({ tenants, currentTenantId, onSelect, onChanged, emptyState = false }: WikiTenantControlsProps) {
+  const { t } = useTranslation();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const [tenantName, setTenantName] = useState('');
   const [availability, setAvailability] = useState<TenantAvailability | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const select = (tenantId: string) => { setCurrent(tenantId); saveWikiConfig({ ...getWikiConfig(), tenantId }); };
-  const load = async () => {
+  const active = useMemo(() => tenants.find(item => item.tenant_id === currentTenantId), [currentTenantId, tenants]);
+
+  const loadInvitations = useCallback(async () => {
     try {
-      const [tenantResult, invitationResult] = await Promise.all([api<{ items: Tenant[] }>('/tenants'), api<{ items: Invitation[] }>('/me/invitations')]);
-      const saved = getWikiConfig().tenantId;
-      const selected = tenantResult.items.some(item => item.tenant_id === saved) ? saved : tenantResult.items[0]?.tenant_id || '';
-      setTenants(tenantResult.items); setPending(invitationResult.items); setCurrent(selected);
-      if (selected !== saved) saveWikiConfig({ ...getWikiConfig(), tenantId: selected });
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load tenants.'); }
-    finally { onResolved?.(); }
-  };
-  useEffect(() => { load(); }, []);
+      const result = await wikiAccountRequest<{ items: Invitation[] }>('/me/invitations');
+      setInvitations(result.items);
+    } catch {
+      setInvitations([]);
+    }
+  }, []);
+
+  const loadMembers = useCallback(async () => {
+    if (!currentTenantId || active?.role !== 'owner') {
+      setMembers([]);
+      return;
+    }
+    try {
+      const result = await wikiAccountRequest<{ items: Member[] }>(`/tenants/${currentTenantId}/members`);
+      setMembers(result.items);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('wiki.errorGeneric'));
+    }
+  }, [active?.role, currentTenantId, t]);
+
+  useEffect(() => { loadInvitations(); }, [loadInvitations]);
+  useEffect(() => { if (manageOpen) loadMembers(); }, [loadMembers, manageOpen]);
 
   useEffect(() => {
     const name = tenantName.trim();
-    if (!name) { setAvailability(null); return; }
+    if (!name) {
+      setAvailability(null);
+      return;
+    }
     const timer = window.setTimeout(() => {
       setCheckingAvailability(true);
-      api<TenantAvailability>(`/tenants/availability?name=${encodeURIComponent(name)}`)
+      wikiAccountRequest<TenantAvailability>(`/tenants/availability?name=${encodeURIComponent(name)}`)
         .then(setAvailability)
         .catch(() => setAvailability({ tenant_id: '', available: false }))
         .finally(() => setCheckingAvailability(false));
@@ -64,28 +78,189 @@ export function WikiTenantControls({ emptyState = false, onResolved }: { emptySt
     return () => window.clearTimeout(timer);
   }, [tenantName]);
 
-  const active = tenants.find(item => item.tenant_id === current);
-  useEffect(() => {
-    if (active?.role !== 'owner') { setMembers([]); return; }
-    api<{ items: Member[] }>(`/tenants/${current}/members`).then(result => setMembers(result.items)).catch(reason => setError(reason.message));
-  }, [current, active?.role]);
-
   const createTenant = async () => {
-    setCreating(true); setError('');
+    setCreating(true);
+    setError('');
     try {
-      const created = await api<{ tenant_id: string }>('/tenants/provision', { method: 'POST', body: JSON.stringify({ name: tenantName.trim() }) });
-      setTenantName(''); setAvailability(null); await load(); select(created.tenant_id);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to create your Wiki tenant.'); }
-    finally { setCreating(false); }
+      const created = await wikiAccountRequest<{ tenant_id: string }>('/tenants/provision', {
+        method: 'POST',
+        body: JSON.stringify({ name: tenantName.trim() }),
+      });
+      setTenantName('');
+      setAvailability(null);
+      setCreateOpen(false);
+      await onChanged(created.tenant_id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('wiki.errorGeneric'));
+    } finally {
+      setCreating(false);
+    }
   };
-  const invite = async () => { try { await api(`/tenants/${current}/invitations`, { method: 'POST', body: JSON.stringify({ email }) }); setEmail(''); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to invite user.'); } };
-  const respond = async (invitation: Invitation, action: 'accept' | 'reject') => { try { await api(`/me/invitations/${invitation.invitation_id}/${action}`, { method: 'POST' }); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to respond to invitation.'); } };
-  const revoke = async (member: Member) => { try { await api(`/tenants/${current}/members/${encodeURIComponent(member.google_sub)}`, { method: 'DELETE' }); setMembers(items => items.filter(item => item.google_sub !== member.google_sub)); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to revoke access.'); } };
 
-  const creationForm = <div className="space-y-2"><label className="block text-xs font-medium text-slate-700" htmlFor="tenant-name">Tenant name</label><div className="flex gap-2"><input id="tenant-name" value={tenantName} onChange={event => setTenantName(event.target.value)} placeholder="e.g. Acme Studio" className="min-w-0 flex-1 rounded-md border border-slate-200 px-3 py-2 text-sm" maxLength={80} /><button onClick={createTenant} disabled={creating || !availability?.available} className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"><Plus className="h-4 w-4" />{creating ? 'Creating…' : 'Create'}</button></div>{tenantName.trim() && <p className={`text-xs ${availability?.available ? 'text-emerald-700' : 'text-red-600'}`}>{checkingAvailability ? 'Checking availability…' : availability?.available ? `Available as ${availability.tenant_id}` : 'This tenant name is unavailable. Use a different name.'}</p>}</div>;
-  const invitations = pending.length > 0 && <details className="relative"><summary className="cursor-pointer rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs text-blue-800">{pending.length} invitation{pending.length > 1 ? 's' : ''}</summary><section className="absolute right-0 z-20 mt-2 w-72 rounded-lg border bg-white p-3 shadow-lg">{pending.map(invitation => <div key={invitation.invitation_id} className="border-b py-2 text-xs last:border-0"><p className="font-medium">Shared tenant: {invitation.tenant_id}</p><div className="mt-2 flex gap-2"><button onClick={() => respond(invitation, 'accept')} className="rounded bg-slate-900 px-2 py-1 text-white">Accept</button><button onClick={() => respond(invitation, 'reject')} className="rounded border px-2 py-1">Reject</button></div></div>)}</section></details>;
+  const invite = async () => {
+    if (!email.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      await wikiAccountRequest(`/tenants/${currentTenantId}/invitations`, {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      setEmail('');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('wiki.errorGeneric'));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  if (emptyState && tenants.length === 0) return <div className="mt-5 max-w-md space-y-3"><p className="text-sm text-slate-600">Choose a unique name for the Wiki workspace you want to create.</p>{creationForm}{invitations}{error && <p className="text-sm text-red-600">{error}</p>}</div>;
+  const respond = async (invitation: Invitation, action: 'accept' | 'reject') => {
+    setBusy(true);
+    try {
+      await wikiAccountRequest(`/me/invitations/${invitation.invitation_id}/${action}`, { method: 'POST' });
+      await Promise.all([loadInvitations(), onChanged(action === 'accept' ? invitation.tenant_id : undefined)]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('wiki.errorGeneric'));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  return <div className="flex items-center gap-2"><details className="relative"><summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs"><Building2 className="h-3.5 w-3.5" />My tenants</summary><section className="absolute right-0 z-20 mt-2 w-64 rounded-lg border bg-white p-3 shadow-lg"><p className="mb-2 text-xs font-semibold text-slate-700">Accessible workspaces</p>{tenants.map(tenant => <button key={tenant.tenant_id} onClick={() => select(tenant.tenant_id)} className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"><span className="truncate">{tenant.display_name || tenant.tenant_id}</span><span className={`ml-2 rounded-full px-2 py-0.5 ${tenant.role === 'owner' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>{roleLabel(tenant.role)}</span></button>)}{tenants.length === 0 && <p className="text-xs text-slate-500">No tenants yet.</p>}</section></details>{tenants.length > 0 && <select aria-label="Wiki tenant" value={current} onChange={event => select(event.target.value)} className="max-w-48 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs">{tenants.map(tenant => <option key={tenant.tenant_id} value={tenant.tenant_id}>{tenant.display_name || tenant.tenant_id} · {roleLabel(tenant.role)}</option>)}</select>}<details className="relative"><summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs"><Plus className="h-3.5 w-3.5" />New tenant</summary><section className="absolute right-0 z-20 mt-2 w-80 rounded-lg border bg-white p-3 shadow-lg">{creationForm}</section></details>{invitations}{active?.role === 'owner' && <details className="relative"><summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs"><Users className="h-3.5 w-3.5" />Users</summary><section className="absolute right-0 z-20 mt-2 w-80 rounded-lg border bg-white p-3 shadow-lg"><p className="mb-2 text-xs font-semibold text-slate-700">Members</p>{members.map(member => <div key={member.google_sub} className="flex items-center justify-between gap-2 py-1 text-xs"><span className="truncate">{member.name || member.email}</span><span className={`rounded-full px-2 py-0.5 ${member.role === 'owner' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>{roleLabel(member.role)}</span>{member.role === 'guest' && <button onClick={() => revoke(member)} className="text-red-600 hover:underline">Remove</button>}</div>)}<div className="mt-3 flex gap-1 border-t pt-3"><input value={email} onChange={event => setEmail(event.target.value)} placeholder="person@example.com" className="min-w-0 flex-1 rounded border px-2 py-1 text-xs" /><button onClick={invite} disabled={!email} className="rounded bg-slate-900 px-2 text-white"><UserPlus className="h-3.5 w-3.5" /></button></div></section></details>}{error && <span className="max-w-48 truncate text-xs text-red-600" title={error}>{error}</span>}</div>;
+  const revoke = async (member: Member) => {
+    setBusy(true);
+    try {
+      await wikiAccountRequest(`/tenants/${currentTenantId}/members/${encodeURIComponent(member.google_sub)}`, { method: 'DELETE' });
+      setMembers(items => items.filter(item => item.google_sub !== member.google_sub));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('wiki.errorGeneric'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const creationDialog = (
+    <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('wiki.createWorkspace')}</DialogTitle>
+          <DialogDescription>{t('wiki.createWorkspaceDescription')}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <label htmlFor="wiki-workspace-name" className="text-sm font-medium">{t('wiki.workspaceName')}</label>
+          <Input id="wiki-workspace-name" value={tenantName} onChange={event => setTenantName(event.target.value)} placeholder={t('wiki.workspaceNamePlaceholder')} maxLength={80} />
+          {tenantName.trim() && (
+            <p className={`text-xs ${availability?.available ? 'text-emerald-600' : 'text-destructive'}`}>
+              {checkingAvailability ? t('wiki.checkingAvailability') : availability?.available ? t('wiki.workspaceAvailable').replace('{id}', availability.tenant_id) : t('wiki.workspaceUnavailable')}
+            </p>
+          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+        <DialogFooter>
+          {!emptyState && <Button variant="ghost" onClick={() => setCreateOpen(false)}>{t('common.cancel')}</Button>}
+          <Button onClick={createTenant} disabled={creating || !availability?.available}><Plus />{creating ? t('wiki.creatingWorkspace') : t('wiki.createWorkspace')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  if (emptyState) {
+    return (
+      <div className="flex flex-col items-center gap-3">
+        <Button onClick={() => setCreateOpen(true)}><Plus />{t('wiki.createWorkspace')}</Button>
+        {invitations.length > 0 && (
+          <div className="w-full max-w-sm space-y-2 rounded-xl border border-border bg-muted/35 p-3 text-left">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t('wiki.pendingInvitations')}</p>
+            {invitations.map(invitation => (
+              <div key={invitation.invitation_id} className="flex items-center gap-2 rounded-lg bg-background p-2.5">
+                <Mail className="h-4 w-4 text-brand" />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{invitation.tenant_id}</span>
+                <Button size="sm" onClick={() => respond(invitation, 'accept')} disabled={busy}>{t('wiki.accept')}</Button>
+                <Button size="sm" variant="ghost" onClick={() => respond(invitation, 'reject')} disabled={busy}>{t('wiki.reject')}</Button>
+              </div>
+            ))}
+          </div>
+        )}
+        {creationDialog}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="max-w-[15rem] justify-between">
+            <Building2 />
+            <span className="truncate">{active?.display_name || active?.tenant_id || t('wiki.workspace')}</span>
+            <ChevronDown className="opacity-60" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuLabel>{t('wiki.yourWorkspaces')}</DropdownMenuLabel>
+          {tenants.map(tenant => (
+            <DropdownMenuItem key={tenant.tenant_id} onSelect={() => onSelect(tenant.tenant_id)} className="py-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/10 text-brand"><Building2 /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{tenant.display_name || tenant.tenant_id}</span>
+                <span className="block text-xs text-muted-foreground">{tenant.role === 'owner' ? t('wiki.owner') : t('wiki.guest')}</span>
+              </span>
+              {tenant.tenant_id === currentTenantId && <Check className="text-brand" />}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setCreateOpen(true)}><Plus />{t('wiki.createWorkspace')}</DropdownMenuItem>
+          {active?.role === 'owner' && <DropdownMenuItem onSelect={() => setManageOpen(true)}><Users />{t('wiki.manageMembers')}</DropdownMenuItem>}
+          {invitations.length > 0 && <DropdownMenuItem onSelect={() => setManageOpen(true)}><Mail />{t('wiki.pendingInvitations')}<span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-xs text-white">{invitations.length}</span></DropdownMenuItem>}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={manageOpen} onOpenChange={setManageOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{t('wiki.manageWorkspace')}</DialogTitle>
+            <DialogDescription>{active?.display_name || active?.tenant_id}</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[55vh] space-y-5 overflow-y-auto pr-1">
+            {active?.role === 'owner' && (
+              <section>
+                <div className="mb-3 flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" /><h3 className="text-sm font-semibold">{t('wiki.members')}</h3></div>
+                <div className="space-y-2">
+                  {members.map(member => (
+                    <div key={member.google_sub} className="flex items-center gap-3 rounded-xl border border-border p-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-semibold">{(member.name || member.email).slice(0, 1).toUpperCase()}</span>
+                      <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{member.name || member.email}</span><span className="block truncate text-xs text-muted-foreground">{member.email}</span></span>
+                      <span className="text-xs text-muted-foreground">{member.role === 'owner' ? t('wiki.owner') : t('wiki.guest')}</span>
+                      {member.role === 'guest' && <Button size="icon" variant="ghost" aria-label={t('wiki.removeMember')} onClick={() => revoke(member)} disabled={busy}><Trash2 className="text-destructive" /></Button>}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Input value={email} onChange={event => setEmail(event.target.value)} placeholder="person@example.com" type="email" />
+                  <Button onClick={invite} disabled={busy || !email.trim()}><UserPlus />{t('wiki.invite')}</Button>
+                </div>
+              </section>
+            )}
+            {invitations.length > 0 && (
+              <section>
+                <h3 className="mb-3 text-sm font-semibold">{t('wiki.pendingInvitations')}</h3>
+                <div className="space-y-2">
+                  {invitations.map(invitation => (
+                    <div key={invitation.invitation_id} className="flex items-center gap-2 rounded-xl border border-border p-3">
+                      <Mail className="h-4 w-4 text-brand" />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{invitation.tenant_id}</span>
+                      <Button size="sm" onClick={() => respond(invitation, 'accept')} disabled={busy}>{t('wiki.accept')}</Button>
+                      <Button size="sm" variant="ghost" onClick={() => respond(invitation, 'reject')} disabled={busy}>{t('wiki.reject')}</Button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+            {!members.length && !invitations.length && <div className="py-8 text-center text-sm text-muted-foreground"><MoreHorizontal className="mx-auto mb-2 h-5 w-5" />{t('wiki.noWorkspaceActions')}</div>}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
+      {creationDialog}
+    </>
+  );
 }
