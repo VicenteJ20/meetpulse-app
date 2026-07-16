@@ -251,7 +251,6 @@ export default function WikiPage() {
   const knowledgeDocuments = filteredDocuments.filter(document => document.document !== 'context');
   const activeTenant = tenants.find(tenant => tenant.tenant_id === config.tenantId);
   const activeClient = clients.find(client => client.client_id === clientId);
-  const activeProject = projects.find(project => project.project_id === projectId);
   const content: NavigationContent = selected ? 'document' : projectId ? 'project' : clientId ? 'client' : 'workspace';
 
   if (bootstrap === 'loading') return <WikiShellSkeleton label={t('wiki.loadingWorkspace')} />;
@@ -385,11 +384,12 @@ export default function WikiPage() {
                   </div>
                 </div>
 
-                <div className="mt-10 flex items-end justify-between gap-4">
-                  <div><h2 className="text-xl font-semibold tracking-[-0.025em]">{t('wiki.chooseClient')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('wiki.chooseClientDescription')}</p></div>
-                </div>
-                {loading && !clients.length ? <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(item => <div key={item} className="h-40 animate-pulse rounded-2xl bg-muted" />)}</div> : filteredClients.length ? (
-                  <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="px-6 sm:px-8">
+                  <div className="mt-8 flex items-end justify-between gap-4">
+                    <div><h2 className="text-xl font-semibold tracking-[-0.025em]">{t('wiki.chooseClient')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('wiki.chooseClientDescription')}</p></div>
+                  </div>
+                  {loading && !clients.length ? <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(item => <div key={item} className="h-40 animate-pulse rounded-2xl bg-muted" />)}</div> : filteredClients.length ? (
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {filteredClients.map(client => (
                       <button key={client.client_id} onClick={() => selectClient(client.client_id)} className="group flex min-h-40 flex-col rounded-2xl border border-border bg-background p-5 text-left transition hover:-translate-y-0.5 hover:border-brand/35 hover:shadow-lg hover:shadow-brand/5">
                         <div className="flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand"><Building2 /></span><ChevronRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1" /></div>
@@ -397,8 +397,9 @@ export default function WikiPage() {
                         <div className="mt-auto flex items-center gap-3 pt-3 text-xs text-muted-foreground"><span>{client.project_count} {t('wiki.projects').toLowerCase()}</span><span>{client.source_count} {t('wiki.publishedNotes').toLowerCase()}</span></div>
                       </button>
                     ))}
-                  </div>
-                ) : <EmptyState className="mt-5 rounded-2xl border border-dashed border-border" icon={<Building2 />} title={query ? t('wiki.noSearchResults') : t('wiki.noClients')} description={query ? t('wiki.noSearchResultsDescription') : t('wiki.noClientsDescription')} />}
+                    </div>
+                  ) : <EmptyState className="mt-5 rounded-2xl border border-dashed border-border" icon={<Building2 />} title={query ? t('wiki.noSearchResults') : t('wiki.noClients')} description={query ? t('wiki.noSearchResultsDescription') : t('wiki.noClientsDescription')} />}
+                </div>
               </div>
             )}
 
@@ -406,10 +407,10 @@ export default function WikiPage() {
               <div className="mx-auto max-w-6xl p-5 sm:p-8 lg:p-10">
                 <Button variant="ghost" size="sm" onClick={goWorkspaceHome} className="-ml-3 mb-5 text-muted-foreground"><ArrowLeft />{t('wiki.allClients')}</Button>
                 <div className="flex flex-wrap items-start justify-between gap-5">
-                  <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">{t('wiki.clientWorkspace')}</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{clientId}</h1><p className="mt-2 text-sm text-muted-foreground">{t('wiki.clientDescription')}</p></div>
+                  <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">{t('wiki.clientWorkspace')}</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{clientId}</h1></div>
                   <div className="flex gap-2 rounded-xl bg-muted/60 px-4 py-3 text-sm"><FolderKanban className="h-4 w-4 text-brand" /><strong>{activeClient?.project_count ?? projects.length}</strong><span className="text-muted-foreground">{t('wiki.projects').toLowerCase()}</span></div>
                 </div>
-                <div className="mt-10"><h2 className="text-xl font-semibold tracking-[-0.025em]">{t('wiki.activeProjects')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('wiki.activeProjectsDescription')}</p></div>
+                <div className="mt-8"><h2 className="text-xl font-semibold tracking-[-0.025em]">{t('wiki.activeProjects')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('wiki.activeProjectsDescription')}</p></div>
                 {navigationLoading ? <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(item => <div key={item} className="h-44 animate-pulse rounded-2xl bg-muted" />)}</div> : filteredProjects.length ? (
                   <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {filteredProjects.map(project => (
@@ -427,38 +428,34 @@ export default function WikiPage() {
 
             {content === 'project' && (
               <div className="mx-auto max-w-6xl p-5 sm:p-8 lg:p-10">
-                <Button variant="ghost" size="sm" onClick={() => selectClient(clientId)} className="-ml-3 mb-5 text-muted-foreground"><ArrowLeft />{clientId}</Button>
-                <div className="flex flex-wrap items-start justify-between gap-5">
-                  <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">{clientId} · {t('wiki.project')}</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{projectId}</h1><p className="mt-2 text-sm text-muted-foreground">{t('wiki.projectDescription')}</p></div>
-                  <div className="flex gap-4 rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground"><span><strong className="text-foreground">{activeProject?.source_count ?? 0}</strong> {t('wiki.sources')}</span><span><strong className="text-foreground">{activeProject?.wiki_page_count ?? knowledgeDocuments.length}</strong> {t('wiki.pages')}</span></div>
-                </div>
+                <Button variant="ghost" size="sm" onClick={() => selectClient(clientId)} className="-ml-3 mb-4 text-muted-foreground"><ArrowLeft />{clientId}</Button>
+                <h1 className="text-3xl font-semibold tracking-[-0.04em]">{projectId}</h1>
 
-                {navigationLoading ? <div className="mt-10 h-48 animate-pulse rounded-2xl bg-muted" /> : (
+                {navigationLoading ? <div className="mt-8 h-48 animate-pulse rounded-2xl bg-muted" /> : (
                   <>
-                    <section className="mt-10">
-                      <div className="flex items-end justify-between gap-4"><div><h2 className="text-lg font-semibold">{t('wiki.projectContext')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('wiki.projectContextDescription')}</p></div></div>
+                    <section className="mt-8">
                       {contextDocument ? (
-                        <button onClick={() => selectDocument(contextDocument)} className="group mt-4 flex w-full items-center gap-4 rounded-2xl border border-brand/20 bg-brand/5 p-5 text-left transition hover:border-brand/40 hover:bg-brand/8">
-                          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-white"><Sparkles /></span>
-                          <span className="min-w-0 flex-1"><span className="block font-semibold">{t('wiki.projectContext')}</span><span className="mt-1 block text-sm text-muted-foreground">{t('wiki.projectContextCardDescription')}</span></span>
+                        <button onClick={() => selectDocument(contextDocument)} className="group flex w-full items-center gap-4 rounded-2xl border border-brand/20 bg-brand/5 px-5 py-4 text-left transition hover:border-brand/40 hover:bg-brand/8">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white"><Sparkles /></span>
+                          <span className="min-w-0 flex-1"><span className="block font-semibold">{t('wiki.projectContext')}</span><span className="mt-0.5 block truncate text-sm text-muted-foreground">{t('wiki.projectContextCardDescription')}</span></span>
                           <ChevronRight className="h-4 w-4 text-brand transition group-hover:translate-x-1" />
                         </button>
-                      ) : <EmptyState className="mt-4 rounded-2xl border border-dashed border-border" icon={<Sparkles />} title={t('wiki.noProjectContext')} description={t('wiki.noProjectContextDescription')} />}
+                      ) : <EmptyState className="rounded-2xl border border-dashed border-border" icon={<Sparkles />} title={t('wiki.noProjectContext')} description={t('wiki.noProjectContextDescription')} />}
                     </section>
 
-                    <section className="mt-10">
-                      <div><h2 className="text-lg font-semibold">{t('wiki.projectKnowledge')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('wiki.projectKnowledgeDescription')}</p></div>
+                    <section className="mt-8">
+                      <div className="flex items-center justify-between gap-4"><h2 className="text-lg font-semibold">{t('wiki.projectKnowledge')}</h2><span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{knowledgeDocuments.length}</span></div>
                       {knowledgeDocuments.length ? (
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="mt-3 space-y-2">
                           {knowledgeDocuments.map(document => (
-                            <button key={document.key} onClick={() => selectDocument(document)} className="group flex min-h-36 flex-col rounded-2xl border border-border bg-background p-5 text-left transition hover:border-brand/35 hover:shadow-md">
-                              <div className="flex items-start justify-between"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground"><FileText /></span><ChevronRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1" /></div>
-                              <h3 className="mt-4 line-clamp-2 font-semibold">{document.title}</h3>
-                              {document.updated_at && <p className="mt-auto pt-3 text-xs text-muted-foreground">{formatDate(document.updated_at, { dateStyle: 'medium' })}</p>}
+                            <button key={document.key} onClick={() => selectDocument(document)} className="group flex w-full items-center gap-4 rounded-xl border border-border bg-background px-4 py-3.5 text-left transition hover:border-brand/35 hover:bg-muted/30">
+                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground"><FileText /></span>
+                              <span className="min-w-0 flex-1"><span className="block truncate font-medium">{document.title}</span>{document.updated_at && <span className="mt-0.5 block text-xs text-muted-foreground">{formatDate(document.updated_at, { dateStyle: 'medium' })}</span>}</span>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1" />
                             </button>
                           ))}
                         </div>
-                      ) : <EmptyState className="mt-4 rounded-2xl border border-dashed border-border" icon={<BookOpen />} title={query ? t('wiki.noSearchResults') : t('wiki.noDocuments')} description={query ? t('wiki.noSearchResultsDescription') : t('wiki.noDocumentsDescription')} />}
+                      ) : <EmptyState className="mt-3 rounded-2xl border border-dashed border-border" icon={<BookOpen />} title={query ? t('wiki.noSearchResults') : t('wiki.noDocuments')} description={query ? t('wiki.noSearchResultsDescription') : t('wiki.noDocumentsDescription')} />}
                     </section>
                   </>
                 )}
@@ -475,7 +472,7 @@ export default function WikiPage() {
                   {selected?.document === 'context' ? <Button onClick={saveContext} disabled={savingContext}>{savingContext ? <Loader2 className="animate-spin" /> : <Save />}{t('wiki.saveContext')}</Button> : <Button variant="outline" onClick={() => selected && navigator.clipboard.writeText(selected.content_markdown)}><Clipboard />{t('common.copy')}</Button>}
                 </header>
                 {documentLoading ? <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div> : selected && (
-                  <article className="mx-auto max-w-4xl px-5 py-8 sm:px-10 sm:py-12">
+                  <article className="wiki-document-reader mx-auto max-w-[74rem] px-4 py-8 sm:px-8 lg:px-12 lg:py-10">
                     {selected.document === 'context' && <div className="mb-8 rounded-2xl border border-brand/20 bg-brand/5 p-4 text-sm leading-6 text-muted-foreground"><strong className="text-foreground">{t('wiki.editableContext')}</strong> {t('wiki.editableContextDescription')}</div>}
                     <BlockNoteSummaryView key={selected.key} ref={selected.document === 'context' ? contextEditorRef : undefined} summaryData={{ markdown: selected.document === 'context' ? contextDraft || `# ${t('wiki.projectContext')}\n\n${t('wiki.contextPlaceholder')}` : selected.content_markdown }} editable={selected.document === 'context'} />
                   </article>
