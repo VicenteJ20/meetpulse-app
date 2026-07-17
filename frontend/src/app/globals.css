@@ -453,6 +453,24 @@
     border-bottom: 0;
   }
 
+  .wiki-document-editor.meeting-summary-editor {
+    max-width: none;
+    padding: 0 0 4rem;
+  }
+
+  .wiki-document-editor .bn-editor {
+    padding-top: 0.25rem;
+  }
+
+  .wiki-document-editor .bn-editor h1 {
+    margin-bottom: 1.65rem;
+    font-size: clamp(1.6rem, 2.5vw, 1.95rem);
+  }
+
+  .wiki-document-editor .bn-editor h2 {
+    margin-top: 2.15rem;
+  }
+
   @media (max-width: 720px) {
     .meeting-summary-editor {
       padding-inline: 0.25rem;

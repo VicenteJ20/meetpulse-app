@@ -92,3 +92,15 @@ test('home readiness controls align device icons with a stable text gap', async 
   assert.match(controls, /flex h-9 w-5 shrink-0 items-center justify-center self-center/);
   assert.match(controls, /<Icon className="h-4 w-4" \/>/);
 });
+
+test('wiki documents reuse the semantic editorial surface without a nested dark canvas', async () => {
+  const [wikiPage, globalStyles] = await Promise.all([
+    readFile(path.join(frontendRoot, 'src/app/wiki/page.tsx'), 'utf8'),
+    readFile(path.join(frontendRoot, 'src/app/globals.css'), 'utf8'),
+  ]);
+
+  assert.match(wikiPage, /mx-auto max-w-\[880px\]/);
+  assert.match(wikiPage, /meeting-summary-editor wiki-document-editor/);
+  assert.match(globalStyles, /\.wiki-document-editor\.meeting-summary-editor/);
+  assert.match(globalStyles, /\.wiki-document-editor \.bn-editor h1/);
+});

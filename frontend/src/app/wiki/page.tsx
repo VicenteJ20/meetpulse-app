@@ -472,9 +472,13 @@ export default function WikiPage() {
                   {selected?.document === 'context' ? <Button onClick={saveContext} disabled={savingContext}>{savingContext ? <Loader2 className="animate-spin" /> : <Save />}{t('wiki.saveContext')}</Button> : <Button variant="outline" onClick={() => selected && navigator.clipboard.writeText(selected.content_markdown)}><Clipboard />{t('common.copy')}</Button>}
                 </header>
                 {documentLoading ? <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div> : selected && (
-                  <article className="wiki-document-reader mx-auto max-w-[74rem] px-4 py-8 sm:px-8 lg:px-12 lg:py-10">
-                    {selected.document === 'context' && <div className="mb-8 rounded-2xl border border-brand/20 bg-brand/5 p-4 text-sm leading-6 text-muted-foreground"><strong className="text-foreground">{t('wiki.editableContext')}</strong> {t('wiki.editableContextDescription')}</div>}
-                    <BlockNoteSummaryView key={selected.key} ref={selected.document === 'context' ? contextEditorRef : undefined} summaryData={{ markdown: selected.document === 'context' ? contextDraft || `# ${t('wiki.projectContext')}\n\n${t('wiki.contextPlaceholder')}` : selected.content_markdown }} editable={selected.document === 'context'} />
+                  <article className="wiki-document-reader px-4 py-8 sm:px-8 lg:px-12 lg:py-10">
+                    <div className="mx-auto max-w-[880px]">
+                      {selected.document === 'context' && <div className="mb-8 rounded-2xl border border-brand/20 bg-brand/5 p-4 text-sm leading-6 text-muted-foreground"><strong className="text-foreground">{t('wiki.editableContext')}</strong> {t('wiki.editableContextDescription')}</div>}
+                      <div className="meeting-summary-editor wiki-document-editor">
+                        <BlockNoteSummaryView key={selected.key} ref={selected.document === 'context' ? contextEditorRef : undefined} summaryData={{ markdown: selected.document === 'context' ? contextDraft || `# ${t('wiki.projectContext')}\n\n${t('wiki.contextPlaceholder')}` : selected.content_markdown }} editable={selected.document === 'context'} />
+                      </div>
+                    </div>
                   </article>
                 )}
               </div>
