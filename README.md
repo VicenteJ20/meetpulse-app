@@ -1,297 +1,137 @@
-# Stop both the current Rust executable name and the future product name.
-Get-Process meetily, MeetPulse -ErrorAction SilentlyContinue | Stop-Process -Force
+# MeetPulse
 
-# 3118 is the Tauri-facing dev server; 3119 is Next's internal compiler port.
-3118, 3119 | ForEach-Object {
-  Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue |
-    Select-Object -ExpandProperty OwningProcess -Unique |
-    ForEach-Object { Stop-Process -Id $_ -Force }
-}
+MeetPulse es una aplicación de escritorio de inteligencia para reuniones. Nació sobre la base open source de Meetily, pero hoy es un producto distinto: su foco es transformar cada conversación en contexto reutilizable para proyectos, clientes y equipos.
 
-cd C:\Users\Vicente\Documents\meeting-assistant\meetily\frontend
+![Banner MeetPulse](/docs/meetpulse/Banner.png)
 
-# Remove an interrupted Next build before starting a new development session.
-Remove-Item -LiteralPath .next -Recurse -Force -ErrorAction SilentlyContinue
+## Qué es MeetPulse
 
-Remove-Item Env:\WHISPER_DONT_GENERATE_BINDINGS -ErrorAction SilentlyContinue
-$env:LIBCLANG_PATH = "C:\Program Files\LLVM\bin"
-$env:PATH = "C:\Program Files\LLVM\bin;C:\Program Files\nodejs;$env:PATH"
+Las reuniones contienen decisiones, riesgos, acuerdos y contexto que normalmente termina disperso entre grabaciones, documentos y conversaciones. MeetPulse reúne ese ciclo en un solo flujo:
 
-clang --version
-Test-Path "$env:LIBCLANG_PATH\libclang.dll"
+![Meetpulse flow](/docs/meetpulse/meetpulse-flow.png)
 
-corepack pnpm run tauri:dev:cpu
+La aplicación se encarga de capturar y comprender una reunión. La Wiki convierte sus resultados en una biblioteca de proyecto estructurada, navegable y preparada para crecer con agentes de IA.
 
+## La aplicación MeetPulse
 
+![Home MeetPulse](/docs/meetpulse/banner-home.png)
 
-<div align="center" style="border-bottom: none">
-    <h1>
-        <img src="docs/Meetily-6.png" style="border-radius: 10px;" />
-        <br>
-        Privacy-First AI Meeting Assistant
-    </h1>
-    <a href="https://trendshift.io/repositories/21958" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21958" alt="Zackriya-Solutions%2Fmeetily | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-    <br>
-    <br>
-    <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases/"><img src="https://img.shields.io/badge/Pre_Release-Link-brightgreen" alt="Pre-Release"></a>
-    <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/zackriya-solutions/meeting-minutes?style=flat">
-</a>
- <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases"> <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/zackriya-solutions/meeting-minutes/total?style=plastic"> </a>
-    <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License"></a>
-    <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases"><img src="https://img.shields.io/badge/Supported_OS-macOS,_Windows-white" alt="Supported OS"></a>
-    <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases"><img alt="GitHub Tag" src="https://img.shields.io/github/v/tag/zackriya-solutions/meeting-minutes?include_prereleases&color=yellow">
-</a>
-    <br>
-    <h3>
-    <br>
-    Open Source • Privacy-First • Enterprise-Ready
-    </h3>
-    <p align="center">
-    Get latest <a href="https://www.zackriya.com/meetily-subscribe/"><b>Product updates</b></a> <br><br>
-    <a href="https://meetily.ai"><b>Website</b></a> •
-    <a href="https://www.linkedin.com/company/106363062/"><b>LinkedIn</b></a> •
-    <a href="https://discord.gg/crRymMQBFH"><b>Meetily Discord</b></a> •
-    <a href="https://discord.com/invite/vCFJvN4BwJ"><b>Privacy-First AI</b></a> •
-    <a href="https://www.reddit.com/r/meetily/"><b>Reddit</b></a>
-</p>
-    <p align="center">
+### Captura confiable de reuniones
 
-A privacy-first AI meeting assistant that captures, transcribes, and summarizes meetings entirely on your infrastructure. Built by expert AI engineers passionate about data sovereignty and open source solutions. Perfect for enterprises that need advanced meeting intelligence without compromising on privacy, compliance, or control.
+- Graba micrófono y audio del sistema en paralelo.
+- Mezcla ambos canales con ducking y protección contra clipping para preservar la inteligibilidad.
+- Muestra niveles de audio, permite pausar o reanudar, y ayuda a recuperar grabaciones interrumpidas.
+- Gestiona permisos y dispositivos de audio, incluyendo detección de desconexiones y reconexión de dispositivos.
 
-</p>
+### Transcripción local y cloud, según el caso de uso
 
-<p align="center">
-    <img src="docs/meetily_demo.gif" width="650" alt="Meetily Demo" />
-    <br>
-    <a href="https://youtu.be/6FnhSC_eSz8">View full Demo Video</a>
-</p>
+- Transcribe en tiempo real en el equipo mediante Whisper y Parakeet.
+- Permite elegir español, inglés o detección automática según el motor utilizado.
+- Descarga y administra modelos de transcripción desde la app.
+- Importa audios existentes y retranscribe reuniones con otro modelo o idioma.
+- Aprovecha aceleración disponible por plataforma: CPU, CUDA, Vulkan, Metal, CoreML, OpenBLAS o HIPBLAS.
 
-</div>
+### Gemini 3.1 Flash Lite: rapidez y eficiencia para reuniones
 
----
+- Incluye soporte específico para **Gemini 3.1 Flash Lite** en transcripción casi en tiempo real, retranscripción y análisis de reuniones.
+- Está pensado para equipos que buscan una relación costo/rendimiento especialmente competitiva sin renunciar a resultados de alta calidad.
+- Aprovecha su contexto amplio para procesar conversaciones extensas y conservar mejor el hilo de la reunión al generar análisis y resúmenes.
+- Gemini es una opción cloud: los segmentos de audio se envían a Google para su transcripción. Whisper y Parakeet siguen disponibles como alternativas totalmente locales.
 
-> **Meetily PRO Upgrade Offer** - Meetily PRO is available for users who need enhanced accuracy, advanced exports, custom summary workflows, and team-ready features. Use coupon code **LAUNCH20** for **20% off** until the next Meetily Community Edition release. Speaker diarization is also planned for PRO in mid-June. [Explore Meetily PRO →](https://meetily.ai/pro/)
+![Transcription img](/docs/meetpulse/MeetPulse%20Transcription.png)
 
----
+> Para demostrar el funcionamiento del producto, se realizó una prueba utilizando un video público de Midudev disponible en YouTube (puedes ver el video completo [AQUÍ](https://www.youtube.com/watch?v=rhmoIIzP3Us)). El texto que aparece en la imagen superior corresponde a un extracto de la transcripción de dicho contenido, cuya autoría y propiedad pertenecen a su creador.
 
-<details>
-<summary>Table of Contents</summary>
+### Resúmenes que se adaptan a tu forma de trabajar
 
-- [Introduction](#introduction)
-- [Why Meetily?](#why-meetily)
-- [Features](#features)
-- [Installation](#installation)
-- [Key Features in Action](#key-features-in-action)
-- [System Architecture](#system-architecture)
-- [For Developers](#for-developers)
-- [Meetily PRO](#meetily-pro)
-- [Contributing](#contributing)
-- [License](#license)
+- Genera, edita, guarda y regenera resúmenes desde la ficha de cada reunión.
+- Usa plantillas y selecciona el idioma del resumen por reunión.
+- Permite modelos locales integrados u Ollama; también Gemini, OpenAI, Anthropic, Groq, OpenRouter y endpoints compatibles con OpenAI.
+- Incluye un editor enriquecido para transformar el resultado de IA en una nota útil antes de compartirla.
 
-</details>
+### Operación privada y preparada para escritorio
 
-## Introduction
+- Mantiene grabaciones, transcripciones y datos de reunión en el dispositivo.
+- Organiza el historial de reuniones, permite buscar, renombrar, borrar y abrir las carpetas locales.
+- Incluye onboarding, preferencias de apariencia e idioma, notificaciones y actualización de la aplicación.
+- La analítica es opcional y anónima; no recopila contenido de reuniones, nombres ni rutas de archivos.
 
-Meetily is a privacy-first AI meeting assistant that runs entirely on your local machine. It captures your meetings, transcribes them in real-time, and generates summaries, all without sending any data to the cloud. This makes it the perfect solution for professionals and enterprises who need to maintain complete control over their sensitive information.
+## La Wiki de conocimiento
 
-## Why Meetily?
+La Wiki es el diferenciador de MeetPulse: no es solo un repositorio de resúmenes. Está diseñada como una biblioteca de conocimiento duradera, organizada por **espacio de trabajo → cliente → proyecto → documentos**.
 
-While there are many meeting transcription tools available, this solution stands out by offering:
+Su diseño se inspira en el patrón de [LLM Wiki de Andrej Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f): las fuentes permanecen separadas, mientras una capa de conocimiento persistente puede acumular síntesis, relaciones y contexto a lo largo del tiempo. También adopta los principios del [Open Knowledge Format](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing/): Markdown portable, frontmatter estructurado, archivos legibles por personas y agentes, e índices que permiten navegar conocimiento como un grafo.
 
-- **Privacy First:** All processing happens locally on your device.
-- **Cost-Effective:** Uses open-source AI models instead of expensive APIs.
-- **Flexible:** Works offline and supports multiple meeting platforms.
-- **Customizable:** Self-host and modify for your specific needs.
+### De reuniones aisladas a contexto de proyecto
 
-<details>
-<summary>The Privacy Problem</summary>
+- Publica un resumen de reunión a la Wiki con cliente, proyecto, fecha y participantes.
+- Conserva cada publicación como fuente Markdown inmutable: la evidencia original no se reemplaza.
+- Crea índices por espacio de trabajo, cliente y proyecto, junto con una bitácora cronológica de ingestas.
+- Presenta indicadores de clientes, proyectos, fuentes, páginas y actividad reciente.
+- Permite explorar y buscar clientes, proyectos y documentos desde una interfaz dedicada.
 
-Meeting AI tools create significant privacy and compliance risks across all sectors:
+![Client list wiki](/docs/meetpulse/client-list.png)
+### Un espacio compartido, con contexto editable
 
-- **$4.4M average cost per data breach** (IBM 2024)
-- **€5.88 billion in GDPR fines** issued by 2025
-- **400+ unlawful recording cases** filed in California this year
+- Crea espacios de trabajo y permite administrar miembros, invitaciones y roles de propietario o invitado.
+- Ofrece un documento de contexto editable por proyecto para objetivos, decisiones, restricciones, enlaces y antecedentes estables.
+- Mantiene separados el contexto durable del proyecto y los análisis inmutables de cada reunión.
+- Protege el acceso al espacio de trabajo mediante autenticación con Google y permisos por tenant.
 
-Whether you're a defense consultant, enterprise executive, legal professional, or healthcare provider, your sensitive discussions shouldn't live on servers you don't control. Cloud meeting tools promise convenience but deliver privacy nightmares with unclear data storage practices and potential unauthorized access.
+![Project list wiki by client](/docs/meetpulse/project-list.png)
 
-**Meetily solves this:** Complete data sovereignty on your infrastructure, zero vendor lock-in, and full control over your sensitive conversations.
+### Base para un agente bibliotecario
 
-</details>
+La Wiki ya proporciona las capas necesarias para evolucionar hacia un agente que administre la biblioteca: fuentes inmutables, contexto editable, estructura navegable e historial de cambios. Las próximas iteraciones podrán ampliar esta base con enriquecimiento automático, páginas derivadas interconectadas, consultas sobre la biblioteca y revisiones de consistencia.
 
-## Features
+Estas capacidades futuras se describen como hoja de ruta; no se presentan como funciones disponibles hoy.
 
-- **Local First:** All processing is done on your machine. No data ever leaves your computer.
-- **Real-time Transcription:** Get a live transcript of your meeting as it happens.
-- **AI-Powered Summaries:** Generate summaries of your meetings using powerful language models.
-- **Multi-Platform:** Works on macOS, Windows, and Linux.
-- **Open Source:** Meetily is open source and free to use.
-- **Flexible AI Provider Support:** Choose from Ollama (local), Claude, Groq, OpenRouter, or use your own OpenAI-compatible endpoint.
+![Document view](/docs/meetpulse/document-view.png)
 
-## Installation
+> Para demostrar el funcionamiento del producto, se realizó una prueba utilizando un video público de Midudev disponible en YouTube (puedes ver el video completo [AQUÍ](https://www.youtube.com/watch?v=rhmoIIzP3Us)). El texto que aparece en la imagen superior corresponde a un Análisis de la transcripción de dicho contenido, cuya autoría y propiedad pertenecen a su creador.
 
-### 🪟 **Windows**
+## Arquitectura
 
-1. Download the latest `x64-setup.exe` from [Releases](https://github.com/Zackriya-Solutions/meeting-minutes/releases/latest)
-2. Run the installer
-
-### 🍎 **macOS**
-
-1. Download `meetily_0.4.0_aarch64.dmg` from [Releases](https://github.com/Zackriya-Solutions/meeting-minutes/releases/latest)
-2. Open the downloaded `.dmg` file
-3. Drag **Meetily** to your Applications folder
-4. Open **Meetily** from Applications folder
-
-### 🐧 **Linux**
-
-Build from source following our detailed guides:
-
-- [Building on Linux](docs/building_in_linux.md)
-- [General Build Instructions](docs/BUILDING.md)
-
-**Quick start:**
-
-```bash
-git clone https://github.com/Zackriya-Solutions/meeting-minutes
-cd meeting-minutes/frontend
-pnpm install
-./build-gpu.sh
+```text
+MeetPulse Desktop
+├── Next.js + React          Interfaz de escritorio
+├── Tauri + Rust             Captura de audio, transcripción y almacenamiento local
+├── Modelos locales          Whisper, Parakeet y modelos de resumen
+├── Modelos Externos         Gemini, OpenAI, Groq, OpenRouter, Anthropic...
+└── Wiki API                 Autenticación, permisos y biblioteca compartida
+    ├── Cloudflare R2        Fuentes y documentos Markdown
+    └── Cloudflare D1        Identidad, tenants e invitaciones
 ```
 
-## Key Features in Action
+La Wiki API vive actualmente en el repositorio complementario `meetpulse-api-wiki`.
 
-### 🎯 Local Transcription
+## Desarrollo local
 
-Transcribe meetings entirely on your device using **Whisper** or **Parakeet** models. No cloud required.
+### Requisitos
 
-<p align="center">
-    <img src="docs/home.png" width="650" style="border-radius: 10px;" alt="Meetily Demo" />
-</p>
+- Node.js y `pnpm` (mediante Corepack)
+- Rust y las dependencias de compilación de Tauri para tu plataforma
+- En Windows, LLVM/Clang cuando sea requerido por las dependencias nativas
 
-### 📥 Import & Enhance `Beta`
+### Ejecutar en desarrollo
 
-Import existing audio files to generate transcripts, or enhance to re-transcribe any recorded meeting with a different model or language, all processed locally.
+```powershell
+cd frontend
+corepack pnpm install
+corepack pnpm run tauri:dev:cpu
+```
 
-> Contributed by [Jeremi Joslin](https://github.com/jeremi), improved by [Vishnu P S](https://github.com/p-s-vishnu) and [Mohammed Safvan](https://github.com/mohammedsafvan)
+Para usar otra aceleración, están disponibles `tauri:dev:cuda`, `tauri:dev:vulkan`, `tauri:dev:metal` y `tauri:dev:coreml` cuando correspondan a tu equipo.
 
-<p align="center">
-    <img src="docs/meetily-export.gif" width="650" style="border-radius: 10px;" alt="Import and Enhance" />
-</p>
+### Compilar
 
-### 🤖 AI-Powered Summaries
+```powershell
+cd frontend
+corepack pnpm run tauri:build
+```
 
-Generate meeting summaries with your choice of AI provider. **Ollama** (local) is recommended, with support for Claude, Groq, OpenRouter, and OpenAI.
+## Origen y licencia
 
-<p align="center">
-    <img src="docs/summary.png" width="650" style="border-radius: 10px;" alt="Summary generation" />
-</p>
+MeetPulse utiliza Meetily como base histórica del codebase y reconoce el trabajo de su comunidad open source. **La identidad, experiencia de producto y dirección actual corresponden a MeetPulse.**
 
-<p align="center">
-    <img src="docs/editor1.png" width="650" style="border-radius: 10px;" alt="Editor Summary generation" />
-</p>
-
-### 🔒 Privacy-First Design
-
-All data stays on your machine. Transcription models, recordings, and transcripts are stored locally.
-
-<p align="center">
-    <img src="docs/settings.png" width="650" style="border-radius: 10px;" alt="Local Transcription and storage" />
-</p>
-
-### 🌐 Custom OpenAI Endpoint Support
-
-Use your own OpenAI-compatible endpoint for AI summaries. Perfect for organizations with custom AI infrastructure or preferred providers.
-
-<p align="center">
-    <img src="docs/custom.png" width="650" style="border-radius: 10px;" alt="Custom OpenAI Endpoint Configuration" />
-</p>
-
-### 🎙️ Professional Audio Mixing
-
-Capture microphone and system audio simultaneously with intelligent ducking and clipping prevention.
-
-<p align="center">
-    <img src="docs/audio.png" width="650" style="border-radius: 10px;" alt="Device selection" />
-</p>
-
-### ⚡ GPU Acceleration
-
-Built-in support for hardware acceleration across platforms:
-
-- **macOS**: Apple Silicon (Metal) + CoreML
-- **Windows/Linux**: NVIDIA (CUDA), AMD/Intel (Vulkan)
-
-Automatically enabled at build time - no configuration needed.
-
-## System Architecture
-
-Meetily is a single, self-contained application built with [Tauri](https://tauri.app/). It uses a Rust-based backend to handle all the core logic, and a Next.js frontend for the user interface.
-
-For more details, see the [Architecture documentation](docs/architecture.md).
-
-## For Developers
-
-If you want to contribute to Meetily or build it from source, you'll need to have Rust and Node.js installed. For detailed build instructions, please see the [Building from Source guide](docs/BUILDING.md).
-
-## Meetily Pro
-
-<p align="center">
-    <img src="docs/pv2.1.png" width="650" style="border-radius: 10px;" alt="Upcoming version" />
-</p>
-
-**Meetily PRO** is a professional-grade solution with enhanced accuracy and advanced features for serious users and teams. Built on a different codebase with superior transcription models and enterprise-ready capabilities.
-
-### Community Thank-You Offer
-
-Meetily Community Edition will remain free and open source. PRO exists for users and teams who want a more advanced meeting workflow, including higher transcription accuracy, custom summary templates, advanced exports, auto-meeting detection, and self-hosted deployment options.
-
-For the community that helped Meetily grow, we are making the upgrade easier: use coupon code **LAUNCH20** for **20% off Meetily PRO** until the next Meetily Community Edition release.
-
-Speaker diarization is planned for mid-June, bringing automatic speaker separation to PRO meetings.
-
-### Key Advantages Over Community Edition:
-
-- **Enhanced Accuracy**: Superior transcription models for professional-grade accuracy
-- **Custom Summary Templates**: Tailor summaries to your specific workflow and needs
-- **Advanced Export Options**: PDF, DOCX, and Markdown exports with formatting
-- **Auto-detect and Join Meetings**: Automatic meeting detection and joining
-- **Speaker Identification**: Distinguish between speakers automatically *(Coming Soon)*
-- **Chat with Meetings**: AI-powered meeting insights and queries *(Coming Soon)*
-- **Calendar Integration**: Seamless integration with your calendar *(Coming Soon)*
-- **Self-Hosted Deployment**: Deploy on your own infrastructure for teams
-- **GDPR Compliance Built-In**: Privacy by design architecture with complete audit trails
-- **Priority Support**: Dedicated support for PRO users
-
-### Who is PRO for?
-
-- **Professionals** who need the highest accuracy for critical meetings
-- **Teams and organizations** (2-100 users) requiring self-hosted deployment
-- **Power users** who need advanced export formats and custom workflows
-- **Compliance-focused organizations** requiring GDPR readiness
-
-> **Note:** Meetily Community Edition remains **free & open source forever** with local transcription, AI summaries, and core features. PRO is a separate professional solution for users who need enhanced accuracy and advanced capabilities.
-
-For organizations needing 100+ users or managed compliance solutions, explore [Meetily Enterprise](https://meetily.ai/enterprise/).
-
-**Learn more about pricing and features:** [https://meetily.ai/pro/](https://meetily.ai/pro/)
-
-## Contributing
-
-We welcome contributions from the community! If you have any questions or suggestions, please open an issue or submit a pull request. Please follow the established project structure and guidelines. For more details, refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
-
-Thanks for all the contributions. Our community is what makes this project possible.
-
-## License
-
-MIT License - Feel free to use this project for your own purposes.
-
-## Acknowledgments
-
-- We borrowed some code from [Whisper.cpp](https://github.com/ggerganov/whisper.cpp).
-- We borrowed some code from [Screenpipe](https://github.com/mediar-ai/screenpipe).
-- We borrowed some code from [transcribe-rs](https://crates.io/crates/transcribe-rs).
-- Thanks to **NVIDIA** for developing the **Parakeet** model.
-- Thanks to [istupakov](https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx) for providing the **ONNX conversion** of the Parakeet model.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/chart?repos=Zackriya-Solutions/meetily&type=date&legend=top-left)](https://www.star-history.com/?repos=Zackriya-Solutions%2Fmeetily&type=date&legend=bottom-right)
+Este repositorio mantiene licencia MIT.
