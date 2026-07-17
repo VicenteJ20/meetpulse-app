@@ -77,10 +77,9 @@ export function useAutoScroll({
             userScrolledRef.current = false;
             setAutoScroll(true);
 
-            // Reset the flag after a small delay to account for scroll event propagation
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 isProgrammaticScrollRef.current = false;
-            }, 50);
+            });
         }
     }, [scrollRef]);
 
@@ -89,42 +88,22 @@ export function useAutoScroll({
         const container = scrollRef.current;
         if (!container) return;
 
-        let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
-
         const handleScroll = () => {
             // Skip if this is a programmatic scroll
             if (isProgrammaticScrollRef.current) {
                 return;
             }
 
-            // Debounce scroll handling to prevent rapid state changes
-            if (scrollTimeout) {
-                clearTimeout(scrollTimeout);
-            }
-
-            scrollTimeout = setTimeout(() => {
-                // Check if user is near bottom
-                const nearBottom = isNearBottom();
-
-                if (nearBottom) {
-                    // User scrolled to bottom - re-enable auto-scroll
-                    userScrolledRef.current = false;
-                    setAutoScroll(true);
-                } else {
-                    // User scrolled away from bottom - disable auto-scroll
-                    userScrolledRef.current = true;
-                    setAutoScroll(false);
-                }
-            }, 100);
+            const nearBottom = isNearBottom();
+            userScrolledRef.current = !nearBottom;
+            autoScrollRef.current = nearBottom;
+            setAutoScroll(nearBottom);
         };
 
         container.addEventListener("scroll", handleScroll, { passive: true });
 
         return () => {
             container.removeEventListener("scroll", handleScroll);
-            if (scrollTimeout) {
-                clearTimeout(scrollTimeout);
-            }
         };
     }, [isNearBottom, scrollRef]);
 
@@ -142,37 +121,31 @@ export function useAutoScroll({
         // Update the ref for next comparison
         prevSegmentCountRef.current = segmentCount;
 
-        // Only scroll if new segments arrived AND user is currently at bottom
-        // Check isNearBottom() immediately to avoid race conditions with the debounced scroll handler
-        if (hasNewSegments && autoScrollRef.current && isRecording && !isPaused && segmentCount > 0) {
-            // Check if user is at bottom RIGHT NOW before scrolling
-            const isCurrentlyAtBottom = isNearBottom();
-            if (!isCurrentlyAtBottom) {
-                // User has scrolled up - don't auto-scroll
-                return;
-            }
-
+        // Preserve the pre-update scroll intent. A tall new row can make the
+        // container look far from the bottom before its height settles.
+        if (hasNewSegments && autoScrollRef.current && !userScrolledRef.current && isRecording && !isPaused && segmentCount > 0) {
             isProgrammaticScrollRef.current = true;
 
-            if (useVirtualization && virtualizer) {
-                // Use scrollToOffset with a large value to ensure we're at the bottom
-                const totalSize = virtualizer.getTotalSize();
-                virtualizer.scrollToOffset(totalSize + 1000, { align: "end" });
+            let settleFrame = 0;
+            const layoutFrame = requestAnimationFrame(() => {
+                if (useVirtualization && virtualizer) {
+                    virtualizer.scrollToIndex(segmentCount - 1, { align: "end" });
+                }
 
-                // Also set scrollTop directly as backup after virtualizer updates
-                setTimeout(() => {
+                // ResizeObserver reports final virtual-row sizes on this frame.
+                settleFrame = requestAnimationFrame(() => {
                     if (scrollRef.current) {
                         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
                     }
-                }, 50);
-            } else if (scrollRef.current) {
-                scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-            }
+                    isProgrammaticScrollRef.current = false;
+                });
+            });
 
-            // Reset the flag after a longer delay for virtualization
-            setTimeout(() => {
+            return () => {
+                cancelAnimationFrame(layoutFrame);
+                if (settleFrame) cancelAnimationFrame(settleFrame);
                 isProgrammaticScrollRef.current = false;
-            }, 150);
+            };
         }
     }, [segments.length, isRecording, isPaused, useVirtualization, virtualizer, scrollRef, isNearBottom, disableAutoScroll]);
 

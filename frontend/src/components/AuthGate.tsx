@@ -43,10 +43,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <h1 className="text-5xl font-semibold leading-[1.05] tracking-[-0.04em]">{t('auth.title')}</h1>
         <p className="mt-6 max-w-md text-lg leading-8 text-slate-300">{t('auth.description')}</p>
         <div className="mt-10 space-y-4 text-sm text-slate-200">
-          {['Local recording and transcription workflow', 'Structured notes, decisions, and follow-ups', 'Shared Wiki for durable project context'].map(item => <p key={item} className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10"><Check className="h-3.5 w-3.5 text-cyan-200" /></span>{item}</p>)}
+          {['Local recording and transcription workflow', 'Structured notes, decisions, and follow-ups', 'Shared Wiki for durable project context'].map(item => <p key={item} className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[hsl(0_0%_100%/0.1)]"><Check className="h-3.5 w-3.5 text-cyan-200" /></span>{item}</p>)}
         </div>
       </div>
-      <p className="relative text-xs text-slate-400">{t('app.name')} desktop · Your meeting intelligence stays in your control.</p>
+      <p className="relative text-xs text-muted-foreground">{t('app.name')} desktop · Your meeting intelligence stays in your control.</p>
     </section>
 
     <section className="relative flex min-h-[600px] flex-col items-center bg-[radial-gradient(circle_at_90%_15%,hsl(var(--brand)/.12),transparent_30%)] px-7 py-8 sm:px-12 sm:py-11">

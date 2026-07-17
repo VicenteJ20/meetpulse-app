@@ -23,6 +23,8 @@ export default {
         ring: "hsl(var(--ring))",
         brand: { DEFAULT: "hsl(var(--brand))", foreground: "hsl(var(--brand-foreground))" },
         recording: { DEFAULT: "hsl(var(--recording))", foreground: "hsl(var(--recording-foreground))" },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
       },
       fontSize: {
         'display': ['32px', { lineHeight: '1.2', fontWeight: '700' }],

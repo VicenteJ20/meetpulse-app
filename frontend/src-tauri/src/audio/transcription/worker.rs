@@ -3,7 +3,7 @@
 // Parallel transcription worker pool and chunk processing logic.
 
 use super::engine::TranscriptionEngine;
-use super::provider::TranscriptionError;
+use super::provider::{TranscriptionError, TranscriptionJob, TranscriptionLanguageMode};
 use crate::audio::AudioChunk;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ pub struct TranscriptUpdate {
 /// Optimized parallel transcription task ensuring ZERO chunk loss
 pub fn start_transcription_task<R: Runtime>(
     app: AppHandle<R>,
-    transcription_receiver: tokio::sync::mpsc::Receiver<AudioChunk>,
+    transcription_receiver: tokio::sync::mpsc::Receiver<TranscriptionJob>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         info!("🚀 Starting optimized parallel transcription task - guaranteeing zero chunk loss");
@@ -65,7 +65,7 @@ pub fn start_transcription_task<R: Runtime>(
 
         // Create parallel workers for faster processing while preserving ALL chunks
         const NUM_WORKERS: usize = 1; // Serial processing ensures transcripts emit in chronological order
-        let (work_sender, work_receiver) = tokio::sync::mpsc::channel::<AudioChunk>(32);
+        let (work_sender, work_receiver) = tokio::sync::mpsc::channel::<TranscriptionJob>(32);
         let work_receiver = Arc::new(tokio::sync::Mutex::new(work_receiver));
 
         // Track completion: AtomicU64 for chunks queued, AtomicU64 for chunks completed
@@ -112,13 +112,15 @@ pub fn start_transcription_task<R: Runtime>(
 
                 loop {
                     // Try to get a chunk to process
-                    let chunk = {
+                    let job = {
                         let mut receiver = work_receiver_clone.lock().await;
                         receiver.recv().await
                     };
 
-                    match chunk {
-                        Some(chunk) => {
+                    match job {
+                        Some(job) => {
+                            let chunk = job.chunk;
+                            let language_mode = job.language_mode;
                             // PERFORMANCE OPTIMIZATION: Reduce logging in hot path
                             // Only log every 10th chunk per worker to reduce I/O overhead
                             let should_log_this_chunk = chunk.chunk_id % 10 == 0;
@@ -147,6 +149,7 @@ pub fn start_transcription_task<R: Runtime>(
                             match transcribe_chunk_with_provider(
                                 &engine_clone,
                                 chunk,
+                                language_mode,
                                 &app_clone,
                             )
                             .await
@@ -322,14 +325,14 @@ pub fn start_transcription_task<R: Runtime>(
 
         // Main dispatcher: receive chunks and distribute to workers
         let mut receiver = transcription_receiver;
-        while let Some(chunk) = receiver.recv().await {
+        while let Some(job) = receiver.recv().await {
             let queued = chunks_queued.fetch_add(1, Ordering::SeqCst) + 1;
             info!(
                 "📥 Dispatching chunk {} to workers (total queued: {})",
-                chunk.chunk_id, queued
+                job.chunk.chunk_id, queued
             );
 
-            if work_sender.send(chunk).await.is_err() {
+            if work_sender.send(job).await.is_err() {
                 error!("❌ Failed to send chunk to workers - this should not happen!");
                 break;
             }
@@ -408,6 +411,7 @@ pub fn start_transcription_task<R: Runtime>(
 async fn transcribe_chunk_with_provider<R: Runtime>(
     engine: &TranscriptionEngine,
     chunk: AudioChunk,
+    language_mode: TranscriptionLanguageMode,
     app: &AppHandle<R>,
 ) -> std::result::Result<(String, Option<f32>, bool), TranscriptionError> {
     // Convert to 16kHz mono for transcription
@@ -445,8 +449,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
     // Transcribe using the appropriate engine (with improved error handling)
     match engine {
         TranscriptionEngine::Whisper(whisper_engine) => {
-            // Get language preference from global state
-            let language = crate::get_language_preference_internal();
+            let language = language_mode.language_hint();
 
             match whisper_engine
                 .transcribe_audio_with_confidence(speech_samples, language)
@@ -523,7 +526,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
         }
         TranscriptionEngine::Provider(provider) => {
             // NEW: Trait-based provider (clean, unified interface)
-            let language = crate::get_language_preference_internal();
+            let language = language_mode.language_hint();
 
             match provider.transcribe(speech_samples, language).await {
                 Ok(result) => {
@@ -556,12 +559,14 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                         e
                     );
 
+                    let fatal = e.is_fatal();
                     let _ = app.emit(
                         "transcription-error",
                         &serde_json::json!({
                             "error": e.to_string(),
                             "userMessage": format!("Transcription failed: {}", e),
-                            "actionable": false
+                            "actionable": fatal,
+                            "fatal": fatal
                         }),
                     );
 

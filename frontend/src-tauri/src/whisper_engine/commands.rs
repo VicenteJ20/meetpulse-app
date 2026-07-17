@@ -393,7 +393,7 @@ pub async fn whisper_transcribe_audio(audio_data: Vec<f32>) -> Result<String, St
 
     if let Some(engine) = engine {
         // Get language preference
-        let language = crate::get_language_preference_internal();
+        let language = crate::get_language_preference_internal().language_hint();
         engine
             .transcribe_audio(audio_data, language)
             .await

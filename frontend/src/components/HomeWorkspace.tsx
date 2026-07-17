@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, BookOpen, Check, ChevronRight, Headphones, Import, LockKeyhole, Mic, Radio, Settings2, Sparkles } from 'lucide-react';
+import { ArrowRight, ChevronRight, Import, LockKeyhole, Mic, Radio, Settings2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useConfig } from '@/contexts/ConfigContext';
@@ -9,6 +9,8 @@ import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { Button } from '@/components/ui/button';
 import { EmptyState, PageHeader, Surface } from '@/components/ui/product';
 import { HomeWikiStats } from '@/components/HomeWikiStats';
+import { TranscriptionLanguageControl } from '@/components/TranscriptionLanguageControl';
+import { HomeReadinessControls } from '@/components/HomeReadinessControls';
 
 export function HomeWorkspace({
   onStartRecording,
@@ -25,7 +27,7 @@ export function HomeWorkspace({
 }) {
   const router = useRouter();
   const { meetings, setCurrentMeeting } = useSidebar();
-  const { selectedDevices, transcriptModelConfig, betaFeatures } = useConfig();
+  const { betaFeatures } = useConfig();
   const { openImportDialog } = useImportDialog();
   const { t } = useTranslation();
   const recent = meetings.slice(0, 6);
@@ -34,27 +36,6 @@ export function HomeWorkspace({
     setCurrentMeeting(meeting);
     router.push(`/meeting-details?id=${meeting.id}`);
   };
-
-  const readiness = [
-    {
-      label: t('home.microphone'),
-      value: selectedDevices.micDevice || (hasMicrophone ? t('home.configured') : t('home.permissionNeeded')),
-      ready: hasMicrophone,
-      icon: Mic,
-    },
-    {
-      label: t('home.systemAudio'),
-      value: selectedDevices.systemDevice || (hasSystemAudio ? t('home.configured') : t('home.permissionNeeded')),
-      ready: hasSystemAudio,
-      icon: Headphones,
-    },
-    {
-      label: t('home.transcription'),
-      value: transcriptModelConfig.model || transcriptModelConfig.provider,
-      ready: !!transcriptModelConfig.provider,
-      icon: Sparkles,
-    },
-  ];
 
   return (
     <main className="custom-scrollbar h-screen overflow-y-auto">
@@ -80,15 +61,18 @@ export function HomeWorkspace({
               </div>
               <h2 className="text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">{t('recording.new')}</h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">{t('home.startHint')}</p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Button size="lg" onClick={onStartRecording} className="h-12 rounded-xl bg-recording px-6 text-recording-foreground shadow-lg shadow-red-950/15 hover:bg-recording/90">
-                  <Mic className="h-5 w-5" /> {t('recording.start')}
-                </Button>
-                {betaFeatures.importAndRetranscribe && (
-                  <Button size="lg" variant="outline" onClick={() => openImportDialog()} className="h-12 rounded-xl">
-                    <Import /> {t('home.importAudio')}
+              <div className="mt-7 flex flex-wrap items-end gap-4">
+                <TranscriptionLanguageControl />
+                <div className="mt-4 flex flex-wrap gap-3 self-start">
+                  <Button size="lg" onClick={onStartRecording} className="h-12 rounded-xl bg-recording px-6 text-recording-foreground shadow-lg shadow-red-950/15 hover:bg-recording/90">
+                    <Mic className="h-5 w-5" /> {t('recording.start')}
                   </Button>
-                )}
+                  {betaFeatures.importAndRetranscribe && (
+                    <Button size="lg" variant="outline" onClick={() => openImportDialog()} className="h-12 rounded-xl">
+                      <Import /> {t('home.importAudio')}
+                    </Button>
+                  )}
+                </div>
               </div>
               {recoverableCount > 0 && (
                 <button className="mt-6 flex items-center gap-2 text-sm font-medium text-brand hover:underline" onClick={onOpenRecovery}>
@@ -108,24 +92,9 @@ export function HomeWorkspace({
                 <LockKeyhole className="h-5 w-5" />
               </div>
             </div>
-            <div className="mt-5 space-y-2">
-              {readiness.map(item => (
-                <div key={item.label} className="flex items-center gap-3 rounded-xl bg-muted/55 px-3.5 py-3">
-                  <item.icon className="h-4 w-4 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-                    <p className="truncate text-sm font-medium">{item.value}</p>
-                  </div>
-                  <span className={`flex h-6 w-6 items-center justify-center rounded-full ${item.ready ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/12 text-amber-600 dark:text-amber-400'}`}>
-                    {item.ready ? <Check className="h-3.5 w-3.5" /> : <Settings2 className="h-3.5 w-3.5" />}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <HomeReadinessControls hasMicrophone={hasMicrophone} hasSystemAudio={hasSystemAudio} />
           </Surface>
-        </section>
 
-        <section className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(19rem,0.7fr)]">
           <Surface className="overflow-hidden">
             <div className="flex items-center justify-between border-b border-border/70 px-5 py-4">
               <div>

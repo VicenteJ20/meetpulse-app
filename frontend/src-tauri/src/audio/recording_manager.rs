@@ -10,7 +10,8 @@ use super::devices::get_safe_recording_devices_macos;
 
 #[cfg(not(target_os = "macos"))]
 use super::devices::{default_input_device, default_output_device};
-use super::recording_state::{RecordingState, AudioChunk, DeviceType as RecordingDeviceType};
+use super::recording_state::{DeviceType as RecordingDeviceType, RecordingState};
+use super::transcription::TranscriptionJob;
 use super::pipeline::AudioPipelineManager;
 use super::stream::AudioStreamManager;
 use super::recording_saver::RecordingSaver;
@@ -65,13 +66,13 @@ impl RecordingManager {
         microphone_device: Option<Arc<AudioDevice>>,
         system_device: Option<Arc<AudioDevice>>,
         auto_save: bool,
-    ) -> Result<mpsc::Receiver<AudioChunk>> {
+    ) -> Result<mpsc::Receiver<TranscriptionJob>> {
         info!("Starting recording manager (auto_save: {})", auto_save);
 
         // Set up transcription channel
         // Bound cloud/local transcription backlog. The async pipeline applies
         // backpressure instead of allowing an unbounded queue to exhaust memory.
-        let (transcription_sender, transcription_receiver) = mpsc::channel::<AudioChunk>(64);
+        let (transcription_sender, transcription_receiver) = mpsc::channel::<TranscriptionJob>(64);
 
         // CRITICAL FIX: Create recording sender for pre-mixed audio from pipeline
         // Pipeline will mix mic + system audio professionally and send to this channel
@@ -169,7 +170,7 @@ impl RecordingManager {
     ///
     /// User still hears audio via Bluetooth (playback), but recording captures
     /// via stable wired path for best quality.
-    pub async fn start_recording_with_defaults_and_auto_save(&mut self, auto_save: bool) -> Result<mpsc::Receiver<AudioChunk>> {
+    pub async fn start_recording_with_defaults_and_auto_save(&mut self, auto_save: bool) -> Result<mpsc::Receiver<TranscriptionJob>> {
         #[cfg(target_os = "macos")]
         {
             info!("🎙️ [macOS] Starting recording with smart device selection (Bluetooth override enabled)");

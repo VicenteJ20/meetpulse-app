@@ -451,7 +451,7 @@ const Sidebar: React.FC = () => {
             <TooltipTrigger asChild>
               <button
                 onClick={toggleCollapse}
-                className="rounded-full border border-slate-200 bg-white p-1 text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
+                className="rounded-full border border-border bg-card p-1 text-foreground shadow-sm transition-colors hover:bg-muted"
                 aria-label="Expand sidebar"
               >
                 <ChevronRightCircle className="w-5 h-5" />
@@ -466,9 +466,9 @@ const Sidebar: React.FC = () => {
             <TooltipTrigger asChild>
               <button
                 onClick={() => router.push('/')}
-                className={`p-2 rounded-lg transition-colors duration-150 ${isHomePage ? 'bg-gray-100' : 'hover:bg-gray-100'}`}
+                className={`p-2 rounded-lg transition-colors duration-150 ${isHomePage ? 'bg-muted' : 'hover:bg-muted'}`}
               >
-                <Home className="w-5 h-5 text-gray-600" />
+                <Home className="w-5 h-5 text-muted-foreground" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="right"><p>Home</p></TooltipContent>
@@ -491,9 +491,9 @@ const Sidebar: React.FC = () => {
             <TooltipTrigger asChild>
               <button
                 onClick={() => router.push('/wiki')}
-                className={`p-2 rounded-lg transition-colors duration-150 ${isWikiPage ? 'bg-gray-100' : 'hover:bg-gray-100'}`}
+                className={`p-2 rounded-lg transition-colors duration-150 ${isWikiPage ? 'bg-muted' : 'hover:bg-muted'}`}
               >
-                <BookOpen className="w-5 h-5 text-gray-600" />
+                <BookOpen className="w-5 h-5 text-muted-foreground" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="right"><p>Wiki</p></TooltipContent>
@@ -503,10 +503,10 @@ const Sidebar: React.FC = () => {
             <TooltipTrigger asChild>
               <button
                 onClick={() => router.push('/settings')}
-                className={`p-2 rounded-lg transition-colors duration-150 ${isSettingsPage ? 'bg-gray-100' : 'hover:bg-gray-100'
+                className={`p-2 rounded-lg transition-colors duration-150 ${isSettingsPage ? 'bg-muted' : 'hover:bg-muted'
                   }`}
               >
-                <Settings className="w-5 h-5 text-gray-600" />
+                <Settings className="w-5 h-5 text-muted-foreground" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="right">
@@ -518,8 +518,8 @@ const Sidebar: React.FC = () => {
           <div className="mt-auto">
             <Tooltip>
               <TooltipTrigger asChild>
-                <button onClick={handleSignOut} className="rounded-lg p-2 transition-colors duration-150 hover:bg-gray-100" aria-label="Sign out">
-                  <LogOut className="w-5 h-5 text-gray-600" />
+                <button onClick={handleSignOut} className="rounded-lg p-2 transition-colors duration-150 hover:bg-muted" aria-label="Sign out">
+                  <LogOut className="w-5 h-5 text-muted-foreground" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right"><p>Sign out</p></TooltipContent>
@@ -553,8 +553,8 @@ const Sidebar: React.FC = () => {
         <div
           className={`flex items-center transition-all duration-150 group ${item.type === 'folder' && depth === 0
             ? 'p-3 text-lg font-semibold h-10 mx-3 mt-3 rounded-lg'
-            : `px-3 py-2 my-0.5 rounded-md text-sm ${isActive ? 'bg-slate-200 text-slate-900 font-medium' :
-              hasTranscriptMatch ? 'bg-yellow-50' : 'hover:bg-gray-50'
+            : `px-3 py-2 my-0.5 rounded-md text-sm ${isActive ? 'bg-muted text-foreground font-medium' :
+              hasTranscriptMatch ? 'bg-warning/10' : 'hover:bg-muted/50'
             } cursor-pointer`
             }`}
           style={item.type === 'folder' && depth === 0 ? {} : { paddingLeft }}
@@ -574,18 +574,18 @@ const Sidebar: React.FC = () => {
               {item.id === 'meetings' ? (
                 <Calendar className="w-4 h-4 mr-2" />
               ) : item.id.startsWith('client:') ? (
-                <StickyNote className="w-4 h-4 mr-2 text-slate-600" />
+                <StickyNote className="w-4 h-4 mr-2 text-muted-foreground" />
               ) : item.id.startsWith('project:') ? (
-                <Calendar className="w-4 h-4 mr-2 text-slate-500" />
+                <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
               ) : item.id === 'notes' ? (
                 <Calendar className="w-4 h-4 mr-2" />
               ) : null}
               <span className={depth === 0 ? "" : "font-medium"}>{item.title}</span>
               <div className="ml-auto">
                 {isExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-500" />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 )}
               </div>
               {searchQuery && item.id === 'meetings' && isSearching && (
@@ -596,12 +596,12 @@ const Sidebar: React.FC = () => {
             <div className="flex flex-col w-full">
               <div className="flex items-center w-full">
                 {isMeetingItem ? (
-                  <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full mr-2 bg-gray-100">
-                    <File className="w-3.5 h-3.5 text-gray-600" />
+                  <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full mr-2 bg-muted">
+                    <File className="w-3.5 h-3.5 text-muted-foreground" />
                   </div>
                 ) : (
-                  <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full mr-2 bg-slate-100">
-                    <Plus className="w-3.5 h-3.5 text-slate-600" />
+                  <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full mr-2 bg-muted">
+                    <Plus className="w-3.5 h-3.5 text-muted-foreground" />
                   </div>
                 )}
                 <span className="flex-1 break-words">{item.title}</span>
@@ -612,7 +612,7 @@ const Sidebar: React.FC = () => {
                         e.stopPropagation();
                         handleEditStart(item.id, item.title);
                       }}
-                      className="hover:text-slate-900 p-1 rounded-md hover:bg-slate-100 flex-shrink-0"
+                      className="hover:text-foreground p-1 rounded-md hover:bg-muted flex-shrink-0"
                       aria-label="Edit meeting title"
                     >
                       <Pencil className="w-4 h-4" />
@@ -622,7 +622,7 @@ const Sidebar: React.FC = () => {
                         e.stopPropagation();
                         setDeleteModalState({ isOpen: true, itemId: item.id });
                       }}
-                      className="hover:text-red-600 p-1 rounded-md hover:bg-red-50 flex-shrink-0"
+                      className="hover:text-destructive p-1 rounded-md hover:bg-destructive/10 flex-shrink-0"
                       aria-label="Delete meeting"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -633,14 +633,14 @@ const Sidebar: React.FC = () => {
 
               {(item.client || item.project) && (
                 <div className="ml-8 mt-1 flex flex-wrap gap-1">
-                  {item.client && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">{item.client}</span>}
-                  {item.project && <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-600">{item.project}</span>}
+                  {item.client && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-foreground">{item.client}</span>}
+                  {item.project && <span className="rounded border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">{item.project}</span>}
                 </div>
               )}
 
               {/* Show transcript match snippet if available */}
               {hasTranscriptMatch && (
-                <div className="mt-1 ml-8 text-xs text-gray-500 bg-yellow-50 p-1.5 rounded border border-yellow-100 line-clamp-2">
+                <div className="ml-8 mt-1 line-clamp-2 rounded border border-warning/25 bg-warning/10 p-1.5 text-xs text-muted-foreground">
                   <span className="font-medium text-yellow-600">Match:</span> {matchingResult.matchContext}
                 </div>
               )}
@@ -672,8 +672,8 @@ const Sidebar: React.FC = () => {
             emphasis === 'recording'
               ? 'bg-recording text-recording-foreground shadow-lg shadow-red-950/20 hover:brightness-105'
               : active
-                ? 'bg-white/12 text-white'
-                : 'text-[hsl(var(--sidebar-foreground))] hover:bg-white/8 hover:text-white'
+                ? 'bg-[hsl(0_0%_100%/0.12)] text-white'
+                : 'text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(0_0%_100%/0.08)] hover:text-white'
           }`}
         >
           {active && emphasis === 'default' && <span className="absolute -left-[14px] h-5 w-1 rounded-r-full bg-[hsl(var(--sidebar-active))]" />}
@@ -784,7 +784,7 @@ const Sidebar: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">Edit Meeting Title</h3>
             <div className="space-y-4">
               <div>
-                <label htmlFor="meeting-title" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="meeting-title" className="block text-sm font-medium text-foreground mb-2">
                   Meeting Title
                 </label>
                 <input
@@ -799,7 +799,7 @@ const Sidebar: React.FC = () => {
                       handleEditCancel();
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter meeting title"
                   autoFocus
                 />
@@ -809,7 +809,7 @@ const Sidebar: React.FC = () => {
           <DialogFooter>
             <button
               onClick={handleEditCancel}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              className="px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-muted rounded-md transition-colors"
             >
               Cancel
             </button>

@@ -27,7 +27,9 @@
         "tauri:build:openblas": "tauri build -- --features openblas",
         "tauri:build:hipblas": "tauri build -- --features hipblas",
         "lint": "next lint",
-        "test:i18n": "node --test tests/i18n/catalogs.test.mjs"
+        "test:i18n": "node --test tests/i18n/catalogs.test.mjs",
+        "test:theme": "node --test tests/theme/theme-consistency.test.mjs",
+        "test:transcript-layout": "node --test tests/transcript/transcript-layout.test.mjs"
     },
     "dependencies": {
         "@blocknote/core": "0.36.0",

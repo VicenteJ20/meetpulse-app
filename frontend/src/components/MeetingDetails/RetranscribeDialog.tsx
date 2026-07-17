@@ -280,7 +280,7 @@ export function RetranscribeDialog({
               </>
             ) : error ? (
               <>
-                <AlertCircle className="h-5 w-5 text-red-600" />
+                <AlertCircle className="h-5 w-5 text-destructive" />
                 Retranscription Failed
               </>
             ) : (
@@ -358,7 +358,7 @@ export function RetranscribeDialog({
                 Choose a transcription model
               </p>
               {selectedModelDetails?.provider === 'gemini' && (
-                <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+                <p className="rounded-md border border-warning/30 bg-warning/10 p-2 text-xs text-warning">
                   This mode sends meeting audio chunks to Google Gemini. Existing transcripts are replaced only after all chunks finish successfully.
                 </p>
               )}
@@ -368,13 +368,13 @@ export function RetranscribeDialog({
           {isProcessing && progress && (
             <div className="space-y-2">
               <div className="relative">
-                <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="w-full bg-muted rounded-full h-3">
                   <div
                     className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
                     style={{ width: `${Math.min(progress.progress_percentage, 100)}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-xs text-gray-600 mt-1">
+                <div className="mt-1 flex justify-between text-xs text-muted-foreground">
                   <span>{progress.stage}</span>
                   <span>{Math.round(progress.progress_percentage)}%</span>
                 </div>
@@ -386,8 +386,8 @@ export function RetranscribeDialog({
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="bg-destructive/10 border border-destructive/25 rounded-lg p-3">
+              <p className="text-sm text-destructive">{error}</p>
             </div>
           )}
         </div>

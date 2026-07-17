@@ -6,7 +6,11 @@ use std::time::Duration;
 
 const GEMINI_ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta/models";
 const MAX_ATTEMPTS: usize = 3;
-const MAX_TRANSCRIPTION_SECONDS: usize = 30;
+// Keep individual Gemini requests below the VAD's 30-second boundary. VAD
+// padding and frame rounding can otherwise produce 30.0s segments that are a
+// handful of samples over the hard limit.
+const SAFE_REQUEST_SECONDS: usize = 28;
+const MIN_TRANSCRIPTION_SAMPLES: usize = 1_600;
 const MAX_OUTPUT_TOKENS: usize = 8_192;
 
 pub struct GeminiTranscriptionProvider {
@@ -31,12 +35,33 @@ impl GeminiTranscriptionProvider {
     }
 
     fn prompt(language: Option<&str>) -> String {
-        let language_instruction = match language.filter(|v| *v != "auto") {
-            Some(value) => format!(" The spoken language is expected to be '{}'.", value),
-            None => " Detect the spoken language automatically.".to_string(),
+        let language_instruction = match language {
+            Some("es") => concat!(
+                "Transcribe literalmente cada palabra. El idioma predominante es español, ",
+                "pero puede haber algunas frases en inglés. Conserva cada cambio de idioma ",
+                "tal como fue pronunciado y no traduzcas nada."
+            )
+            .to_string(),
+            Some("en") => concat!(
+                "You must transcribe every spoken word literally. The predominant language is ",
+                "English, but there may be some phrases in Spanish. Preserve every language ",
+                "switch exactly as spoken and do not translate anything."
+            )
+            .to_string(),
+            None | Some("auto") => concat!(
+                "First identify the predominant spoken language, then transcribe every spoken ",
+                "word literally in its original language. The conversation may switch between ",
+                "Spanish and English. Preserve every language switch exactly as spoken and do ",
+                "not translate anything."
+            )
+            .to_string(),
+            Some(value) => format!(
+                "Transcribe every spoken word literally in the original language. The expected language is '{}'. Do not translate anything.",
+                value
+            ),
         };
         format!(
-            "Transcribe only the spoken words in this audio verbatim.{} Return plain text only. Do not summarize, explain, add Markdown, timestamps, speaker labels, or commentary. If there is no intelligible speech, return an empty string.",
+            "{} Return plain text only. Do not summarize, explain, add Markdown, timestamps, speaker labels, or commentary. If there is no intelligible speech, return an empty string.",
             language_instruction
         )
     }
@@ -99,25 +124,54 @@ impl GeminiTranscriptionProvider {
 #[async_trait]
 impl TranscriptionProvider for GeminiTranscriptionProvider {
     async fn transcribe(&self, audio: Vec<f32>, language: Option<String>) -> Result<TranscriptResult, TranscriptionError> {
-        if audio.len() < 1600 {
-            return Err(TranscriptionError::AudioTooShort { samples: audio.len(), minimum: 1600 });
+        if audio.len() < MIN_TRANSCRIPTION_SAMPLES {
+            return Err(TranscriptionError::AudioTooShort {
+                samples: audio.len(),
+                minimum: MIN_TRANSCRIPTION_SAMPLES,
+            });
         }
-        let maximum_samples = 16_000 * MAX_TRANSCRIPTION_SECONDS;
-        if audio.len() > maximum_samples {
-            return Err(TranscriptionError::Configuration(format!(
-                "Gemini transcription chunks must be at most {} seconds (received {:.1}s)",
-                MAX_TRANSCRIPTION_SECONDS,
-                audio.len() as f64 / 16_000.0
-            )));
+
+        let mut transcriptions = Vec::new();
+        for range in gemini_request_ranges(audio.len()) {
+            let wav = pcm_f32_to_wav(&audio[range], 16000);
+            let text = self.request(&wav, language.as_deref()).await?;
+            if !text.is_empty() {
+                transcriptions.push(text);
+            }
         }
-        let wav = pcm_f32_to_wav(&audio, 16000);
-        let text = self.request(&wav, language.as_deref()).await?;
-        Ok(TranscriptResult { text, confidence: None, is_partial: false })
+
+        Ok(TranscriptResult {
+            text: transcriptions.join(" "),
+            confidence: None,
+            is_partial: false,
+        })
     }
 
     async fn is_model_loaded(&self) -> bool { !self.api_key.is_empty() && !self.model.is_empty() }
     async fn get_current_model(&self) -> Option<String> { Some(self.model.clone()) }
     fn provider_name(&self) -> &'static str { "Gemini" }
+}
+
+fn gemini_request_ranges(total_samples: usize) -> Vec<std::ops::Range<usize>> {
+    let maximum_samples = 16_000 * SAFE_REQUEST_SECONDS;
+    if total_samples <= maximum_samples {
+        return vec![0..total_samples];
+    }
+
+    let mut ranges = Vec::new();
+    let mut start = 0;
+    while total_samples - start > maximum_samples {
+        let remaining_after_full_chunk = total_samples - start - maximum_samples;
+        let end = if remaining_after_full_chunk < MIN_TRANSCRIPTION_SAMPLES {
+            total_samples - MIN_TRANSCRIPTION_SAMPLES
+        } else {
+            start + maximum_samples
+        };
+        ranges.push(start..end);
+        start = end;
+    }
+    ranges.push(start..total_samples);
+    ranges
 }
 
 fn pcm_f32_to_wav(samples: &[f32], sample_rate: u32) -> Vec<u8> {
@@ -180,8 +234,52 @@ mod tests {
     #[test]
     fn prompt_is_plain_transcription_and_includes_language() {
         let prompt = GeminiTranscriptionProvider::prompt(Some("es"));
-        assert!(prompt.contains("verbatim"));
-        assert!(prompt.contains("'es'"));
+        assert!(prompt.contains("idioma predominante es español"));
+        assert!(prompt.contains("frases en inglés"));
+        assert!(prompt.contains("no traduzcas nada"));
         assert!(prompt.contains("plain text only"));
+    }
+
+    #[test]
+    fn english_prompt_preserves_spanish_code_switching() {
+        let prompt = GeminiTranscriptionProvider::prompt(Some("en"));
+        assert!(prompt.contains("predominant language is English"));
+        assert!(prompt.contains("phrases in Spanish"));
+        assert!(prompt.contains("do not translate anything"));
+    }
+
+    #[test]
+    fn auto_prompt_detects_and_never_translates() {
+        let prompt = GeminiTranscriptionProvider::prompt(None);
+        assert!(prompt.contains("identify the predominant spoken language"));
+        assert!(prompt.contains("Spanish and English"));
+        assert!(prompt.contains("do not translate anything"));
+    }
+
+    #[test]
+    fn exact_thirty_second_audio_is_split_below_the_request_limit() {
+        let ranges = gemini_request_ranges(16_000 * 30);
+        assert_eq!(ranges, vec![0..16_000 * 28, 16_000 * 28..16_000 * 30]);
+        assert!(ranges.iter().all(|range| range.len() <= 16_000 * SAFE_REQUEST_SECONDS));
+    }
+
+    #[test]
+    fn sample_over_thirty_seconds_is_not_rejected() {
+        let ranges = gemini_request_ranges(16_000 * 30 + 1);
+        assert_eq!(ranges.iter().map(|range| range.len()).sum::<usize>(), 16_000 * 30 + 1);
+        assert!(ranges.iter().all(|range| range.len() >= MIN_TRANSCRIPTION_SAMPLES));
+    }
+
+    #[test]
+    fn long_audio_is_partitioned_without_gaps_or_short_tail() {
+        let total = 16_000 * 90 + 317;
+        let ranges = gemini_request_ranges(total);
+        assert_eq!(ranges.first().unwrap().start, 0);
+        assert_eq!(ranges.last().unwrap().end, total);
+        assert!(ranges.windows(2).all(|pair| pair[0].end == pair[1].start));
+        assert!(ranges.iter().all(|range| {
+            range.len() >= MIN_TRANSCRIPTION_SAMPLES
+                && range.len() <= 16_000 * SAFE_REQUEST_SECONDS
+        }));
     }
 }

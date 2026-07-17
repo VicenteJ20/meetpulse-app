@@ -113,7 +113,7 @@ export function TranscriptPanel({
       {homeStats}
 
       {/* Transcript content */}
-      <div className="pb-20">
+      <div className="pb-32">
         <div className="flex justify-center px-5">
           <div className="w-full max-w-4xl">
             <VirtualizedTranscriptView

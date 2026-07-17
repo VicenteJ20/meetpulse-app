@@ -34,7 +34,7 @@ export function useRecordingStart(
 
   const { clearTranscripts, setMeetingTitle } = useTranscripts();
   const { setIsMeetingActive } = useSidebar();
-  const { selectedDevices } = useConfig();
+  const { selectedDevices, transcriptModelConfig } = useConfig();
   const { setStatus } = useRecordingState();
 
   // Generate meeting title with timestamp
@@ -51,6 +51,9 @@ export function useRecordingStart(
 
   // Check if Parakeet transcription model is ready
   const checkParakeetReady = useCallback(async (): Promise<boolean> => {
+    if (transcriptModelConfig.provider !== 'parakeet') {
+      return true;
+    }
     try {
       await invoke('parakeet_init');
       const hasModels = await invoke<boolean>('parakeet_has_available_models');
@@ -59,7 +62,7 @@ export function useRecordingStart(
       console.error('Failed to check Parakeet status:', error);
       return false;
     }
-  }, []);
+  }, [transcriptModelConfig.provider]);
 
   // Check if any model is currently downloading
   const checkIfModelDownloading = useCallback(async (): Promise<boolean> => {

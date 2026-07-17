@@ -65,9 +65,12 @@ use tokio::sync::RwLock;
 
 static RECORDING_FLAG: AtomicBool = AtomicBool::new(false);
 
-// Global language preference storage (default to "auto-translate" for automatic translation to English)
-static LANGUAGE_PREFERENCE: std::sync::LazyLock<StdMutex<String>> =
-    std::sync::LazyLock::new(|| StdMutex::new("auto-translate".to_string()));
+// Live transcription language preference. Translation is never enabled here.
+static LANGUAGE_PREFERENCE: std::sync::LazyLock<
+    StdMutex<audio::transcription::TranscriptionLanguageMode>,
+> = std::sync::LazyLock::new(|| {
+    StdMutex::new(audio::transcription::TranscriptionLanguageMode::Auto)
+});
 
 #[derive(Debug, Deserialize)]
 struct RecordingArgs {
@@ -375,17 +378,21 @@ async fn start_recording_with_devices_and_meeting<R: Runtime>(
 
 #[tauri::command]
 async fn set_language_preference(language: String) -> Result<(), String> {
+    let mode = audio::transcription::TranscriptionLanguageMode::from_preference(&language)?;
     let mut lang_pref = LANGUAGE_PREFERENCE
         .lock()
         .map_err(|e| format!("Failed to set language preference: {}", e))?;
-    log_info!("Setting language preference to: {}", language);
-    *lang_pref = language;
+    log_info!("Setting live transcription language preference to: {}", mode.as_str());
+    *lang_pref = mode;
     Ok(())
 }
 
 // Internal helper function to get language preference (for use within Rust code)
-pub fn get_language_preference_internal() -> Option<String> {
-    LANGUAGE_PREFERENCE.lock().ok().map(|lang| lang.clone())
+pub fn get_language_preference_internal() -> audio::transcription::TranscriptionLanguageMode {
+    LANGUAGE_PREFERENCE
+        .lock()
+        .map(|mode| *mode)
+        .unwrap_or_default()
 }
 
 pub fn run() {

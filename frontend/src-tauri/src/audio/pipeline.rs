@@ -12,6 +12,7 @@ use super::devices::AudioDevice;
 use super::recording_state::{AudioChunk, AudioError, RecordingState, DeviceType};
 use super::audio_processing::{audio_to_mono, LoudnessNormalizer, NoiseSuppressionProcessor, HighPassFilter};
 use super::vad::{ContinuousVadProcessor};
+use super::transcription::TranscriptionJob;
 
 /// Ring buffer for synchronized audio mixing
 /// Accumulates samples from mic and system streams until we have aligned windows
@@ -679,7 +680,7 @@ impl AudioCapture {
 /// Uses Voice Activity Detection to segment speech in real-time and send only speech to Whisper
 pub struct AudioPipeline {
     receiver: mpsc::UnboundedReceiver<AudioChunk>,
-    transcription_sender: mpsc::Sender<AudioChunk>,
+    transcription_sender: mpsc::Sender<TranscriptionJob>,
     state: Arc<RecordingState>,
     vad_processor: ContinuousVadProcessor,
     sample_rate: u32,
@@ -699,7 +700,7 @@ pub struct AudioPipeline {
 impl AudioPipeline {
     pub fn new(
         receiver: mpsc::UnboundedReceiver<AudioChunk>,
-        transcription_sender: mpsc::Sender<AudioChunk>,
+        transcription_sender: mpsc::Sender<TranscriptionJob>,
         state: Arc<RecordingState>,
         target_chunk_duration_ms: u32,
         sample_rate: u32,
@@ -849,7 +850,12 @@ impl AudioPipeline {
                                                 device_type: DeviceType::Microphone,  // Mixed audio
                                             };
 
-                                            if let Err(e) = self.transcription_sender.send(transcription_chunk).await {
+                                            let transcription_job = TranscriptionJob {
+                                                chunk: transcription_chunk,
+                                                language_mode: crate::get_language_preference_internal(),
+                                            };
+
+                                            if let Err(e) = self.transcription_sender.send(transcription_job).await {
                                                 warn!("Failed to send VAD segment: {}", e);
                                             } else {
                                                 self.chunk_id_counter += 1;
@@ -919,7 +925,12 @@ impl AudioPipeline {
                             device_type: DeviceType::Microphone,
                         };
 
-                        if let Err(e) = self.transcription_sender.send(transcription_chunk).await {
+                        let transcription_job = TranscriptionJob {
+                            chunk: transcription_chunk,
+                            language_mode: crate::get_language_preference_internal(),
+                        };
+
+                        if let Err(e) = self.transcription_sender.send(transcription_job).await {
                             warn!("Failed to send final VAD segment: {}", e);
                         } else {
                             self.chunk_id_counter += 1;
@@ -958,7 +969,7 @@ impl AudioPipelineManager {
     pub fn start(
         &mut self,
         state: Arc<RecordingState>,
-        transcription_sender: mpsc::Sender<AudioChunk>,
+        transcription_sender: mpsc::Sender<TranscriptionJob>,
         target_chunk_duration_ms: u32,
         sample_rate: u32,
         recording_sender: Option<mpsc::UnboundedSender<AudioChunk>>,

@@ -340,14 +340,14 @@ export default function PageContent({
           <DialogTitle>Save note to Wiki</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-sm text-slate-600">Choose the workspace that should receive this meeting note.</p>
-          <select value={selectedWikiTenant} onChange={event => setSelectedWikiTenant(event.target.value)} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm">
+          <p className="text-sm text-muted-foreground">Choose the workspace that should receive this meeting note.</p>
+          <select value={selectedWikiTenant} onChange={event => setSelectedWikiTenant(event.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground">
             {wikiTenants.map(tenant => <option key={tenant.tenant_id} value={tenant.tenant_id}>{tenant.display_name || tenant.tenant_id} · {tenant.role === 'owner' ? t('wiki.owner') : t('wiki.guest')}</option>)}
           </select>
         </div>
         <DialogFooter>
           <button onClick={() => setWikiTenantPickerOpen(false)} className="rounded-md border px-3 py-2 text-sm">Cancel</button>
-          <button onClick={() => { setWikiTenantPickerOpen(false); handleSaveToWiki(); }} disabled={!selectedWikiTenant || isSavingToWiki} className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">Save to selected Wiki</button>
+          <button onClick={() => { setWikiTenantPickerOpen(false); handleSaveToWiki(); }} disabled={!selectedWikiTenant || isSavingToWiki} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">Save to selected Wiki</button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

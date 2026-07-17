@@ -198,18 +198,18 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: hsl(var(--muted-foreground) / 0.45);
     border-radius: 3px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: hsl(var(--muted-foreground) / 0.7);
   }
 
   /* Firefox scrollbar */
   .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.45) transparent;
   }
 
   /* BlockNote Editor - Override fixed dimensions for responsive layout */
@@ -303,14 +303,14 @@
     background: transparent;
     box-shadow: none;
     padding: 0.75rem clamp(0.25rem, 2vw, 1.25rem) 3rem;
-    color: #1f2937;
+    color: hsl(var(--foreground));
     font-size: 1rem;
     line-height: 1.72;
   }
 
   .meeting-summary-editor .bn-editor h1 {
     margin: 0 0 2rem;
-    color: #0b1f3a;
+    color: hsl(var(--foreground));
     font-size: clamp(1.85rem, 3.2vw, 2.35rem);
     font-weight: 680;
     letter-spacing: -0.03em;
@@ -321,7 +321,7 @@
     margin: 2.5rem 0 0.8rem;
     padding-top: 0;
     border-top: 0;
-    color: #113b78;
+    color: hsl(var(--brand));
     font-size: 1.02rem;
     font-weight: 700;
     letter-spacing: -0.01em;
@@ -335,7 +335,7 @@
 
   .meeting-summary-editor .bn-editor h3 {
     margin: 1.75rem 0 0.55rem;
-    color: #182b49;
+    color: hsl(var(--foreground));
     font-size: 1rem;
     font-weight: 700;
   }
@@ -354,23 +354,23 @@
     width: 100%;
     margin: 0.85rem 0 1.6rem;
     overflow: hidden;
-    border: 1px solid rgba(203, 213, 225, 0.78);
+    border: 1px solid hsl(var(--border) / 0.78);
     border-radius: 0.6rem;
     border-collapse: separate;
     border-spacing: 0;
-    background: rgba(255, 255, 255, 0.72);
+    background: hsl(var(--card) / 0.72);
   }
 
   .meeting-summary-editor .bn-editor :is(th, td) {
     padding: 0.65rem 0.8rem;
-    border-bottom: 1px solid #e8eef6;
+    border-bottom: 1px solid hsl(var(--border));
     text-align: left;
     vertical-align: top;
   }
 
   .meeting-summary-editor .bn-editor th {
-    background: #f4f8ff;
-    color: #174a86;
+    background: hsl(var(--muted));
+    color: hsl(var(--brand));
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.02em;

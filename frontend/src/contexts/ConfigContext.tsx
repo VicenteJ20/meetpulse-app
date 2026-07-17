@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode, useRef } from 'react';
 import { TranscriptModelProps } from '@/components/TranscriptSettings';
+import { normalizeTranscriptionLanguageMode } from '@/constants/transcriptionLanguages';
 import { SelectedDevices } from '@/components/DeviceSelection';
 import { configService, ModelConfig } from '@/services/configService';
 import { invoke } from '@tauri-apps/api/core';
@@ -142,7 +143,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('primaryLanguage');
-      return saved || 'auto';
+      return normalizeTranscriptionLanguageMode(saved);
     }
     return 'auto';
   });
@@ -476,12 +477,13 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   // Wrapper for setSelectedLanguage that persists to localStorage and syncs to Rust
   const handleSetSelectedLanguage = useCallback((lang: string) => {
-    setSelectedLanguage(lang);
+    const normalized = normalizeTranscriptionLanguageMode(lang);
+    setSelectedLanguage(normalized);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('primaryLanguage', lang);
+      localStorage.setItem('primaryLanguage', normalized);
     }
     // Sync with Rust in-memory state for live recording
-    invoke('set_language_preference', { language: lang }).catch(err =>
+    invoke('set_language_preference', { language: normalized }).catch(err =>
       console.error('Failed to sync language preference to Rust:', err)
     );
   }, []);

@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar'
 import { SidebarProvider } from '@/components/Sidebar/SidebarProvider'
 import MainContent from '@/components/MainContent'
 import AnalyticsProvider from '@/components/AnalyticsProvider'
-import { Toaster, toast } from 'sonner'
+import { toast } from 'sonner'
 import "sonner/dist/styles.css"
 import { useState, useEffect, useCallback } from 'react'
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
@@ -28,6 +28,7 @@ import { isAudioExtension, getAudioFormatsDisplayList } from '@/constants/audioF
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AuthGate } from '@/components/AuthGate'
 import { UiPreferencesProvider } from '@/contexts/UiPreferencesContext'
+import { ThemedToaster } from '@/components/ThemedToaster'
 
 
 const sourceSans3 = Source_Sans_3({
@@ -241,7 +242,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#0b5fa5" />
       </head>
       <body className={`${sourceSans3.variable} font-sans antialiased`}>
-        <UiPreferencesProvider><AuthProvider><AuthGate><AnalyticsProvider>
+        <UiPreferencesProvider><ThemedToaster /><AuthProvider><AuthGate><AnalyticsProvider>
           <RecordingStateProvider>
             <TranscriptProvider>
               <ConfigProvider>
@@ -283,8 +284,6 @@ export default function RootLayout({
             </TranscriptProvider>
           </RecordingStateProvider>
         </AnalyticsProvider></AuthGate></AuthProvider></UiPreferencesProvider>
-
-        <Toaster position="bottom-center" richColors closeButton />
       </body>
     </html>
   )

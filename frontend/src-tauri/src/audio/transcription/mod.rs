@@ -10,7 +10,10 @@ pub mod engine;
 pub mod worker;
 
 // Re-export commonly used types
-pub use provider::{TranscriptionError, TranscriptionProvider, TranscriptResult};
+pub use provider::{
+    TranscriptionError, TranscriptionJob, TranscriptionLanguageMode, TranscriptionProvider,
+    TranscriptResult,
+};
 pub use whisper_provider::WhisperProvider;
 pub use parakeet_provider::ParakeetProvider;
 pub use gemini_provider::GeminiTranscriptionProvider;

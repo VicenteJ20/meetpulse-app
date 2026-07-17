@@ -27,7 +27,7 @@ const Logo = React.forwardRef<HTMLButtonElement, LogoProps>(({ isCollapsed }, re
         <DialogTrigger asChild>
           <button
             ref={ref}
-            className="flex w-full items-center justify-start gap-2 px-1 py-1 text-lg font-semibold text-slate-800 transition-opacity hover:opacity-75"
+            className="flex w-full items-center justify-start gap-2 px-1 py-1 text-lg font-semibold text-foreground transition-opacity hover:opacity-75"
             aria-label="About MeetPulse"
           >
             <Image src="/icon.png" alt="" width={28} height={28} priority />

@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import { readdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const sourceRoots = ['src/app', 'src/components'];
+const forbiddenLightUtilities = /\b(?:bg-white|bg-(?:gray|slate|neutral)-(?:50|100)|text-black|text-(?:gray|slate|neutral)-(?:600|700|800|900)|border-(?:gray|slate|neutral)-(?:100|200|300|400)|bg-(?:blue|red|green|amber|yellow|orange)-(?:50|100)|text-(?:blue|red|green|amber|yellow|orange)-(?:700|800|900)|border-(?:blue|red|green|amber|yellow|orange)-(?:100|200|300))\b/g;
+
+async function collectTsxFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const nested = await Promise.all(entries.map(entry => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return collectTsxFiles(entryPath);
+    return entry.isFile() && entry.name.endsWith('.tsx') ? [entryPath] : [];
+  }));
+  return nested.flat();
+}
+
+test('UI components use theme-aware semantic colors', async () => {
+  const files = (await Promise.all(sourceRoots.map(root => collectTsxFiles(path.join(frontendRoot, root))))).flat();
+  const violations = [];
+
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    const matches = [...source.matchAll(forbiddenLightUtilities)];
+    for (const match of matches) {
+      const line = source.slice(0, match.index).split('\n').length;
+      violations.push(`${path.relative(frontendRoot, file)}:${line} (${match[0]})`);
+    }
+  }
+
+  assert.deepEqual(violations, [], `Use semantic theme tokens instead:\n${violations.join('\n')}`);
+});

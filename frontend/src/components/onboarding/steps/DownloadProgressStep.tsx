@@ -91,12 +91,12 @@ export function DownloadProgressStep({ onComplete }: { onComplete: () => void })
 
   return <OnboardingContainer title="Getting things ready" description="Download the transcription engine to start recording." step={3} totalSteps={isMac ? 4 : 3}>
     <div className="flex flex-col items-center space-y-6">
-      <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5">
-        <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100"><Mic className="h-5 w-5 text-gray-600" /></div><div><h3 className="font-medium text-gray-900">Transcription Engine</h3><p className="text-sm text-gray-500">~670 MB</p></div></div>{download.status === 'downloading' && <Loader2 className="h-5 w-5 animate-spin" />}{download.status === 'completed' && <Check className="h-5 w-5 text-green-600" />}</div>
-        {(download.status === 'downloading' || download.status === 'completed') && <><div className="h-2 overflow-hidden rounded-full bg-gray-200"><div className="h-full bg-gray-900 transition-all" style={{ width: `${download.progress}%` }} /></div><div className="mt-2 flex justify-between text-sm text-gray-600"><span>{download.downloadedMb.toFixed(1)} / {download.totalMb.toFixed(1)} MB</span><span>{Math.round(download.progress)}%</span></div></>}
-        {download.status === 'error' && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"><p>{download.error || 'Download failed.'}</p><Button className="mt-3" size="sm" onClick={retry}>Try again</Button></div>}
+      <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5">
+        <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"><Mic className="h-5 w-5 text-muted-foreground" /></div><div><h3 className="font-medium text-foreground">Transcription Engine</h3><p className="text-sm text-muted-foreground">~670 MB</p></div></div>{download.status === 'downloading' && <Loader2 className="h-5 w-5 animate-spin" />}{download.status === 'completed' && <Check className="h-5 w-5 text-success" />}</div>
+        {(download.status === 'downloading' || download.status === 'completed') && <><div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-gray-900 transition-all" style={{ width: `${download.progress}%` }} /></div><div className="mt-2 flex justify-between text-sm text-muted-foreground"><span>{download.downloadedMb.toFixed(1)} / {download.totalMb.toFixed(1)} MB</span><span>{Math.round(download.progress)}%</span></div></>}
+        {download.status === 'error' && <div className="rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive"><p>{download.error || 'Download failed.'}</p><Button className="mt-3" size="sm" onClick={retry}>Try again</Button></div>}
       </div>
-      <p className="max-w-lg text-center text-sm text-gray-500">Local AI summaries are optional and can be configured later in Settings.</p>
+      <p className="max-w-lg text-center text-sm text-muted-foreground">Local AI summaries are optional and can be configured later in Settings.</p>
       <Button onClick={continueSetup} disabled={!parakeetDownloaded || isCompleting} className="w-full max-w-xs bg-gray-900 hover:bg-gray-800">{isCompleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Continue</Button>
     </div>
   </OnboardingContainer>;
