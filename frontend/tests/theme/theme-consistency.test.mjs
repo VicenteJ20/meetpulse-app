@@ -81,3 +81,14 @@ test('meeting summary document uses one semantic editorial surface', async () =>
   assert.match(summaryPanel, /className="meeting-summary-editor w-full"/);
   assert.doesNotMatch(summaryPanel, /meeting-summary-editor w-full p-6/);
 });
+
+test('home readiness controls align device icons with a stable text gap', async () => {
+  const controls = await readFile(
+    path.join(frontendRoot, 'src/components/HomeReadinessControls.tsx'),
+    'utf8'
+  );
+
+  assert.match(controls, /flex min-w-0 flex-1 items-center gap-3/);
+  assert.match(controls, /flex h-9 w-5 shrink-0 items-center justify-center self-center/);
+  assert.match(controls, /<Icon className="h-4 w-4" \/>/);
+});

@@ -172,15 +172,19 @@ function ReadinessSelect({
 }) {
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger className="h-auto min-h-[60px] w-full rounded-xl border-0 bg-muted/55 px-3.5 py-3 text-left shadow-none transition-colors hover:bg-muted/80 focus:ring-brand">
-        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          <SelectValue className="block truncate text-sm font-medium" />
+      <SelectTrigger className="h-auto min-h-[60px] w-full gap-2.5 rounded-xl border-0 bg-muted/55 px-3.5 py-3 text-left shadow-none transition-colors hover:bg-muted/80 focus:ring-brand">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex h-9 w-5 shrink-0 items-center justify-center self-center text-muted-foreground">
+            <Icon className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <SelectValue className="block truncate text-sm font-medium" />
+          </div>
         </div>
-        <span className={`mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${ready ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400' : 'bg-warning/12 text-amber-600 dark:text-amber-400'}`}>
+        <div className={`mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${ready ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400' : 'bg-warning/12 text-amber-600 dark:text-amber-400'}`}>
           <Check className="h-3.5 w-3.5" />
-        </span>
+        </div>
       </SelectTrigger>
       <SelectContent>{children}</SelectContent>
     </Select>
