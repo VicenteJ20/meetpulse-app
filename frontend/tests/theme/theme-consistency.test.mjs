@@ -51,3 +51,15 @@ test('meeting summary controls keep semantic contrast and iconography', async ()
   assert.match(summaryControls, /border-brand bg-brand text-brand-foreground/);
   assert.match(summaryControls, /data-\[state=open\]:bg-accent/);
 });
+
+test('BlockNote editors follow the application theme', async () => {
+  const editorFiles = await Promise.all([
+    readFile(path.join(frontendRoot, 'src/components/BlockNoteEditor/Editor.tsx'), 'utf8'),
+    readFile(path.join(frontendRoot, 'src/components/AISummary/BlockNoteSummaryView.tsx'), 'utf8'),
+  ]);
+
+  for (const source of editorFiles) {
+    assert.doesNotMatch(source, /theme="light"/);
+    assert.match(source, /theme=\{resolvedTheme\}/);
+  }
+});

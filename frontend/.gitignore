@@ -27,6 +27,8 @@ whisper-server-package/
 
 # next.js
 /.next/
+/.next-dev/
+/.next-validation/
 /out/
 
 # production

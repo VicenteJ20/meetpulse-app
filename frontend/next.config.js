@@ -2,10 +2,14 @@ const path = require('path');
 const tiptapPmResolveBase = path.dirname(require.resolve('@tiptap/pm/model'));
 const resolveFromTiptapPm = (pkg) =>
   require.resolve(pkg, { paths: [tiptapPmResolveBase] });
+const isDevelopment = process.env.NODE_ENV === 'development';
+const nextOutputDirectory = process.env.NEXT_DIST_DIR || (isDevelopment ? '.next-dev' : '.next');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false, // Disabled for BlockNote compatibility
+  // Keep `next build` from replacing chunks used by a running Tauri dev server.
+  distDir: nextOutputDirectory,
   output: 'export',
   images: {
     unoptimized: true,

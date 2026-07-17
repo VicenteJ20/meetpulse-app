@@ -9,6 +9,7 @@ import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/shadcn';
 import { blocksToMarkdownSafely } from '@/lib/blocknote-markdown';
 import "@blocknote/shadcn/style.css";
+import { useUiPreferences } from '@/contexts/UiPreferencesContext';
 
 // Dynamically import BlockNote Editor to avoid SSR issues
 const Editor = dynamic(() => import('../BlockNoteEditor/Editor'), { ssr: false });
@@ -99,6 +100,7 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
   editable = true,
   language: requestedLanguage,
 }, ref) => {
+  const { resolvedTheme } = useUiPreferences();
   const language = requestedLanguage || (
     typeof navigator !== 'undefined' ? navigator.language : 'en'
   );
@@ -296,7 +298,7 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
                 handleEditorChange(editor.document);
               }
             }}
-              theme="light"
+              theme={resolvedTheme}
             />
           </EditorLanguageScope>
         </div>

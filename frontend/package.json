@@ -29,7 +29,8 @@
         "lint": "next lint",
         "test:i18n": "node --test tests/i18n/catalogs.test.mjs",
         "test:theme": "node --test tests/theme/theme-consistency.test.mjs",
-        "test:transcript-layout": "node --test tests/transcript/transcript-layout.test.mjs"
+        "test:transcript-layout": "node --test tests/transcript/transcript-layout.test.mjs",
+        "test:next-output": "node --test tests/build/next-output-isolation.test.mjs"
     },
     "dependencies": {
         "@blocknote/core": "0.36.0",

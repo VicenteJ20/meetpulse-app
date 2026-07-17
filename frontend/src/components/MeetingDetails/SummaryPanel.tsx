@@ -6,6 +6,7 @@ import { BlockNoteSummaryView, BlockNoteSummaryViewRef } from '@/components/AISu
 import { EmptyStateSummary } from '@/components/EmptyStateSummary';
 import { ModelConfig } from '@/components/ModelSettingsModal';
 import { SummaryGeneratorButtonGroup } from './SummaryGeneratorButtonGroup';
+import { SummaryEditorErrorBoundary } from './SummaryEditorErrorBoundary';
 import { SummaryUpdaterButtonGroup } from './SummaryUpdaterButtonGroup';
 import Analytics from '@/lib/analytics';
 import { useEffect, useRef, useState, RefObject } from 'react';
@@ -431,25 +432,29 @@ export function SummaryPanel({
             </div>
           )}
           <div className="meeting-summary-editor w-full p-6">
-            <BlockNoteSummaryView
-              ref={summaryRef}
-              summaryData={aiSummary}
-              onSave={onSaveSummary}
-              onSummaryChange={onSummaryChange}
-              onDirtyChange={onDirtyChange}
-              status={summaryStatus}
-              error={summaryError}
-              onRegenerateSummary={() => {
-                Analytics.trackButtonClick('regenerate_summary', 'meeting_details');
-                onRegenerateSummary();
-              }}
-              meeting={{
-                id: meeting.id,
-                title: meetingTitle,
-                created_at: meeting.created_at
-              }}
-              language={editorLanguage}
-            />
+            <SummaryEditorErrorBoundary
+              fallbackMarkdown={(aiSummary as unknown as { markdown?: string }).markdown}
+            >
+              <BlockNoteSummaryView
+                ref={summaryRef}
+                summaryData={aiSummary}
+                onSave={onSaveSummary}
+                onSummaryChange={onSummaryChange}
+                onDirtyChange={onDirtyChange}
+                status={summaryStatus}
+                error={summaryError}
+                onRegenerateSummary={() => {
+                  Analytics.trackButtonClick('regenerate_summary', 'meeting_details');
+                  onRegenerateSummary();
+                }}
+                meeting={{
+                  id: meeting.id,
+                  title: meetingTitle,
+                  created_at: meeting.created_at
+                }}
+                language={editorLanguage}
+              />
+            </SummaryEditorErrorBoundary>
           </div>
           {summaryStatus !== 'idle' && (
             <div className={`mt-4 p-4 rounded-lg ${summaryStatus === 'error' ? 'bg-destructive/15 text-destructive' :
