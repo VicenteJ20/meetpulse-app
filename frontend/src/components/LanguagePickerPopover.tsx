@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LANGUAGE_OPTIONS } from "@/lib/summary-languages";
 import { useRecentLanguages } from "@/hooks/useRecentLanguages";
+import { Check, Search } from "lucide-react";
 
 interface LanguagePickerPopoverProps {
   value: string | null;
@@ -81,19 +82,19 @@ export function LanguagePickerPopover({
   return (
     <div
       ref={containerRef}
-      className="w-72 rounded-lg bg-card border border-border shadow-lg overflow-hidden"
+      className="w-72 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
       role="dialog"
       aria-label="Pick summary language"
     >
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
-        <span className="text-muted-foreground text-sm">🔍</span>
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search language..."
-          className="flex-1 text-sm text-foreground bg-transparent border-none outline-none placeholder-gray-400"
+          className="min-w-0 flex-1 border-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-0"
         />
       </div>
 
@@ -109,15 +110,15 @@ export function LanguagePickerPopover({
                 type="button"
                 aria-pressed={value === opt.code}
                 onClick={() => onChange(opt.code)}
-                className={`flex w-full items-center justify-between px-3 py-1.5 text-sm hover:bg-muted/50 text-left ${
-                  value === opt.code ? "text-blue-600 font-medium" : "text-foreground"
+                className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none ${
+                  value === opt.code ? "bg-brand/10 font-medium text-brand" : "text-foreground"
                 }`}
               >
                 <span>
                   {opt.label}{" "}
                   <span className="text-xs text-muted-foreground">({opt.code})</span>
                 </span>
-                {value === opt.code && <span className="text-blue-600" aria-hidden="true">✓</span>}
+                {value === opt.code && <Check className="h-4 w-4 text-brand" aria-hidden="true" />}
               </button>
             ))}
             <div className="my-1 h-px bg-muted" />
@@ -129,8 +130,8 @@ export function LanguagePickerPopover({
             type="button"
             aria-pressed={value === null}
             onClick={() => onChange(null)}
-            className={`flex w-full items-center justify-between px-3 py-1.5 text-sm hover:bg-muted/50 text-left ${
-              value === null ? "text-blue-600 font-medium" : "text-foreground"
+            className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none ${
+              value === null ? "bg-brand/10 font-medium text-brand" : "text-foreground"
             }`}
           >
             <span className="flex flex-col">
@@ -139,7 +140,7 @@ export function LanguagePickerPopover({
                 <span className="text-xs font-normal text-muted-foreground">{autoSubtitle}</span>
               )}
             </span>
-            {value === null && <span className="text-blue-600" aria-hidden="true">✓</span>}
+            {value === null && <Check className="h-4 w-4 text-brand" aria-hidden="true" />}
           </button>
         )}
 
@@ -155,15 +156,15 @@ export function LanguagePickerPopover({
             type="button"
             aria-pressed={value === opt.code}
             onClick={() => onChange(opt.code)}
-            className={`flex w-full items-center justify-between px-3 py-1.5 text-sm hover:bg-muted/50 text-left ${
-              value === opt.code ? "text-blue-600 font-medium" : "text-foreground"
+            className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none ${
+              value === opt.code ? "bg-brand/10 font-medium text-brand" : "text-foreground"
             }`}
           >
             <span>
               {opt.label}{" "}
               <span className="text-xs text-muted-foreground">({opt.code})</span>
             </span>
-            {value === opt.code && <span className="text-blue-600" aria-hidden="true">✓</span>}
+            {value === opt.code && <Check className="h-4 w-4 text-brand" aria-hidden="true" />}
           </button>
         ))}
 

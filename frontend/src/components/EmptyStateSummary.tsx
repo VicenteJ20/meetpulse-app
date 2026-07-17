@@ -55,7 +55,7 @@ export function EmptyStateSummary({ onGenerate, hasModel, isGenerating = false }
       </TooltipProvider>
 
       {!hasModel && (
-        <p className="text-xs text-amber-600 mt-3">
+        <p className="mt-3 text-xs text-warning">
           Please select a model in Settings first
         </p>
       )}

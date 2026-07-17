@@ -33,3 +33,21 @@ test('UI components use theme-aware semantic colors', async () => {
 
   assert.deepEqual(violations, [], `Use semantic theme tokens instead:\n${violations.join('\n')}`);
 });
+
+test('meeting summary controls keep semantic contrast and iconography', async () => {
+  const [languagePicker, summaryControls] = await Promise.all([
+    readFile(path.join(frontendRoot, 'src/components/LanguagePickerPopover.tsx'), 'utf8'),
+    readFile(
+      path.join(frontendRoot, 'src/components/MeetingDetails/SummaryGeneratorButtonGroup.tsx'),
+      'utf8'
+    ),
+  ]);
+
+  assert.doesNotMatch(languagePicker, /🔍|✓/);
+  assert.match(languagePicker, /import \{ Check, Search \} from "lucide-react"/);
+  assert.match(languagePicker, /bg-popover text-popover-foreground/);
+  assert.match(languagePicker, /bg-brand\/10 font-medium text-brand/);
+  assert.doesNotMatch(summaryControls, /slate-|text-white/);
+  assert.match(summaryControls, /border-brand bg-brand text-brand-foreground/);
+  assert.match(summaryControls, /data-\[state=open\]:bg-accent/);
+});

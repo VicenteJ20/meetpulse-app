@@ -358,10 +358,10 @@ function MeetingDetailsContent() {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <p className="text-red-500 mb-4">{error}</p>
+          <p className="mb-4 text-destructive">{error}</p>
           <button
             onClick={() => router.push('/')}
-            className="px-4 py-2 bg-brand text-white rounded hover:bg-blue-600"
+            className="rounded bg-brand px-4 py-2 text-brand-foreground hover:bg-brand/90"
           >
             Go Back
           </button>

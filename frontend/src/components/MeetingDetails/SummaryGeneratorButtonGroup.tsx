@@ -263,7 +263,7 @@ export function SummaryGeneratorButtonGroup({
         <Button
           variant="outline"
           size="sm"
-          className="border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white xl:px-4"
+          className="border-brand bg-brand text-brand-foreground shadow-sm hover:bg-brand/90 hover:text-brand-foreground xl:px-4"
           onClick={() => {
             Analytics.trackButtonClick('generate_summary', 'meeting_details');
             checkOllamaModelsAndGenerate();
@@ -300,6 +300,7 @@ export function SummaryGeneratorButtonGroup({
             variant="outline"
             size="sm"
             title="Summary Settings"
+            className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
           >
             <Settings />
             <span className="hidden lg:inline">AI Model</span>
@@ -332,6 +333,7 @@ export function SummaryGeneratorButtonGroup({
               variant="outline"
               size="sm"
               title="Select summary template"
+              className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
             >
               <FileText />
               <span className="hidden lg:inline">Template</span>

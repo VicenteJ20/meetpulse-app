@@ -250,6 +250,7 @@ export function SummaryPanel({
           size="sm"
           title={`Summary language: ${effectiveLangLabel}${isLocalFallbackLanguage ? ' (saved on this device)' : ''}`}
           aria-label="Set summary language"
+          className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
         >
           <Languages size={18} />
           <span className="hidden lg:inline">{effectiveLangLabel}</span>
@@ -348,7 +349,7 @@ export function SummaryPanel({
           {/* Loading spinner */}
           <div className="flex items-center justify-center flex-1">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+              <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-y-2 border-brand"></div>
               <p className="text-muted-foreground">Generating AI Summary...</p>
             </div>
           </div>
