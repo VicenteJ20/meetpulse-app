@@ -431,7 +431,7 @@ export function SummaryPanel({
               ) : null}
             </div>
           )}
-          <div className="meeting-summary-editor w-full p-6">
+          <div className="meeting-summary-editor w-full">
             <SummaryEditorErrorBoundary
               fallbackMarkdown={(aiSummary as unknown as { markdown?: string }).markdown}
             >

@@ -293,87 +293,173 @@
   }
 
   .meeting-summary-editor {
-    max-width: 920px;
+    width: 100%;
+    max-width: 880px;
     margin: 0 auto;
+    padding: clamp(1.5rem, 3vw, 2.75rem) clamp(0.75rem, 2.5vw, 2rem) 4rem;
   }
 
+  .meeting-summary-editor .bn-container {
+    --bn-colors-editor-text: hsl(var(--foreground));
+    --bn-colors-editor-background: transparent;
+    --bn-colors-menu-text: hsl(var(--popover-foreground));
+    --bn-colors-menu-background: hsl(var(--popover));
+    --bn-colors-tooltip-text: hsl(var(--popover-foreground));
+    --bn-colors-tooltip-background: hsl(var(--popover));
+    --bn-colors-hovered-text: hsl(var(--accent-foreground));
+    --bn-colors-hovered-background: hsl(var(--accent));
+    --bn-colors-selected-text: hsl(var(--brand-foreground));
+    --bn-colors-selected-background: hsl(var(--brand));
+    --bn-colors-disabled-text: hsl(var(--muted-foreground));
+    --bn-colors-disabled-background: hsl(var(--muted));
+    --bn-colors-shadow: hsl(var(--foreground) / 0.14);
+    --bn-colors-border: hsl(var(--border));
+    --bn-colors-side-menu: hsl(var(--muted-foreground));
+    color: hsl(var(--foreground));
+    background: transparent !important;
+  }
+
+  .meeting-summary-editor .bn-shadcn,
   .meeting-summary-editor .bn-editor {
     border: 0;
     border-radius: 0;
-    background: transparent;
+    background: transparent !important;
     box-shadow: none;
-    padding: 0.75rem clamp(0.25rem, 2vw, 1.25rem) 3rem;
+  }
+
+  .meeting-summary-editor .bn-editor {
+    padding: 0.5rem clamp(2.25rem, 5vw, 3.75rem) 3rem;
     color: hsl(var(--foreground));
-    font-size: 1rem;
-    line-height: 1.72;
+    font-size: 0.975rem;
+    line-height: 1.75;
+    letter-spacing: -0.005em;
+  }
+
+  .meeting-summary-editor .bn-block-content {
+    padding-block: 0.22rem;
+  }
+
+  .meeting-summary-editor .bn-inline-content {
+    color: hsl(var(--foreground) / 0.92);
+  }
+
+  .meeting-summary-editor .bn-side-menu {
+    opacity: 0.28;
+    transition: opacity 160ms ease, color 160ms ease;
+  }
+
+  .meeting-summary-editor .bn-side-menu:hover,
+  .meeting-summary-editor .bn-side-menu:focus-within {
+    opacity: 1;
   }
 
   .meeting-summary-editor .bn-editor h1 {
-    margin: 0 0 2rem;
+    margin: 0 0 2.25rem;
     color: hsl(var(--foreground));
-    font-size: clamp(1.85rem, 3.2vw, 2.35rem);
-    font-weight: 680;
-    letter-spacing: -0.03em;
-    line-height: 1.16;
+    font-size: clamp(1.75rem, 3vw, 2.2rem);
+    font-weight: 720;
+    letter-spacing: -0.035em;
+    line-height: 1.15;
   }
 
   .meeting-summary-editor .bn-editor h2 {
-    margin: 2.5rem 0 0.8rem;
-    padding-top: 0;
-    border-top: 0;
-    color: hsl(var(--brand));
-    font-size: 1.02rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+    margin: 2.4rem 0 0.8rem;
+    padding-left: 0.75rem;
+    border-left: 3px solid hsl(var(--brand) / 0.8);
+    color: hsl(var(--foreground));
+    font-size: 1.075rem;
+    font-weight: 720;
+    letter-spacing: -0.018em;
+    line-height: 1.35;
   }
 
   .meeting-summary-editor .bn-editor h2:first-of-type {
     margin-top: 0;
-    padding-top: 0;
-    border-top: 0;
   }
 
   .meeting-summary-editor .bn-editor h3 {
-    margin: 1.75rem 0 0.55rem;
+    margin: 1.65rem 0 0.45rem;
     color: hsl(var(--foreground));
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 0.98rem;
+    font-weight: 680;
+    letter-spacing: -0.01em;
+  }
+
+  .meeting-summary-editor .bn-editor p {
+    margin: 0.2rem 0 0.65rem;
   }
 
   .meeting-summary-editor .bn-editor :is(ul, ol) {
-    margin: 0.65rem 0 1.1rem;
-    padding-left: 1.35rem;
+    margin: 0.55rem 0 1.15rem;
+    padding-left: 1.25rem;
   }
 
   .meeting-summary-editor .bn-editor li {
-    margin: 0.35rem 0;
-    padding-left: 0.15rem;
+    margin: 0.28rem 0;
+    padding-left: 0.2rem;
   }
 
-  .meeting-summary-editor .bn-editor table {
-    width: 100%;
-    margin: 0.85rem 0 1.6rem;
-    overflow: hidden;
-    border: 1px solid hsl(var(--border) / 0.78);
-    border-radius: 0.6rem;
+  .meeting-summary-editor .bn-editor [data-content-type="table"] .tableWrapper {
+    margin: 0.9rem 0 1.8rem;
+    padding: 0 !important;
+    overflow: auto;
+    border: 1px solid hsl(var(--border) / 0.82);
+    border-radius: 0.75rem;
+    background: hsl(var(--muted) / 0.16);
+  }
+
+  .meeting-summary-editor .bn-editor [data-content-type="table"] table {
+    width: 100% !important;
+    margin: 0;
     border-collapse: separate;
     border-spacing: 0;
-    background: hsl(var(--card) / 0.72);
+    background: transparent;
   }
 
-  .meeting-summary-editor .bn-editor :is(th, td) {
-    padding: 0.65rem 0.8rem;
-    border-bottom: 1px solid hsl(var(--border));
+  .meeting-summary-editor .bn-editor [data-content-type="table"] :is(th, td) {
+    height: auto;
+    padding: 0.72rem 0.85rem;
+    border: 0;
+    border-right: 1px solid hsl(var(--border) / 0.72);
+    border-bottom: 1px solid hsl(var(--border) / 0.72);
     text-align: left;
     vertical-align: top;
+    line-height: 1.55;
   }
 
-  .meeting-summary-editor .bn-editor th {
-    background: hsl(var(--muted));
-    color: hsl(var(--brand));
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+  .meeting-summary-editor .bn-editor [data-content-type="table"] th {
+    background: hsl(var(--muted) / 0.72);
+    color: hsl(var(--muted-foreground));
+    font-size: 0.72rem;
+    font-weight: 720;
+    letter-spacing: 0.055em;
     text-transform: uppercase;
+  }
+
+  .meeting-summary-editor .bn-editor [data-content-type="table"] :is(th, td):first-child {
+    width: clamp(7.5rem, 22%, 10rem);
+  }
+
+  .meeting-summary-editor .bn-editor [data-content-type="table"] td:first-child {
+    color: hsl(var(--foreground));
+    font-weight: 620;
+  }
+
+  .meeting-summary-editor .bn-editor [data-content-type="table"] :is(th, td):last-child {
+    border-right: 0;
+  }
+
+  .meeting-summary-editor .bn-editor [data-content-type="table"] tr:last-child td {
+    border-bottom: 0;
+  }
+
+  @media (max-width: 720px) {
+    .meeting-summary-editor {
+      padding-inline: 0.25rem;
+    }
+
+    .meeting-summary-editor .bn-editor {
+      padding-inline: 2.25rem 0.75rem;
+    }
   }
 }

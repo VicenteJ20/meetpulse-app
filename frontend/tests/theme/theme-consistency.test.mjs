@@ -63,3 +63,21 @@ test('BlockNote editors follow the application theme', async () => {
     assert.match(source, /theme=\{resolvedTheme\}/);
   }
 });
+
+test('meeting summary document uses one semantic editorial surface', async () => {
+  const [globalStyles, summaryPanel] = await Promise.all([
+    readFile(path.join(frontendRoot, 'src/app/globals.css'), 'utf8'),
+    readFile(path.join(frontendRoot, 'src/components/MeetingDetails/SummaryPanel.tsx'), 'utf8'),
+  ]);
+
+  assert.match(globalStyles, /\.meeting-summary-editor \.bn-container/);
+  assert.match(globalStyles, /--bn-colors-editor-background: transparent/);
+  assert.match(globalStyles, /--bn-colors-menu-background: hsl\(var\(--popover\)\)/);
+  assert.match(globalStyles, /\.meeting-summary-editor \.bn-shadcn,/);
+  assert.match(globalStyles, /background: transparent !important/);
+  assert.match(globalStyles, /max-width: 880px/);
+  assert.match(globalStyles, /border-left: 3px solid hsl\(var\(--brand\) \/ 0\.8\)/);
+  assert.match(globalStyles, /\[data-content-type="table"\] \.tableWrapper/);
+  assert.match(summaryPanel, /className="meeting-summary-editor w-full"/);
+  assert.doesNotMatch(summaryPanel, /meeting-summary-editor w-full p-6/);
+});
