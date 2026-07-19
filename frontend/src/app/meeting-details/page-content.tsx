@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Summary, SummaryResponse } from '@/types';
+import { Summary, SummaryResponse, Transcript } from '@/types';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import Analytics from '@/lib/analytics';
 import { invoke } from '@tauri-apps/api/core';
@@ -22,6 +22,40 @@ import { WikiApi, WikiApiError, listWikiTenants, type WikiTenant } from '@/servi
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CalendarDays } from 'lucide-react';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
+
+interface TranscriptPage {
+  transcripts: Transcript[];
+  total_count: number;
+}
+
+async function loadCompleteTranscript(meetingId: string): Promise<Transcript[]> {
+  const firstPage = await invoke<TranscriptPage>('api_get_meeting_transcripts', {
+    meetingId,
+    limit: 1,
+    offset: 0,
+  });
+  if (!firstPage.total_count) return [];
+  if (firstPage.total_count === 1) return firstPage.transcripts;
+  const complete = await invoke<TranscriptPage>('api_get_meeting_transcripts', {
+    meetingId,
+    limit: firstPage.total_count,
+    offset: 0,
+  });
+  return complete.transcripts;
+}
+
+function transcriptMarkdown(title: string, createdAt: string | undefined, transcripts: Transcript[]): string {
+  const formatTime = (transcript: Transcript) => {
+    if (transcript.audio_start_time === undefined) return transcript.timestamp;
+    const totalSeconds = Math.floor(transcript.audio_start_time);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `[${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}]`;
+  };
+  const date = createdAt ? new Date(createdAt).toISOString() : new Date().toISOString();
+  const body = transcripts.map(transcript => `${formatTime(transcript)} ${transcript.text.trim()}`).join('\n');
+  return `# Transcripción: ${title}\n\n## Fecha\n\n${date}\n\n## Contenido\n\n${body}\n`;
+}
 
 export default function PageContent({
   meeting,
@@ -199,19 +233,25 @@ export default function PageContent({
         markdown = (meetingData.aiSummary as any).markdown || '';
       }
       if (!markdown) { toast.error('Add a summary before saving this note to Wiki'); return; }
+      const completeTranscript = await loadCompleteTranscript(meeting.id);
+      if (!completeTranscript.length) { toast.error('Add a transcript before saving this note to Wiki'); return; }
+      const title = meetingData.meetingTitle.trim() || meeting.title;
       const participants = Array.isArray((meeting as any).participants) && (meeting as any).participants.length
         ? (meeting as any).participants.map(String)
         : ['Not specified'];
-      await new WikiApi(config).ingest({
+      const result = await new WikiApi(config).ingest({
         clientId: client.trim(),
         projectId: project.trim(),
-        title: meetingData.meetingTitle.trim() || meeting.title,
+        title,
         dateTime: meeting.created_at || new Date().toISOString(),
         participants,
         markdown,
+        rawMarkdown: transcriptMarkdown(title, meeting.created_at, completeTranscript),
       });
       setIsSavedToWiki(true);
-      toast.success('Note saved to Wiki');
+      if (result.ingest_status === 'reconciled') toast.success('Transcript added to the existing Wiki note');
+      else if (result.ingest_status === 'unchanged') toast.success('The Wiki note and transcript are already up to date');
+      else toast.success('Note and transcript saved to Wiki');
     } catch (error) {
       if (error instanceof WikiApiError && error.status === 409) toast.info('This note is already saved in Wiki');
       else toast.error(error instanceof Error ? error.message : 'Failed to save note to Wiki');

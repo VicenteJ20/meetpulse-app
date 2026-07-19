@@ -6,7 +6,7 @@ export interface WikiClient { client_id: string; project_count: number; source_c
 export interface WikiProject { project_id: string; source_count: number; wiki_page_count: number; last_activity_at: string | null; key: string; }
 export interface WikiDocument { document: string; title: string; key: string; updated_at: string | null; }
 export interface WikiDocumentContent extends WikiDocument { content_markdown: string; content_type: string; }
-export interface WikiIngestInput { clientId: string; projectId: string; title: string; dateTime: string; participants: string[]; markdown: string; }
+export interface WikiIngestInput { clientId: string; projectId: string; title: string; dateTime: string; participants: string[]; markdown: string; rawMarkdown: string; }
 export interface Paginated<T> { total: number; items: T[]; limit: number; offset: number; }
 export interface WikiActivity { timestamp: string; client_id?: string; project_id?: string; [key: string]: unknown; }
 export interface WikiTenant { tenant_id: string; display_name: string; role: 'owner' | 'guest'; }
@@ -105,7 +105,8 @@ export class WikiApi {
     body.append('date_time', input.dateTime);
     input.participants.forEach(participant => body.append('participants', participant));
     body.append('file', new Blob([input.markdown], { type: 'text/markdown' }), 'meeting-summary.md');
-    return this.post<{ source_key: string; updated_keys: string[] }>('/ingest', body);
+    body.append('raw_file', new Blob([input.rawMarkdown], { type: 'text/markdown' }), 'meeting-transcript.md');
+    return this.post<{ source_key: string; raw_key: string | null; provenance_status: 'complete' | 'analysis_only'; ingest_status: 'created' | 'reconciled' | 'unchanged'; job_id: string; processing_status: 'pending'; updated_keys: string[] }>('/ingest', body);
   }
   async updateProjectContext(clientId: string, projectId: string, contentMarkdown: string) {
     return this.request<WikiDocumentContent>(`/wiki/${encodeURIComponent(this.config.tenantId)}/documents/context`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ content_markdown: contentMarkdown }) }, { client_id: clientId, project_id: projectId });
