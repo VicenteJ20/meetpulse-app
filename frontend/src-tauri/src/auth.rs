@@ -13,14 +13,27 @@ const REFRESH_SKEW_SECS: u64 = 60;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GoogleSession { pub id_token: String, pub refresh_token: String, pub email: String, pub name: Option<String>, pub expires_at: u64, pub client_id: String }
+struct StoredGoogleSession { pub id_token: String, pub refresh_token: String, pub email: String, pub name: Option<String>, pub expires_at: u64, pub client_id: String }
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GoogleSession { pub id_token: String, pub email: String, pub name: Option<String>, pub expires_at: u64 }
 #[derive(Deserialize)] struct TokenResponse { id_token: String, refresh_token: Option<String>, expires_in: u64 }
 
 fn entry() -> Result<Entry, String> { Entry::new(SERVICE, ACCOUNT).map_err(|e| e.to_string()) }
 fn now() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() }
-fn load() -> Result<Option<GoogleSession>, String> { match entry()?.get_password() { Ok(value) => serde_json::from_str(&value).map(Some).map_err(|e| e.to_string()), Err(keyring::Error::NoEntry) => Ok(None), Err(e) => Err(e.to_string()) } }
-fn save(session: &GoogleSession) -> Result<(), String> { entry()?.set_password(&serde_json::to_string(session).map_err(|e| e.to_string())?).map_err(|e| e.to_string()) }
+fn load() -> Result<Option<StoredGoogleSession>, String> { match entry()?.get_password() { Ok(value) => serde_json::from_str(&value).map(Some).map_err(|e| e.to_string()), Err(keyring::Error::NoEntry) => Ok(None), Err(e) => Err(e.to_string()) } }
+fn save(session: &StoredGoogleSession) -> Result<(), String> { entry()?.set_password(&serde_json::to_string(session).map_err(|e| e.to_string())?).map_err(|e| e.to_string()) }
 fn claims(token: &str) -> Result<(String, Option<String>), String> { let payload = token.split('.').nth(1).ok_or("Invalid ID token")?; let decoded = URL_SAFE_NO_PAD.decode(payload).map_err(|_| "Invalid ID token")?; let value: serde_json::Value = serde_json::from_slice(&decoded).map_err(|_| "Invalid ID token")?; Ok((value.get("email").and_then(|v| v.as_str()).ok_or("Google did not return an email")?.to_string(), value.get("name").and_then(|v| v.as_str()).map(str::to_string))) }
+
+impl From<&StoredGoogleSession> for GoogleSession {
+  fn from(session: &StoredGoogleSession) -> Self {
+    Self { id_token: session.id_token.clone(), email: session.email.clone(), name: session.name.clone(), expires_at: session.expires_at }
+  }
+}
+
+fn should_refresh(expires_at: u64, current_time: u64, force_refresh: bool) -> bool {
+  force_refresh || expires_at <= current_time.saturating_add(REFRESH_SKEW_SECS)
+}
 
 fn exchange(params: Vec<(&str, String)>) -> Result<TokenResponse, String> {
   let response = reqwest::blocking::Client::new().post("https://oauth2.googleapis.com/token").form(&params).send().map_err(|e| e.to_string())?;
@@ -32,7 +45,7 @@ fn exchange(params: Vec<(&str, String)>) -> Result<TokenResponse, String> {
   response.json().map_err(|e| e.to_string())
 }
 
-fn refresh(mut session: GoogleSession, client_id: &str, client_secret: Option<String>) -> Result<GoogleSession, String> {
+fn refresh(mut session: StoredGoogleSession, client_id: &str, client_secret: Option<String>) -> Result<StoredGoogleSession, String> {
   let mut params = vec![("client_id", client_id.to_string()), ("refresh_token", session.refresh_token.clone()), ("grant_type", "refresh_token".to_string())];
   if let Some(secret) = client_secret.filter(|value| !value.is_empty()) { params.push(("client_secret", secret)); }
   let token = exchange(params)?;
@@ -69,12 +82,12 @@ fn focus_main_window(app: &tauri::AppHandle) {
 }
 
 #[tauri::command]
-pub fn get_google_auth_token(client_id: String, client_secret: Option<String>) -> Result<Option<GoogleSession>, String> {
+pub fn get_google_auth_token(client_id: String, client_secret: Option<String>, force_refresh: bool) -> Result<Option<GoogleSession>, String> {
   let Some(session) = load()? else { return Ok(None) };
-  if session.expires_at > now() + REFRESH_SKEW_SECS { return Ok(Some(session)); }
+  if !should_refresh(session.expires_at, now(), force_refresh) { return Ok(Some(GoogleSession::from(&session))); }
   let client_id = if client_id.is_empty() { session.client_id.clone() } else { client_id };
   if client_id.is_empty() { return Err("Google OAuth client ID is not configured".into()); }
-  refresh(session, &client_id, client_secret).map(Some)
+  refresh(session, &client_id, client_secret).map(|session| Some(GoogleSession::from(&session)))
 }
 
 #[tauri::command]
@@ -102,9 +115,9 @@ pub fn sign_in_with_google(app: tauri::AppHandle, client_id: String, client_secr
     if let Some(secret) = client_secret.clone().filter(|value| !value.is_empty()) { params.push(("client_secret", secret)); }
     let token = exchange(params)?;
     let (email, name) = claims(&token.id_token)?;
-    let session = GoogleSession { id_token: token.id_token, refresh_token: token.refresh_token.ok_or("Google did not return a refresh token")?, email, name, expires_at: now() + token.expires_in, client_id };
+    let session = StoredGoogleSession { id_token: token.id_token, refresh_token: token.refresh_token.ok_or("Google did not return a refresh token")?, email, name, expires_at: now() + token.expires_in, client_id };
     save(&session)?;
-    Ok(session)
+    Ok(GoogleSession::from(&session))
   })();
   match result {
     Ok(session) => { write_callback_response(&mut stream, "200 OK", callback_page(true))?; focus_main_window(&app); Ok(session) }
@@ -114,3 +127,39 @@ pub fn sign_in_with_google(app: tauri::AppHandle, client_id: String, client_secr
 
 #[tauri::command]
 pub fn sign_out_google() -> Result<(), String> { match entry()?.delete_credential() { Ok(()) | Err(keyring::Error::NoEntry) => Ok(()), Err(e) => Err(e.to_string()) } }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn stored_session() -> StoredGoogleSession {
+    StoredGoogleSession {
+      id_token: "header.payload.signature".into(),
+      refresh_token: "refresh-secret".into(),
+      email: "user@example.com".into(),
+      name: Some("Test User".into()),
+      expires_at: 4_000,
+      client_id: "desktop-client".into(),
+    }
+  }
+
+  #[test]
+  fn refreshes_inside_the_expiration_skew() {
+    assert!(!should_refresh(4_000, 3_900, false));
+    assert!(should_refresh(4_000, 3_940, false));
+    assert!(should_refresh(4_000, 4_001, false));
+  }
+
+  #[test]
+  fn forced_refresh_ignores_remaining_token_lifetime() {
+    assert!(should_refresh(4_000, 1_000, true));
+  }
+
+  #[test]
+  fn renderer_session_does_not_serialize_refresh_credentials() {
+    let value = serde_json::to_value(GoogleSession::from(&stored_session())).unwrap();
+    assert_eq!(value["idToken"], "header.payload.signature");
+    assert!(value.get("refreshToken").is_none());
+    assert!(value.get("clientId").is_none());
+  }
+}

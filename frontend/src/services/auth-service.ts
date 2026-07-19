@@ -1,10 +1,21 @@
 'use client';
 
 import { invoke } from '@tauri-apps/api/core';
+import {
+  googleSessionRefreshDelayMs,
+  isGoogleSessionUsable,
+} from './auth-session-policy.mjs';
+
+export {
+  isPermanentGoogleAuthError,
+  googleSessionRetryDelayMs,
+  shouldClearGoogleSessionAfterRefreshError,
+} from './auth-session-policy.mjs';
 
 export interface GoogleSession { idToken: string; email: string; name?: string; expiresAt: number; }
 let sessionCache: GoogleSession | null | undefined;
 let sessionLoad: Promise<GoogleSession | null> | null = null;
+let sessionLoadForcesRefresh = false;
 let sessionGeneration = 0;
 
 type NativeGoogleSession = GoogleSession & {
@@ -28,33 +39,40 @@ function normalizeSession(session: NativeGoogleSession | null): GoogleSession | 
   };
 }
 
-const REFRESH_SKEW_MS = 60_000;
-
 function isUsable(session: GoogleSession): boolean {
-  return session.expiresAt === 0 || session.expiresAt * 1000 > Date.now() + REFRESH_SKEW_MS;
+  return isGoogleSessionUsable(session.expiresAt);
 }
 
 export async function currentGoogleSession(options: { forceRefresh?: boolean } = {}): Promise<GoogleSession | null> {
   if (!options.forceRefresh && sessionCache !== undefined && (sessionCache === null || isUsable(sessionCache))) return sessionCache;
+  if (sessionLoad) {
+    if (!options.forceRefresh || sessionLoadForcesRefresh) return sessionLoad;
+    try { await sessionLoad; } catch { /* the forced request below is an independent retry */ }
+    return currentGoogleSession({ forceRefresh: true });
+  }
   if (!sessionLoad) {
     const generation = sessionGeneration;
+    sessionLoadForcesRefresh = options.forceRefresh === true;
     sessionLoad = invoke<NativeGoogleSession | null>('get_google_auth_token', {
       clientId: process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID || '',
       clientSecret: process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_SECRET || undefined,
+      forceRefresh: options.forceRefresh === true,
     })
       .then(normalizeSession)
       .then((session) => {
         if (generation === sessionGeneration) sessionCache = session;
         return session;
       })
-      .finally(() => { sessionLoad = null; });
+      .finally(() => {
+        sessionLoad = null;
+        sessionLoadForcesRefresh = false;
+      });
   }
   return sessionLoad;
 }
 
 export function googleSessionRefreshDelay(session: GoogleSession): number | null {
-  if (!session.expiresAt) return null;
-  return Math.max(0, session.expiresAt * 1000 - Date.now() - REFRESH_SKEW_MS);
+  return googleSessionRefreshDelayMs(session.expiresAt);
 }
 
 export async function signInWithGoogle(): Promise<GoogleSession> {
