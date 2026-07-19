@@ -4,8 +4,23 @@ import { currentGoogleSession } from './auth-service';
 export interface WikiSummary { tenant_id: string; client_count: number; project_count: number; source_count: number; wiki_page_count: number; last_activity_at: string | null; }
 export interface WikiClient { client_id: string; project_count: number; source_count: number; last_activity_at: string | null; key: string; }
 export interface WikiProject { project_id: string; source_count: number; wiki_page_count: number; last_activity_at: string | null; key: string; }
-export interface WikiDocument { document: string; title: string; key: string; updated_at: string | null; }
-export interface WikiDocumentContent extends WikiDocument { content_markdown: string; content_type: string; }
+export type WikiDocumentType = 'context' | 'meeting' | 'decision' | 'risk';
+export interface WikiDocument {
+  document: string;
+  title: string;
+  description?: string | null;
+  type?: WikiDocumentType;
+  key: string;
+  updated_at: string | null;
+  provenance_status?: 'complete' | 'analysis_only';
+  raw_available?: boolean;
+}
+export interface WikiDocumentContent extends WikiDocument {
+  content_markdown: string;
+  body_markdown?: string;
+  metadata?: Record<string, unknown>;
+  content_type: string;
+}
 export interface WikiIngestInput { clientId: string; projectId: string; title: string; dateTime: string; participants: string[]; markdown: string; rawMarkdown: string; }
 export interface Paginated<T> { total: number; items: T[]; limit: number; offset: number; }
 export interface WikiActivity { timestamp: string; client_id?: string; project_id?: string; [key: string]: unknown; }

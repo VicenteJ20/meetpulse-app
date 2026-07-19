@@ -7,11 +7,12 @@ import {
   ArrowLeft,
   BookOpen,
   Building2,
+  CalendarDays,
   ChevronRight,
   Clipboard,
   Clock3,
-  FileText,
   FolderKanban,
+  Gavel,
   LayoutGrid,
   Library,
   Loader2,
@@ -19,6 +20,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  ShieldAlert,
   Sparkles,
 } from 'lucide-react';
 import { BlockNoteSummaryView, type BlockNoteSummaryViewRef } from '@/components/AISummary/BlockNoteSummaryView';
@@ -43,6 +45,12 @@ import {
 
 type BootstrapState = 'loading' | 'ready' | 'empty' | 'error';
 type NavigationContent = 'workspace' | 'client' | 'project' | 'document';
+
+function combineOkfDocument(original: string, body: string): string {
+  const frontmatter = original.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  const normalizedBody = `${body.trim()}\n`;
+  return frontmatter ? `${frontmatter[0].replace(/\s*$/, '\n')}${normalizedBody}` : normalizedBody;
+}
 
 function WikiShellSkeleton({ label }: { label: string }) {
   return (
@@ -195,7 +203,7 @@ export default function WikiPage() {
   }, [clientId, config, projectId, t]);
 
   useEffect(() => {
-    if (selected?.document === 'context') setContextDraft(selected.content_markdown);
+    if (selected?.document === 'context') setContextDraft(selected.body_markdown || selected.content_markdown);
   }, [selected]);
 
   const selectClient = (nextClientId: string) => {
@@ -229,9 +237,11 @@ export default function WikiPage() {
     setSavingContext(true);
     setError(null);
     try {
-      const markdown = await contextEditorRef.current?.getMarkdown() || contextDraft;
-      setContextDraft(markdown);
-      setSelected(await new WikiApi(config).updateProjectContext(clientId, projectId, markdown));
+      const body = await contextEditorRef.current?.getMarkdown() || contextDraft;
+      const markdown = combineOkfDocument(selected?.content_markdown || '', body);
+      const updated = await new WikiApi(config).updateProjectContext(clientId, projectId, markdown);
+      setContextDraft(updated.body_markdown || body);
+      setSelected(updated);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('wiki.errorGeneric'));
     } finally {
@@ -249,6 +259,12 @@ export default function WikiPage() {
   const filteredDocuments = useMemo(() => documents.filter(document => document.title.toLowerCase().includes(query.toLowerCase())), [documents, query]);
   const contextDocument = documents.find(document => document.document === 'context');
   const knowledgeDocuments = filteredDocuments.filter(document => document.document !== 'context');
+  const documentGroups = [
+    { type: 'meeting', title: t('wiki.analyzedMeetings'), description: t('wiki.analyzedMeetingsDescription'), icon: CalendarDays, iconClass: 'bg-sky-500/10 text-sky-500' },
+    { type: 'decision', title: t('wiki.decisions'), description: t('wiki.decisionsDescription'), icon: Gavel, iconClass: 'bg-violet-500/10 text-violet-500' },
+    { type: 'risk', title: t('wiki.risks'), description: t('wiki.risksDescription'), icon: ShieldAlert, iconClass: 'bg-amber-500/10 text-amber-500' },
+  ].map(group => ({ ...group, documents: knowledgeDocuments.filter(document => document.type === group.type) }))
+    .filter(group => group.documents.length > 0);
   const activeTenant = tenants.find(tenant => tenant.tenant_id === config.tenantId);
   const activeClient = clients.find(client => client.client_id === clientId);
   const content: NavigationContent = selected ? 'document' : projectId ? 'project' : clientId ? 'client' : 'workspace';
@@ -446,14 +462,31 @@ export default function WikiPage() {
                     <section className="mt-8">
                       <div className="flex items-center justify-between gap-4"><h2 className="text-lg font-semibold">{t('wiki.projectKnowledge')}</h2><span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{knowledgeDocuments.length}</span></div>
                       {knowledgeDocuments.length ? (
-                        <div className="mt-3 space-y-2">
-                          {knowledgeDocuments.map(document => (
-                            <button key={document.key} onClick={() => selectDocument(document)} className="group flex w-full items-center gap-4 rounded-xl border border-border bg-background px-4 py-3.5 text-left transition hover:border-brand/35 hover:bg-muted/30">
-                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground"><FileText /></span>
-                              <span className="min-w-0 flex-1"><span className="block truncate font-medium">{document.title}</span>{document.updated_at && <span className="mt-0.5 block text-xs text-muted-foreground">{formatDate(document.updated_at, { dateStyle: 'medium' })}</span>}</span>
-                              <ChevronRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1" />
-                            </button>
-                          ))}
+                        <div className="mt-5 space-y-7">
+                          {documentGroups.map(group => {
+                            const Icon = group.icon;
+                            return (
+                              <div key={group.type}>
+                                <div className="mb-3 flex items-end justify-between gap-4">
+                                  <div><h3 className="font-semibold">{group.title}</h3><p className="mt-0.5 text-xs text-muted-foreground">{group.description}</p></div>
+                                  <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{group.documents.length}</span>
+                                </div>
+                                <div className="grid gap-3 lg:grid-cols-2">
+                                  {group.documents.map(document => (
+                                    <button key={document.key} onClick={() => selectDocument(document)} className="group flex min-h-28 items-start gap-4 rounded-2xl border border-border bg-background p-4 text-left transition hover:-translate-y-0.5 hover:border-brand/35 hover:shadow-md hover:shadow-brand/5">
+                                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${group.iconClass}`}><Icon className="h-5 w-5" /></span>
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block font-medium leading-5">{document.title}</span>
+                                        {document.description && <span className="mt-1.5 line-clamp-2 block text-sm leading-5 text-muted-foreground">{document.description}</span>}
+                                        {document.updated_at && <span className="mt-2 block text-xs text-muted-foreground">{formatDate(document.updated_at, { dateStyle: 'medium' })}</span>}
+                                      </span>
+                                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-1" />
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : <EmptyState className="mt-3 rounded-2xl border border-dashed border-border" icon={<BookOpen />} title={query ? t('wiki.noSearchResults') : t('wiki.noDocuments')} description={query ? t('wiki.noSearchResultsDescription') : t('wiki.noDocumentsDescription')} />}
                     </section>
@@ -469,14 +502,14 @@ export default function WikiPage() {
                     <Button size="icon" variant="ghost" onClick={() => setSelected(null)} aria-label={t('common.back')}><ArrowLeft /></Button>
                     <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">{clientId} / {projectId}</p><h1 className="mt-1 truncate text-xl font-semibold tracking-[-0.025em] sm:text-2xl">{selected?.document === 'context' ? t('wiki.projectContext') : selected?.title}</h1>{selected?.updated_at && <p className="mt-1 text-xs text-muted-foreground">{t('common.updated')} {formatDate(selected.updated_at, { dateStyle: 'medium', timeStyle: 'short' })}</p>}</div>
                   </div>
-                  {selected?.document === 'context' ? <Button onClick={saveContext} disabled={savingContext}>{savingContext ? <Loader2 className="animate-spin" /> : <Save />}{t('wiki.saveContext')}</Button> : <Button variant="outline" onClick={() => selected && navigator.clipboard.writeText(selected.content_markdown)}><Clipboard />{t('common.copy')}</Button>}
+                  {selected?.document === 'context' ? <Button onClick={saveContext} disabled={savingContext}>{savingContext ? <Loader2 className="animate-spin" /> : <Save />}{t('wiki.saveContext')}</Button> : <Button variant="outline" onClick={() => selected && navigator.clipboard.writeText(selected.body_markdown || selected.content_markdown)}><Clipboard />{t('common.copy')}</Button>}
                 </header>
                 {documentLoading ? <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div> : selected && (
                   <article className="wiki-document-reader px-4 py-8 sm:px-8 lg:px-12 lg:py-10">
                     <div className="mx-auto max-w-[880px]">
                       {selected.document === 'context' && <div className="mb-8 rounded-2xl border border-brand/20 bg-brand/5 p-4 text-sm leading-6 text-muted-foreground"><strong className="text-foreground">{t('wiki.editableContext')}</strong> {t('wiki.editableContextDescription')}</div>}
                       <div className="meeting-summary-editor wiki-document-editor">
-                        <BlockNoteSummaryView key={selected.key} ref={selected.document === 'context' ? contextEditorRef : undefined} summaryData={{ markdown: selected.document === 'context' ? contextDraft || `# ${t('wiki.projectContext')}\n\n${t('wiki.contextPlaceholder')}` : selected.content_markdown }} editable={selected.document === 'context'} />
+                        <BlockNoteSummaryView key={selected.key} ref={selected.document === 'context' ? contextEditorRef : undefined} summaryData={{ markdown: selected.document === 'context' ? contextDraft || `# ${t('wiki.projectContext')}\n\n${t('wiki.contextPlaceholder')}` : selected.body_markdown || selected.content_markdown }} editable={selected.document === 'context'} />
                       </div>
                     </div>
                   </article>
