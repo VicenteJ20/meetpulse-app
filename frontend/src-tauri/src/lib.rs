@@ -534,6 +534,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             auth::sign_in_with_google,
             auth::get_google_auth_token,
+            auth::peek_google_auth_session,
+            auth::debug_expire_google_session,
             auth::sign_out_google,
             start_recording,
             stop_recording,

@@ -193,6 +193,9 @@ export const en = {
   'auth.welcome': 'Welcome back.',
   'auth.signInDescription': 'Sign in to open your personal workspace and the Wiki workspaces you belong to.',
   'auth.continueGoogle': 'Continue with Google',
+  'auth.reauthTitle': 'Google needs you to sign in again',
+  'auth.reauthDescription': 'Your workspace stays open. Renew the session to keep Wiki and account features working.',
+  'auth.reauthAction': 'Sign in again',
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -392,6 +395,9 @@ export const es: Record<TranslationKey, string> = {
   'auth.welcome': 'Te damos la bienvenida.',
   'auth.signInDescription': 'Inicia sesión para abrir tu espacio personal y los espacios Wiki a los que perteneces.',
   'auth.continueGoogle': 'Continuar con Google',
+  'auth.reauthTitle': 'Google necesita que inicies sesión otra vez',
+  'auth.reauthDescription': 'Tu espacio sigue abierto. Renueva la sesión para que Wiki y la cuenta sigan funcionando.',
+  'auth.reauthAction': 'Volver a iniciar sesión',
 };
 
 export const catalogs = { en, es } as const;

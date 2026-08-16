@@ -21,18 +21,26 @@ function AuthShell({ children }: { children: React.ReactNode }) {
 }
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const { loading, session, signIn } = useAuth();
+  const { loading, session, signIn, reauthRequired } = useAuth();
   const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
-
-  if (session) return <>{children}</>;
-  if (loading) return <AuthShell><section className="col-span-full flex flex-col items-center justify-center gap-5 bg-card"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-foreground text-background shadow-lg"><Loader2 className="h-6 w-6 animate-spin" /></div><div className="text-center"><p className="font-semibold">{t('auth.preparing')}</p><p className="mt-1 text-sm text-muted-foreground">{t('auth.checking')}</p></div></section></AuthShell>;
 
   const handleSignIn = async () => {
     setError(null);
     try { await signIn(); }
     catch (reason) { setError(readableError(reason)); }
   };
+
+  if (session) return <div className="flex h-screen min-h-0 flex-col">
+    {reauthRequired && <div className="flex shrink-0 items-center justify-center gap-3 border-b border-amber-500/25 bg-amber-50 px-4 py-2 text-sm text-amber-950 dark:bg-amber-950/70 dark:text-amber-50">
+      <p className="font-medium">{t('auth.reauthTitle')}</p>
+      <p className="hidden text-amber-900/80 sm:block dark:text-amber-100/75">{t('auth.reauthDescription')}</p>
+      <button type="button" onClick={() => { void handleSignIn(); }} className="shrink-0 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background">{t('auth.reauthAction')}</button>
+    </div>}
+    {error && <div role="alert" className="shrink-0 border-b border-destructive/25 bg-destructive/10 px-4 py-2 text-center text-sm text-destructive">{error}</div>}
+    <div className="min-h-0 min-w-0 flex-1 overflow-hidden [&_.app-shell]:h-full">{children}</div>
+  </div>;
+  if (loading) return <AuthShell><section className="col-span-full flex flex-col items-center justify-center gap-5 bg-card"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-foreground text-background shadow-lg"><Loader2 className="h-6 w-6 animate-spin" /></div><div className="text-center"><p className="font-semibold">{t('auth.preparing')}</p><p className="mt-1 text-sm text-muted-foreground">{t('auth.checking')}</p></div></section></AuthShell>;
 
   return <AuthShell>
     <section className="relative hidden overflow-hidden bg-[hsl(var(--sidebar))] px-12 py-11 text-white lg:flex lg:flex-col">
