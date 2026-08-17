@@ -129,6 +129,26 @@ pub struct MeetingDetails {
     pub project: Option<String>,
     pub additional_context: Option<String>,
     pub tags: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_tenant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_client_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_project_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_source_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_job_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_analysis_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_raw_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_published_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_ingest_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_librarian_status: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -158,6 +178,26 @@ pub struct MeetingMetadata {
     pub project: Option<String>,
     pub additional_context: Option<String>,
     pub tags: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_tenant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_client_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_project_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_source_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_job_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_analysis_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_raw_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_published_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_ingest_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki_librarian_status: Option<String>,
 }
 
 /// Paginated transcripts response with total count
@@ -844,6 +884,16 @@ pub async fn api_get_meeting_metadata<R: Runtime>(
                 project: meeting.project,
                 additional_context: meeting.additional_context,
                 tags: meeting.tags.and_then(|value| serde_json::from_str(&value).ok()).unwrap_or_default(),
+                wiki_tenant_id: meeting.wiki_tenant_id,
+                wiki_client_id: meeting.wiki_client_id,
+                wiki_project_id: meeting.wiki_project_id,
+                wiki_source_key: meeting.wiki_source_key,
+                wiki_job_id: meeting.wiki_job_id,
+                wiki_analysis_hash: meeting.wiki_analysis_hash,
+                wiki_raw_hash: meeting.wiki_raw_hash,
+                wiki_published_at: meeting.wiki_published_at,
+                wiki_ingest_status: meeting.wiki_ingest_status,
+                wiki_librarian_status: meeting.wiki_librarian_status,
             })
         }
         Ok(None) => {
@@ -987,6 +1037,54 @@ pub async fn api_save_meeting_metadata<R: Runtime>(
         }
     }
 
+    Ok(serde_json::json!({"status": "success"}))
+}
+
+#[tauri::command]
+pub async fn api_save_meeting_wiki_state<R: Runtime>(
+    _app: AppHandle<R>,
+    state: tauri::State<'_, AppState>,
+    meeting_id: String,
+    wiki_tenant_id: Option<String>,
+    wiki_client_id: Option<String>,
+    wiki_project_id: Option<String>,
+    wiki_source_key: Option<String>,
+    wiki_job_id: Option<String>,
+    wiki_analysis_hash: Option<String>,
+    wiki_raw_hash: Option<String>,
+    wiki_published_at: Option<String>,
+    wiki_ingest_status: Option<String>,
+    wiki_librarian_status: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let clean = |value: Option<String>| {
+        value.and_then(|text| {
+            let trimmed = text.trim().to_string();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        })
+    };
+    let updated = MeetingsRepository::update_wiki_state(
+        state.db_manager.pool(),
+        &meeting_id,
+        clean(wiki_tenant_id).as_deref(),
+        clean(wiki_client_id).as_deref(),
+        clean(wiki_project_id).as_deref(),
+        clean(wiki_source_key).as_deref(),
+        clean(wiki_job_id).as_deref(),
+        clean(wiki_analysis_hash).as_deref(),
+        clean(wiki_raw_hash).as_deref(),
+        clean(wiki_published_at).as_deref(),
+        clean(wiki_ingest_status).as_deref(),
+        clean(wiki_librarian_status).as_deref(),
+    )
+    .await
+    .map_err(|error| format!("Failed to save meeting wiki state: {}", error))?;
+    if !updated {
+        return Err(format!("No meeting found with id {}", meeting_id));
+    }
     Ok(serde_json::json!({"status": "success"}))
 }
 

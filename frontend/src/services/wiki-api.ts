@@ -22,12 +22,53 @@ export interface WikiDocumentContent extends WikiDocument {
   content_type: string;
 }
 export interface WikiIngestInput { clientId: string; projectId: string; title: string; dateTime: string; participants: string[]; markdown: string; rawMarkdown: string; }
+export interface WikiIngestResult {
+  source_key: string;
+  raw_key: string | null;
+  provenance_status: 'complete' | 'analysis_only';
+  ingest_status: 'created' | 'reconciled' | 'unchanged';
+  job_id: string;
+  processing_status: 'pending';
+  updated_keys: string[];
+}
+export interface WikiJob {
+  job_id: string;
+  source_key: string;
+  tenant_id: string;
+  client_id: string;
+  project_id: string;
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | string;
+  attempts?: number;
+  error_code?: string | null;
+  output_keys?: string[];
+}
 export interface Paginated<T> { total: number; items: T[]; limit: number; offset: number; }
 export interface WikiActivity { timestamp: string; client_id?: string; project_id?: string; [key: string]: unknown; }
 export interface WikiTenant { tenant_id: string; display_name: string; role: 'owner' | 'guest'; }
 
 export class WikiApiError extends Error {
-  constructor(message: string, public readonly status?: number) { super(message); }
+  constructor(
+    message: string,
+    public readonly status?: number,
+    public readonly sourceKey?: string,
+  ) { super(message); }
+}
+
+function wikiErrorFromBody(status: number, fallback: string, body: unknown): WikiApiError {
+  if (!body || typeof body !== 'object') return new WikiApiError(fallback, status);
+  const detail = (body as { detail?: unknown }).detail;
+  if (typeof detail === 'string') return new WikiApiError(detail, status);
+  if (detail && typeof detail === 'object' && 'source_key' in detail) {
+    const sourceKey = String((detail as { source_key: unknown }).source_key || '');
+    return new WikiApiError(
+      sourceKey
+        ? `The Wiki already has a different analysis for ${sourceKey}.`
+        : fallback,
+      status,
+      sourceKey || undefined,
+    );
+  }
+  return new WikiApiError(fallback, status);
 }
 
 export async function wikiAccountRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -52,13 +93,17 @@ export async function wikiAccountRequest<T>(path: string, init: RequestInit = {}
   let response = await request();
   if (response.status === 401) response = await request(true);
   if (!response.ok) {
-    let detail = `Wiki API request failed (${response.status}).`;
+    const fallback = `Wiki API request failed (${response.status}).`;
     try {
       const body = await response.json();
-      if (typeof body.detail === 'string') detail = body.detail;
-      else if (Array.isArray(body.detail)) detail = body.detail.map((item: { msg?: string }) => item.msg || 'Invalid request').join('. ');
-    } catch { /* response has no JSON body */ }
-    throw new WikiApiError(detail, response.status);
+      if (Array.isArray(body.detail)) {
+        throw new WikiApiError(body.detail.map((item: { msg?: string }) => item.msg || 'Invalid request').join('. '), response.status);
+      }
+      throw wikiErrorFromBody(response.status, fallback, body);
+    } catch (error) {
+      if (error instanceof WikiApiError) throw error;
+      throw new WikiApiError(fallback, response.status);
+    }
   }
   if (response.status === 204 || response.headers.get('content-length') === '0') return undefined as T;
   const text = await response.text();
@@ -92,9 +137,12 @@ export class WikiApi {
       catch { throw new WikiApiError('Wiki API is unavailable. Check its URL and that the server is running.'); }
     }
     if (!response.ok) {
-      let detail = `Wiki API request failed (${response.status}).`;
-      try { const body = await response.json(); detail = typeof body.detail === 'string' ? body.detail : detail; } catch { /* response has no JSON body */ }
-      throw new WikiApiError(detail, response.status);
+      const fallback = `Wiki API request failed (${response.status}).`;
+      try { throw wikiErrorFromBody(response.status, fallback, await response.json()); }
+      catch (error) {
+        if (error instanceof WikiApiError) throw error;
+        throw new WikiApiError(fallback, response.status);
+      }
     }
     return response.json() as Promise<T>;
   }
@@ -121,7 +169,10 @@ export class WikiApi {
     input.participants.forEach(participant => body.append('participants', participant));
     body.append('file', new Blob([input.markdown], { type: 'text/markdown' }), 'meeting-summary.md');
     body.append('raw_file', new Blob([input.rawMarkdown], { type: 'text/markdown' }), 'meeting-transcript.md');
-    return this.post<{ source_key: string; raw_key: string | null; provenance_status: 'complete' | 'analysis_only'; ingest_status: 'created' | 'reconciled' | 'unchanged'; job_id: string; processing_status: 'pending'; updated_keys: string[] }>('/ingest', body);
+    return this.post<WikiIngestResult>('/ingest', body);
+  }
+  job(jobId: string) {
+    return this.get<WikiJob>(`/jobs/${encodeURIComponent(this.config.tenantId)}/${encodeURIComponent(jobId)}`);
   }
   async updateProjectContext(clientId: string, projectId: string, contentMarkdown: string) {
     return this.request<WikiDocumentContent>(`/wiki/${encodeURIComponent(this.config.tenantId)}/documents/context`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ content_markdown: contentMarkdown }) }, { client_id: clientId, project_id: projectId });

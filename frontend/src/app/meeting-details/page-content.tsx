@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Summary, SummaryResponse, Transcript } from '@/types';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
@@ -17,11 +17,13 @@ import { useTemplates } from '@/hooks/meeting-details/useTemplates';
 import { useCopyOperations } from '@/hooks/meeting-details/useCopyOperations';
 import { useMeetingOperations } from '@/hooks/meeting-details/useMeetingOperations';
 import { useConfig } from '@/contexts/ConfigContext';
-import { getWikiConfig } from '@/services/wiki-config';
-import { WikiApi, WikiApiError, listWikiTenants, type WikiTenant } from '@/services/wiki-api';
+import { getWikiLastDestination } from '@/services/wiki-config';
+import { useWikiPublish } from '@/hooks/meeting-details/useWikiPublish';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CalendarDays } from 'lucide-react';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { useRouter } from 'next/navigation';
+import { slugifyWikiId } from '@/lib/wiki-slug';
 
 interface TranscriptPage {
   transcripts: Transcript[];
@@ -93,22 +95,20 @@ export default function PageContent({
   });
 
   // State
+  const lastWikiDestination = typeof window === 'undefined' ? null : getWikiLastDestination();
   const [customPrompt, setCustomPrompt] = useState<string>(meeting.additional_context || '');
-  const [client, setClient] = useState<string>(meeting.client || '');
-  const [project, setProject] = useState<string>(meeting.project || '');
+  const [client, setClient] = useState<string>(meeting.client || lastWikiDestination?.clientId || '');
+  const [project, setProject] = useState<string>(meeting.project || lastWikiDestination?.projectId || '');
   const [isRecording] = useState(false);
   const [summaryResponse] = useState<SummaryResponse | null>(null);
-  const [isSavingToWiki, setIsSavingToWiki] = useState(false);
-  const [isSavedToWiki, setIsSavedToWiki] = useState(false);
-  const [wikiTenantPickerOpen, setWikiTenantPickerOpen] = useState(false);
-  const [wikiTenants, setWikiTenants] = useState<WikiTenant[]>([]);
-  const [selectedWikiTenant, setSelectedWikiTenant] = useState('');
   const { serverAddress, refetchMeetings } = useSidebar();
   const { t, formatDate } = useTranslation();
+  const router = useRouter();
 
   useEffect(() => {
-    setClient(meeting.client || '');
-    setProject(meeting.project || '');
+    const lastDestination = getWikiLastDestination();
+    setClient(meeting.client || lastDestination?.clientId || '');
+    setProject(meeting.project || lastDestination?.projectId || '');
     setCustomPrompt(meeting.additional_context || '');
   }, [meeting.id, meeting.client, meeting.project, meeting.additional_context]);
 
@@ -117,8 +117,8 @@ export default function PageContent({
       try {
         await invoke('api_save_meeting_metadata', {
           meetingId: meeting.id,
-          client,
-          project,
+          client: slugifyWikiId(client) || client,
+          project: slugifyWikiId(project) || project,
           additionalContext: customPrompt,
         });
         // Keep the client/project hierarchy in Meeting Notes in sync as soon
@@ -186,6 +186,30 @@ export default function PageContent({
     }
   };
 
+  const getWikiMarkdown = useCallback(async () => {
+    const live = await meetingData.blockNoteSummaryRef.current?.getMarkdown?.() || '';
+    if (live) return live;
+    if (meetingData.aiSummary && 'markdown' in meetingData.aiSummary) {
+      return (meetingData.aiSummary as { markdown?: string }).markdown || '';
+    }
+    return '';
+  }, [meetingData.aiSummary, meetingData.blockNoteSummaryRef]);
+
+  const getWikiRawMarkdown = useCallback(async () => {
+    const completeTranscript = await loadCompleteTranscript(meeting.id);
+    const title = meetingData.meetingTitle.trim() || meeting.title;
+    return transcriptMarkdown(title, meeting.created_at, completeTranscript);
+  }, [meeting.id, meeting.title, meeting.created_at, meetingData.meetingTitle]);
+
+  const wikiPublish = useWikiPublish({
+    meeting,
+    meetingTitle: meetingData.meetingTitle,
+    client,
+    project,
+    getMarkdown: getWikiMarkdown,
+    getRawMarkdown: getWikiRawMarkdown,
+  });
+
   const summaryGeneration = useSummaryGeneration({
     meeting,
     transcripts: meetingData.transcripts,
@@ -196,6 +220,10 @@ export default function PageContent({
     updateMeetingTitle: meetingData.updateMeetingTitle,
     setAiSummary: meetingData.setAiSummary,
     onOpenModelSettings: handleOpenModelSettings,
+    onSummaryCompleted: async ({ title, markdown }) => {
+      if (title) meetingData.updateMeetingTitle(title);
+      await wikiPublish.publishAfterAnalysis({ title, markdown });
+    },
   });
 
   const copyOperations = useCopyOperations({
@@ -209,56 +237,6 @@ export default function PageContent({
   const meetingOperations = useMeetingOperations({
     meeting,
   });
-
-  const openWikiTenantPicker = async () => {
-    try {
-      const tenants = await listWikiTenants();
-      if (!tenants.length) { toast.error('Create or join a Wiki tenant before saving notes.'); return; }
-      const configured = getWikiConfig().tenantId;
-      setWikiTenants(tenants);
-      setSelectedWikiTenant(tenants.some(tenant => tenant.tenant_id === configured) ? configured : tenants[0].tenant_id);
-      setWikiTenantPickerOpen(true);
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Unable to load Wiki tenants'); }
-  };
-
-  const handleSaveToWiki = async () => {
-    if (!selectedWikiTenant) return;
-    const config = { ...getWikiConfig(), tenantId: selectedWikiTenant };
-    if (!client.trim() || !project.trim()) { toast.error('Add both client and project before saving this note to Wiki'); return; }
-    setIsSavingToWiki(true);
-    try {
-      await meetingData.saveAllChanges();
-      let markdown = await meetingData.blockNoteSummaryRef.current?.getMarkdown?.() || '';
-      if (!markdown && meetingData.aiSummary && 'markdown' in meetingData.aiSummary) {
-        markdown = (meetingData.aiSummary as any).markdown || '';
-      }
-      if (!markdown) { toast.error('Add a summary before saving this note to Wiki'); return; }
-      const completeTranscript = await loadCompleteTranscript(meeting.id);
-      if (!completeTranscript.length) { toast.error('Add a transcript before saving this note to Wiki'); return; }
-      const title = meetingData.meetingTitle.trim() || meeting.title;
-      const participants = Array.isArray((meeting as any).participants) && (meeting as any).participants.length
-        ? (meeting as any).participants.map(String)
-        : ['Not specified'];
-      const result = await new WikiApi(config).ingest({
-        clientId: client.trim(),
-        projectId: project.trim(),
-        title,
-        dateTime: meeting.created_at || new Date().toISOString(),
-        participants,
-        markdown,
-        rawMarkdown: transcriptMarkdown(title, meeting.created_at, completeTranscript),
-      });
-      setIsSavedToWiki(true);
-      if (result.ingest_status === 'reconciled') toast.success('Transcript added to the existing Wiki note');
-      else if (result.ingest_status === 'unchanged') toast.success('The Wiki note and transcript are already up to date');
-      else toast.success('Note and transcript saved to Wiki');
-    } catch (error) {
-      if (error instanceof WikiApiError && error.status === 409) toast.info('This note is already saved in Wiki');
-      else toast.error(error instanceof Error ? error.message : 'Failed to save note to Wiki');
-    } finally {
-      setIsSavingToWiki(false);
-    }
-  };
 
   // Track page view
   useEffect(() => {
@@ -305,7 +283,20 @@ export default function PageContent({
           </div>
           <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{meeting.created_at ? formatDate(meeting.created_at, { dateStyle: 'medium', timeStyle: 'short' }) : t('meeting.details')}</p>
         </div>
-        <div className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">{t('meeting.summary')}</div>
+        <div className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+          {t((
+            {
+              draft: 'meeting.wikiStatus.draft',
+              publishing: 'meeting.wikiStatus.publishing',
+              published: 'meeting.wikiStatus.published',
+              curating: 'meeting.wikiStatus.curating',
+              curated: 'meeting.wikiStatus.curated',
+              conflict: 'meeting.wikiStatus.conflict',
+              diverged: 'meeting.wikiStatus.diverged',
+              error: 'meeting.wikiStatus.error',
+            } as const
+          )[wikiPublish.status])}
+        </div>
       </header>
       <div className="flex flex-1 overflow-hidden">
         <TranscriptPanel
@@ -314,6 +305,8 @@ export default function PageContent({
           onPromptChange={setCustomPrompt}
           client={client}
           project={project}
+          clientOptions={wikiPublish.clients.map(item => item.client_id)}
+          projectOptions={wikiPublish.projects.map(item => item.project_id)}
           tags={meeting.tags || []}
           onClientChange={setClient}
           onProjectChange={setProject}
@@ -368,26 +361,43 @@ export default function PageContent({
           onTemplateSelect={templates.handleTemplateSelection}
           isModelConfigLoading={false}
           onOpenModelSettings={handleRegisterModalOpen}
-          onSaveToWiki={openWikiTenantPicker}
-          isSavingToWiki={isSavingToWiki}
-          isSavedToWiki={isSavedToWiki}
+          wikiStatus={wikiPublish.status}
+          onRetryWiki={() => { void wikiPublish.retryPublish(); }}
+          onOpenWiki={() => router.push('/wiki')}
         />
       </div>
     </motion.div>
-    <Dialog open={wikiTenantPickerOpen} onOpenChange={setWikiTenantPickerOpen}>
+    <Dialog open={wikiPublish.destinationOpen} onOpenChange={wikiPublish.setDestinationOpen}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Save note to Wiki</DialogTitle>
+          <DialogTitle>{t('meeting.wikiDestination')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Choose the workspace that should receive this meeting note.</p>
-          <select value={selectedWikiTenant} onChange={event => setSelectedWikiTenant(event.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground">
-            {wikiTenants.map(tenant => <option key={tenant.tenant_id} value={tenant.tenant_id}>{tenant.display_name || tenant.tenant_id} · {tenant.role === 'owner' ? t('wiki.owner') : t('wiki.guest')}</option>)}
-          </select>
+          <p className="text-sm text-muted-foreground">{t('meeting.wikiDestinationDescription')}</p>
+          <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
+            {t('meeting.wikiWorkspace')}
+            <select value={wikiPublish.selectedTenant} onChange={event => wikiPublish.setSelectedTenant(event.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground">
+              {wikiPublish.tenants.map(tenant => <option key={tenant.tenant_id} value={tenant.tenant_id}>{tenant.display_name || tenant.tenant_id} · {tenant.role === 'owner' ? t('wiki.owner') : t('wiki.guest')}</option>)}
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+              {t('meeting.client')}
+              <input list="wiki-destination-clients" value={client} onChange={event => setClient(event.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground" />
+              <datalist id="wiki-destination-clients">{wikiPublish.clients.map(item => <option key={item.client_id} value={item.client_id} />)}</datalist>
+              <span className="block font-normal text-[11px]">{t('meeting.wikiSlugPreview').replace('{id}', slugifyWikiId(client) || '—')}</span>
+            </label>
+            <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+              {t('meeting.project')}
+              <input list="wiki-destination-projects" value={project} onChange={event => setProject(event.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground" />
+              <datalist id="wiki-destination-projects">{wikiPublish.projects.map(item => <option key={item.project_id} value={item.project_id} />)}</datalist>
+              <span className="block font-normal text-[11px]">{t('meeting.wikiSlugPreview').replace('{id}', slugifyWikiId(project) || '—')}</span>
+            </label>
+          </div>
         </div>
         <DialogFooter>
-          <button onClick={() => setWikiTenantPickerOpen(false)} className="rounded-md border px-3 py-2 text-sm">Cancel</button>
-          <button onClick={() => { setWikiTenantPickerOpen(false); handleSaveToWiki(); }} disabled={!selectedWikiTenant || isSavingToWiki} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">Save to selected Wiki</button>
+          <button onClick={() => wikiPublish.setDestinationOpen(false)} className="rounded-md border px-3 py-2 text-sm">{t('common.cancel')}</button>
+          <button onClick={() => { wikiPublish.confirmDestination(); }} disabled={!wikiPublish.destination.ready || wikiPublish.isPublishing} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{t('meeting.wikiPublishNow')}</button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

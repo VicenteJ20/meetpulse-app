@@ -23,6 +23,7 @@ import {
   saveMeetingSummaryLanguage,
   SummaryLanguageStorage,
 } from '@/lib/summary-language-preferences';
+import type { WikiPublishUiStatus } from '@/hooks/meeting-details/useWikiPublish';
 
 interface SummaryPanelProps {
   meeting: {
@@ -62,9 +63,9 @@ interface SummaryPanelProps {
   onTemplateSelect: (templateId: string, templateName: string) => void;
   isModelConfigLoading?: boolean;
   onOpenModelSettings?: (openFn: () => void) => void;
-  onSaveToWiki: () => Promise<void>;
-  isSavingToWiki: boolean;
-  isSavedToWiki: boolean;
+  wikiStatus: WikiPublishUiStatus;
+  onRetryWiki: () => Promise<void> | void;
+  onOpenWiki: () => void;
 }
 
 export function SummaryPanel({
@@ -101,9 +102,9 @@ export function SummaryPanel({
   onTemplateSelect,
   isModelConfigLoading = false,
   onOpenModelSettings,
-  onSaveToWiki,
-  isSavingToWiki,
-  isSavedToWiki
+  wikiStatus,
+  onRetryWiki,
+  onOpenWiki
 }: SummaryPanelProps) {
   const [summaryLang, setSummaryLang] = useState<string | null>(null);
   const [detectedSummaryLang, setDetectedSummaryLang] = useState<string | null>(null);
@@ -281,9 +282,9 @@ export function SummaryPanel({
       onFind={() => console.log('Find in summary clicked')}
       onOpenFolder={onOpenFolder}
       hasSummary={!!aiSummary}
-      onSaveToWiki={onSaveToWiki}
-      isSavingToWiki={isSavingToWiki}
-      isSavedToWiki={isSavedToWiki}
+      wikiStatus={wikiStatus}
+      onRetryWiki={onRetryWiki}
+      onOpenWiki={onOpenWiki}
     />
   ) : null;
 

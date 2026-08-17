@@ -21,6 +21,16 @@ interface MeetingDetailsResponse {
   project?: string | null;
   additional_context?: string | null;
   tags: string[];
+  wiki_tenant_id?: string | null;
+  wiki_client_id?: string | null;
+  wiki_project_id?: string | null;
+  wiki_source_key?: string | null;
+  wiki_job_id?: string | null;
+  wiki_analysis_hash?: string | null;
+  wiki_raw_hash?: string | null;
+  wiki_published_at?: string | null;
+  wiki_ingest_status?: string | null;
+  wiki_librarian_status?: string | null;
 }
 
 function MeetingDetailsContent() {
@@ -142,6 +152,16 @@ function MeetingDetailsContent() {
         project: metadata.project,
         additional_context: metadata.additional_context,
         tags: metadata.tags || [],
+        wiki_tenant_id: metadata.wiki_tenant_id,
+        wiki_client_id: metadata.wiki_client_id,
+        wiki_project_id: metadata.wiki_project_id,
+        wiki_source_key: metadata.wiki_source_key,
+        wiki_job_id: metadata.wiki_job_id,
+        wiki_analysis_hash: metadata.wiki_analysis_hash,
+        wiki_raw_hash: metadata.wiki_raw_hash,
+        wiki_published_at: metadata.wiki_published_at,
+        wiki_ingest_status: metadata.wiki_ingest_status,
+        wiki_librarian_status: metadata.wiki_librarian_status,
       });
 
       // Sync with sidebar context

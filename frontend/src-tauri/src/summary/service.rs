@@ -1101,6 +1101,16 @@ mod tests {
             project: Some("proyecto_1".to_string()),
             additional_context: None,
             tags: None,
+            wiki_tenant_id: None,
+            wiki_client_id: None,
+            wiki_project_id: None,
+            wiki_source_key: None,
+            wiki_job_id: None,
+            wiki_analysis_hash: None,
+            wiki_raw_hash: None,
+            wiki_published_at: None,
+            wiki_ingest_status: None,
+            wiki_librarian_status: None,
         };
 
         write_wiki_transcript(dir.path(), &meeting, "Transcripción completa.").unwrap();

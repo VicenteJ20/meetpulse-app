@@ -60,6 +60,7 @@ interface UseSummaryGenerationProps {
   updateMeetingTitle: (title: string) => void;
   setAiSummary: (summary: Summary | null) => void;
   onOpenModelSettings?: () => void;
+  onSummaryCompleted?: (payload: { title?: string; markdown?: string }) => Promise<void> | void;
 }
 
 export function useSummaryGeneration({
@@ -72,6 +73,7 @@ export function useSummaryGeneration({
   updateMeetingTitle,
   setAiSummary,
   onOpenModelSettings,
+  onSummaryCompleted,
 }: UseSummaryGenerationProps) {
   const [summaryStatus, setSummaryStatus] = useState<SummaryStatus>('idle');
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -292,6 +294,12 @@ export function useSummaryGeneration({
               modelConfig.model,
               true
             );
+            if (onSummaryCompleted) {
+              await onSummaryCompleted({
+                title: meetingName,
+                markdown: pollingResult.data.markdown,
+              });
+            }
             return;
           }
 
@@ -366,6 +374,9 @@ export function useSummaryGeneration({
           if (onMeetingUpdated) {
             await onMeetingUpdated();
           }
+          if (onSummaryCompleted) {
+            await onSummaryCompleted({ title: meetingName });
+          }
         }
       });
     } catch (error) {
@@ -396,6 +407,7 @@ export function useSummaryGeneration({
     setAiSummary,
     updateMeetingTitle,
     onMeetingUpdated,
+    onSummaryCompleted,
   ]);
 
   // Helper function to fetch ALL transcripts for summary generation

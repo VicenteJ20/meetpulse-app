@@ -165,7 +165,7 @@ REGLAS DE PROCESAMIENTO:
 9. Genera sólo el documento Markdown final, sin comentarios previos ni posteriores.
 
 ESTRUCTURA DE SALIDA:
-- Comienza con `# Resumen de la Reunión`.
+- Comienza con un único H1 (`# ...`) cuyo texto sea un título corto y específico (5–12 palabras) derivado del objetivo, los temas y las decisiones. Nunca uses `Resumen de la Reunión`, `Meeting Summary`, `Acta de la reunión` ni `<Add Title here>`.
 - Incluye Metadatos (tipo, fecha y asistentes), Objetivo de la Sesión, Contexto y Estado Actual, Temas Discutidos con subsecciones `###`, Decisiones Tomadas, Compromisos y Próximos Pasos, Riesgos/Bloqueos/Pendientes y Puntos sin Resolver.
 - En Compromisos usa listas de verificación de Notion: `- [ ] @Responsable — Tarea _(Contexto: motivo)_`.
 - Omite Riesgos, Bloqueos o Pendientes cuando no se hayan mencionado.
@@ -288,18 +288,36 @@ pub fn clean_llm_markdown_output(markdown: &str) -> String {
     trimmed.to_string()
 }
 
-/// Extracts meeting name from the first heading in markdown
-///
-/// # Arguments
-/// * `markdown` - Markdown content
-///
-/// # Returns
-/// Meeting name if found, None otherwise
+const GENERIC_MEETING_TITLES: &[&str] = &[
+    "resumen de la reunion",
+    "resumen de la reunión",
+    "meeting summary",
+    "acta de la reunion",
+    "acta de la reunión",
+    "<add title here>",
+];
+
+fn is_generic_meeting_title(title: &str) -> bool {
+    let normalized = title.trim().to_lowercase();
+    GENERIC_MEETING_TITLES
+        .iter()
+        .any(|generic| normalized == *generic)
+}
+
+/// Extracts meeting name from the first heading in markdown.
+/// Returns None when the heading is missing, empty, or a generic placeholder
+/// such as "Resumen de la Reunión".
 pub fn extract_meeting_name_from_markdown(markdown: &str) -> Option<String> {
-    markdown
+    let name = markdown
         .lines()
         .find(|line| line.starts_with("# "))
         .map(|line| line.trim_start_matches("# ").trim().to_string())
+        .filter(|name| !name.is_empty())?;
+    if is_generic_meeting_title(&name) {
+        None
+    } else {
+        Some(name)
+    }
 }
 
 /// Generates a complete meeting summary with conditional chunking strategy
@@ -781,6 +799,32 @@ mod tests {
         assert!(prompt.contains("Asistente de Inteligencia de Reuniones"));
         assert!(prompt.contains("INSTRUCCIONES ESPECÍFICAS DE LA PLANTILLA"));
         assert!(prompt.contains("[Por confirmar]"));
+        assert!(prompt.contains("título corto y específico"));
+        assert!(!prompt.contains("Comienza con `# Resumen de la Reunión`"));
+    }
+
+    #[test]
+    fn extracts_descriptive_meeting_title_and_rejects_generic_placeholders() {
+        assert_eq!(
+            extract_meeting_name_from_markdown(
+                "# Alcance Q3 con Acme Studio\n\n## Objetivo de la Sesion\n\nDefinir el piloto."
+            )
+            .as_deref(),
+            Some("Alcance Q3 con Acme Studio")
+        );
+        assert_eq!(
+            extract_meeting_name_from_markdown("# Resumen de la Reunión\n\n## Objetivo\n\nTexto"),
+            None
+        );
+        assert_eq!(
+            extract_meeting_name_from_markdown("# Meeting Summary\n\n## Objective\n\nText"),
+            None
+        );
+        assert_eq!(
+            extract_meeting_name_from_markdown("# <Add Title here>\n\n## Topics\n\nText"),
+            None
+        );
+        assert_eq!(extract_meeting_name_from_markdown("## Solo subtitulo"), None);
     }
 
     #[test]

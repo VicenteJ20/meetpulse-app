@@ -86,7 +86,20 @@ export interface SummaryDataResponse {
 }
 
 // Pagination types for optimized transcript loading
-export interface MeetingMetadata {
+export interface MeetingWikiState {
+  wiki_tenant_id?: string | null;
+  wiki_client_id?: string | null;
+  wiki_project_id?: string | null;
+  wiki_source_key?: string | null;
+  wiki_job_id?: string | null;
+  wiki_analysis_hash?: string | null;
+  wiki_raw_hash?: string | null;
+  wiki_published_at?: string | null;
+  wiki_ingest_status?: string | null;
+  wiki_librarian_status?: string | null;
+}
+
+export interface MeetingMetadata extends MeetingWikiState {
   id: string;
   title: string;
   created_at: string;

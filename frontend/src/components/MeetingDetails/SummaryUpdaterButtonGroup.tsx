@@ -2,8 +2,10 @@
 
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
-import { Copy, Save, Loader2, Search, FolderOpen, BookOpen } from 'lucide-react';
+import { Copy, Save, Loader2, BookOpen, RotateCcw } from 'lucide-react';
 import Analytics from '@/lib/analytics';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
+import type { WikiPublishUiStatus } from '@/hooks/meeting-details/useWikiPublish';
 
 interface SummaryUpdaterButtonGroupProps {
   isSaving: boolean;
@@ -13,9 +15,9 @@ interface SummaryUpdaterButtonGroupProps {
   onFind?: () => void;
   onOpenFolder: () => Promise<void>;
   hasSummary: boolean;
-  onSaveToWiki: () => Promise<void>;
-  isSavingToWiki: boolean;
-  isSavedToWiki: boolean;
+  wikiStatus: WikiPublishUiStatus;
+  onRetryWiki: () => Promise<void> | void;
+  onOpenWiki: () => void;
 }
 
 export function SummaryUpdaterButtonGroup({
@@ -23,13 +25,13 @@ export function SummaryUpdaterButtonGroup({
   isDirty,
   onSave,
   onCopy,
-  onFind,
-  onOpenFolder,
   hasSummary,
-  onSaveToWiki,
-  isSavingToWiki,
-  isSavedToWiki
+  wikiStatus,
+  onRetryWiki,
+  onOpenWiki
 }: SummaryUpdaterButtonGroupProps) {
+  const { t } = useTranslation();
+  const wikiPublished = ['published', 'curating', 'curated', 'conflict', 'diverged'].includes(wikiStatus);
   return (
     <ButtonGroup>
       {/* Save button */}
@@ -57,10 +59,24 @@ export function SummaryUpdaterButtonGroup({
         )}
       </Button>
 
-      <Button variant="outline" size="sm" title={isSavedToWiki ? 'Saved to Wiki' : 'Choose a Wiki destination'} onClick={onSaveToWiki} disabled={!hasSummary || isSavingToWiki || isSavedToWiki} className="cursor-pointer">
-        {isSavingToWiki ? <Loader2 className="animate-spin" /> : <BookOpen />}
-        <span className="hidden lg:inline">{isSavedToWiki ? 'Saved to Wiki' : 'Choose Wiki'}</span>
-      </Button>
+      {wikiStatus === 'error' && (
+        <Button variant="outline" size="sm" title={t('meeting.wikiRetry')} onClick={onRetryWiki} disabled={!hasSummary} className="cursor-pointer">
+          <RotateCcw />
+          <span className="hidden lg:inline">{t('meeting.wikiRetry')}</span>
+        </Button>
+      )}
+      {wikiPublished && (
+        <Button variant="outline" size="sm" title={t('meeting.wikiOpen')} onClick={onOpenWiki} className="cursor-pointer">
+          <BookOpen />
+          <span className="hidden lg:inline">{t('meeting.wikiOpen')}</span>
+        </Button>
+      )}
+      {wikiStatus === 'publishing' && (
+        <Button variant="outline" size="sm" disabled className="cursor-pointer">
+          <Loader2 className="animate-spin" />
+          <span className="hidden lg:inline">{t('meeting.wikiStatus.publishing')}</span>
+        </Button>
+      )}
 
       {/* Copy button */}
       <Button

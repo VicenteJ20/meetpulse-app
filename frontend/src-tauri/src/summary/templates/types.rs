@@ -72,12 +72,7 @@ impl Template {
 
     /// Generates a clean markdown template structure
     pub fn to_markdown_structure(&self) -> String {
-        let title = if self.name == "Standard Meeting Notes" {
-            "Resumen de la Reunión"
-        } else {
-            "<Add Title here>"
-        };
-        let mut markdown = format!("# {title}\n\n");
+        let mut markdown = String::from("# <Add Title here>\n\n");
 
         for section in &self.sections {
             markdown.push_str(&format!("## {}\n\n", section.title));
@@ -89,9 +84,9 @@ impl Template {
     /// Generates section-specific instructions for the LLM
     pub fn to_section_instructions(&self) -> String {
         let mut instructions = if self.name == "Standard Meeting Notes" {
-            String::from("- **Para el título principal:** usa exactamente `# Resumen de la Reunión`.\n")
+            String::from("- **Para el título principal (`# [Título]`):** inventa un título corto y específico (5–12 palabras) a partir del objetivo, los temas y las decisiones. Prohibido usar frases genéricas como `Resumen de la Reunión`, `Meeting Summary` o `Acta de la reunión`.\n")
         } else {
-            String::from("- **For the main title (`# [AI-Generated Title]`):** Analyze the entire transcript and create a concise, descriptive title for the meeting.\n")
+            String::from("- **For the main title (`# [AI-Generated Title]`):** Analyze the entire transcript and create a concise, descriptive title for the meeting. Do not use generic phrases such as `Meeting Summary` or `Resumen de la Reunión`.\n")
         };
 
         for section in &self.sections {
@@ -167,5 +162,31 @@ mod tests {
         };
 
         assert!(template.validate().is_err());
+    }
+
+    fn standard_notes() -> Template {
+        Template {
+            name: "Standard Meeting Notes".to_string(),
+            description: "Acta estructurada".to_string(),
+            sections: vec![TemplateSection {
+                title: "Objetivo de la Sesion".to_string(),
+                instruction: "Describe el proposito".to_string(),
+                format: "paragraph".to_string(),
+                item_format: None,
+                example_item_format: None,
+            }],
+        }
+    }
+
+    #[test]
+    fn standard_template_asks_for_descriptive_title_instead_of_fixed_heading() {
+        let template = standard_notes();
+        let structure = template.to_markdown_structure();
+        let instructions = template.to_section_instructions();
+
+        assert!(structure.starts_with("# <Add Title here>\n"));
+        assert!(!structure.contains("Resumen de la Reunión"));
+        assert!(instructions.contains("título corto y específico"));
+        assert!(!instructions.contains("usa exactamente `# Resumen de la Reunión`"));
     }
 }

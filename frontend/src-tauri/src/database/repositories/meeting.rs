@@ -61,11 +61,10 @@ impl MeetingsRepository {
         let mut transaction = conn.begin().await?;
 
         // Get meeting details
-        let meeting: Option<MeetingModel> =
-            sqlx::query_as("SELECT id, title, created_at, updated_at, folder_path, client, project, additional_context, tags FROM meetings WHERE id = ?")
-                .bind(meeting_id)
-                .fetch_optional(&mut *transaction)
-                .await?;
+        let meeting: Option<MeetingModel> = sqlx::query_as("SELECT * FROM meetings WHERE id = ?")
+            .bind(meeting_id)
+            .fetch_optional(&mut *transaction)
+            .await?;
 
         if meeting.is_none() {
             transaction.rollback().await?;
@@ -105,6 +104,16 @@ impl MeetingsRepository {
                 project: meeting.project,
                 additional_context: meeting.additional_context,
                 tags: parse_tags(meeting.tags),
+                wiki_tenant_id: meeting.wiki_tenant_id,
+                wiki_client_id: meeting.wiki_client_id,
+                wiki_project_id: meeting.wiki_project_id,
+                wiki_source_key: meeting.wiki_source_key,
+                wiki_job_id: meeting.wiki_job_id,
+                wiki_analysis_hash: meeting.wiki_analysis_hash,
+                wiki_raw_hash: meeting.wiki_raw_hash,
+                wiki_published_at: meeting.wiki_published_at,
+                wiki_ingest_status: meeting.wiki_ingest_status,
+                wiki_librarian_status: meeting.wiki_librarian_status,
             }))
         } else {
             transaction.rollback().await?;
@@ -123,11 +132,10 @@ impl MeetingsRepository {
             ));
         }
 
-        let meeting: Option<MeetingModel> =
-            sqlx::query_as("SELECT id, title, created_at, updated_at, folder_path, client, project, additional_context, tags FROM meetings WHERE id = ?")
-                .bind(meeting_id)
-                .fetch_optional(pool)
-                .await?;
+        let meeting: Option<MeetingModel> = sqlx::query_as("SELECT * FROM meetings WHERE id = ?")
+            .bind(meeting_id)
+            .fetch_optional(pool)
+            .await?;
 
         Ok(meeting)
     }
@@ -267,6 +275,52 @@ impl MeetingsRepository {
 
         transaction.commit().await?;
         Ok(true)
+    }
+
+    pub async fn update_wiki_state(
+        pool: &SqlitePool,
+        meeting_id: &str,
+        wiki_tenant_id: Option<&str>,
+        wiki_client_id: Option<&str>,
+        wiki_project_id: Option<&str>,
+        wiki_source_key: Option<&str>,
+        wiki_job_id: Option<&str>,
+        wiki_analysis_hash: Option<&str>,
+        wiki_raw_hash: Option<&str>,
+        wiki_published_at: Option<&str>,
+        wiki_ingest_status: Option<&str>,
+        wiki_librarian_status: Option<&str>,
+    ) -> Result<bool, SqlxError> {
+        let result = sqlx::query(
+            "UPDATE meetings SET
+                wiki_tenant_id = ?,
+                wiki_client_id = ?,
+                wiki_project_id = ?,
+                wiki_source_key = ?,
+                wiki_job_id = ?,
+                wiki_analysis_hash = ?,
+                wiki_raw_hash = ?,
+                wiki_published_at = ?,
+                wiki_ingest_status = ?,
+                wiki_librarian_status = ?,
+                updated_at = ?
+             WHERE id = ?",
+        )
+        .bind(wiki_tenant_id)
+        .bind(wiki_client_id)
+        .bind(wiki_project_id)
+        .bind(wiki_source_key)
+        .bind(wiki_job_id)
+        .bind(wiki_analysis_hash)
+        .bind(wiki_raw_hash)
+        .bind(wiki_published_at)
+        .bind(wiki_ingest_status)
+        .bind(wiki_librarian_status)
+        .bind(Utc::now().naive_utc())
+        .bind(meeting_id)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
     }
 }
 

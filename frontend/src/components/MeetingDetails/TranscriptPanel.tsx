@@ -7,6 +7,7 @@ import { TranscriptButtonGroup } from './TranscriptButtonGroup';
 import { useMemo } from 'react';
 import { ChevronDown, FileText } from 'lucide-react';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { slugifyWikiId } from '@/lib/wiki-slug';
 
 interface TranscriptPanelProps {
   transcripts: Transcript[];
@@ -14,6 +15,8 @@ interface TranscriptPanelProps {
   onPromptChange: (value: string) => void;
   client: string;
   project: string;
+  clientOptions?: string[];
+  projectOptions?: string[];
   tags: string[];
   onClientChange: (value: string) => void;
   onProjectChange: (value: string) => void;
@@ -43,6 +46,8 @@ export function TranscriptPanel({
   onPromptChange,
   client,
   project,
+  clientOptions = [],
+  projectOptions = [],
   tags,
   onClientChange,
   onProjectChange,
@@ -95,21 +100,37 @@ export function TranscriptPanel({
       </div>
 
       {!isRecording && convertedSegments.length > 0 && (
-        <details className="group border-b border-border bg-muted/25">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            {t('meeting.details')}
-            <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
-          </summary>
-          <div className="space-y-3 px-4 pb-4">
+        <>
+          <div className="space-y-3 border-b border-border bg-muted/25 px-4 py-3">
             <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1.5 text-xs font-medium text-muted-foreground">{t('meeting.client')}<input type="text" placeholder={t('meeting.client')} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground" value={client} onChange={event => onClientChange(event.target.value)} /></label>
-              <label className="space-y-1.5 text-xs font-medium text-muted-foreground">{t('meeting.project')}<input type="text" placeholder={t('meeting.project')} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground" value={project} onChange={event => onProjectChange(event.target.value)} /></label>
+              <WikiIdField
+                label={t('meeting.client')}
+                value={client}
+                options={clientOptions}
+                listId="wiki-client-options"
+                onChange={onClientChange}
+              />
+              <WikiIdField
+                label={t('meeting.project')}
+                value={project}
+                options={projectOptions}
+                listId="wiki-project-options"
+                onChange={onProjectChange}
+              />
             </div>
-            <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">{t('meeting.context')}<textarea placeholder={t('meeting.contextPlaceholder')} className="min-h-[76px] w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground" value={customPrompt} onChange={event => onPromptChange(event.target.value)} /></label>
-            <div><p className="mb-2 text-xs font-medium text-muted-foreground">{t('meeting.tags')}</p>{tags.length > 0 ? <div className="flex flex-wrap gap-1.5">{tags.map(tag => <span key={tag} className="rounded-full border border-brand/20 bg-brand/8 px-2.5 py-1 text-xs text-brand">{tag}</span>)}</div> : <p className="text-xs text-muted-foreground">{t('meeting.noTags')}</p>}</div>
           </div>
-        </details>
+          <details className="group border-b border-border bg-muted/15">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              {t('meeting.details')}
+              <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
+            </summary>
+            <div className="space-y-3 px-4 pb-4">
+              <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">{t('meeting.context')}<textarea placeholder={t('meeting.contextPlaceholder')} className="min-h-[76px] w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground" value={customPrompt} onChange={event => onPromptChange(event.target.value)} /></label>
+              <div><p className="mb-2 text-xs font-medium text-muted-foreground">{t('meeting.tags')}</p>{tags.length > 0 ? <div className="flex flex-wrap gap-1.5">{tags.map(tag => <span key={tag} className="rounded-full border border-brand/20 bg-brand/8 px-2.5 py-1 text-xs text-brand">{tag}</span>)}</div> : <p className="text-xs text-muted-foreground">{t('meeting.noTags')}</p>}</div>
+            </div>
+          </details>
+        </>
       )}
 
       {/* Transcript content - use virtualized view for better performance */}
@@ -132,5 +153,43 @@ export function TranscriptPanel({
       </div>
 
     </div>
+  );
+}
+
+function WikiIdField({
+  label,
+  value,
+  options,
+  listId,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  listId: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  const slug = slugifyWikiId(value);
+  return (
+    <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+      {label}
+      <input
+        type="text"
+        list={listId}
+        placeholder={label}
+        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
+        value={value}
+        onChange={event => onChange(event.target.value)}
+      />
+      <datalist id={listId}>
+        {options.map(option => <option key={option} value={option} />)}
+      </datalist>
+      {value.trim() ? (
+        <span className="block font-normal text-[11px] text-muted-foreground">
+          {t('meeting.wikiSlugPreview').replace('{id}', slug || '—')}
+        </span>
+      ) : null}
+    </label>
   );
 }

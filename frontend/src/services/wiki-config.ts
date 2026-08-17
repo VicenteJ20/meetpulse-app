@@ -30,3 +30,27 @@ export function saveWikiConfig(config: WikiConfig): WikiConfig {
   window.dispatchEvent(new CustomEvent<WikiConfig>('wiki-config-changed', { detail: next }));
   return next;
 }
+
+export interface WikiLastDestination {
+  tenantId: string;
+  clientId: string;
+  projectId: string;
+}
+
+const LAST_DESTINATION_KEY = 'meetpulse.wiki.lastDestination';
+
+export function getWikiLastDestination(): WikiLastDestination | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(LAST_DESTINATION_KEY) || 'null') as Partial<WikiLastDestination> | null;
+    if (!saved?.tenantId || !saved.clientId || !saved.projectId) return null;
+    return { tenantId: saved.tenantId, clientId: saved.clientId, projectId: saved.projectId };
+  } catch {
+    return null;
+  }
+}
+
+export function saveWikiLastDestination(destination: WikiLastDestination): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(LAST_DESTINATION_KEY, JSON.stringify(destination));
+}
