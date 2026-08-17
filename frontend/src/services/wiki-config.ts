@@ -26,9 +26,22 @@ export function getWikiConfig(): WikiConfig {
 
 export function saveWikiConfig(config: WikiConfig): WikiConfig {
   const next = { baseUrl: config.baseUrl.trim().replace(/\/$/, ''), tenantId: config.tenantId.trim() };
+  const current = getWikiConfig();
+  if (current.baseUrl === next.baseUrl && current.tenantId === next.tenantId) return next;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   window.dispatchEvent(new CustomEvent<WikiConfig>('wiki-config-changed', { detail: next }));
   return next;
+}
+
+/** Pick the account default: the only tenant, else the saved one if still valid, else the first. */
+export function resolvePreferredTenantId(
+  tenants: Array<{ tenant_id: string }>,
+  preferredTenantId?: string,
+): string {
+  if (!tenants.length) return '';
+  if (tenants.length === 1) return tenants[0].tenant_id;
+  const saved = (preferredTenantId ?? getWikiConfig().tenantId).trim();
+  return tenants.some(tenant => tenant.tenant_id === saved) ? saved : tenants[0].tenant_id;
 }
 
 export interface WikiLastDestination {

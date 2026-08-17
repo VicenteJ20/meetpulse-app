@@ -29,9 +29,8 @@ import { Button } from '@/components/ui/button';
 import { EmptyState, Surface } from '@/components/ui/product';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
-import { getWikiConfig, saveWikiConfig, type WikiConfig } from '@/services/wiki-config';
+import { usePreferredWikiTenant } from '@/hooks/usePreferredWikiTenant';
 import {
-  listWikiTenants,
   WikiApi,
   WikiApiError,
   type WikiActivity,
@@ -40,10 +39,8 @@ import {
   type WikiDocumentContent,
   type WikiProject,
   type WikiSummary,
-  type WikiTenant,
 } from '@/services/wiki-api';
 
-type BootstrapState = 'loading' | 'ready' | 'empty' | 'error';
 type NavigationContent = 'workspace' | 'client' | 'project' | 'document';
 
 function combineOkfDocument(original: string, body: string): string {
@@ -80,10 +77,8 @@ function WikiShellSkeleton({ label }: { label: string }) {
 
 export default function WikiPage() {
   const { t, formatDate } = useTranslation();
-  const [bootstrap, setBootstrap] = useState<BootstrapState>('loading');
-  const [bootstrapError, setBootstrapError] = useState('');
-  const [tenants, setTenants] = useState<WikiTenant[]>([]);
-  const [config, setConfig] = useState<WikiConfig>(() => getWikiConfig());
+  const preferred = usePreferredWikiTenant();
+  const { tenants, config, tenantId, status: bootstrap, error: bootstrapError, loadTenants, selectTenant: choosePreferredTenant } = preferred;
   const [summary, setSummary] = useState<WikiSummary | null>(null);
   const [clients, setClients] = useState<WikiClient[]>([]);
   const [projects, setProjects] = useState<WikiProject[]>([]);
@@ -119,39 +114,14 @@ export default function WikiPage() {
     setError(null);
   }, [resetNavigation]);
 
-  const loadTenants = useCallback(async (preferredTenantId?: string) => {
-    setBootstrapError('');
-    try {
-      const nextTenants = await listWikiTenants();
-      setTenants(nextTenants);
-      if (!nextTenants.length) {
-        const nextConfig = saveWikiConfig({ ...getWikiConfig(), tenantId: '' });
-        setConfig(nextConfig);
-        clearWorkspaceData();
-        setBootstrap('empty');
-        return;
-      }
-      const saved = preferredTenantId || getWikiConfig().tenantId;
-      const selectedTenantId = nextTenants.some(item => item.tenant_id === saved) ? saved : nextTenants[0].tenant_id;
-      const nextConfig = saveWikiConfig({ ...getWikiConfig(), tenantId: selectedTenantId });
-      setConfig(nextConfig);
-      clearWorkspaceData();
-      setBootstrap('ready');
-    } catch (reason) {
-      setBootstrapError(reason instanceof Error ? reason.message : t('wiki.errorGeneric'));
-      setBootstrap('error');
-    }
-  }, [clearWorkspaceData, t]);
-
-  useEffect(() => { loadTenants(); }, [loadTenants]);
-
-  const selectTenant = useCallback((tenantId: string) => {
-    if (tenantId === config.tenantId) return;
-    const next = saveWikiConfig({ ...getWikiConfig(), tenantId });
-    setConfig(next);
-    clearWorkspaceData();
+  const selectTenant = useCallback((nextTenantId: string) => {
+    choosePreferredTenant(nextTenantId);
     setMobileNavigationOpen(false);
-  }, [clearWorkspaceData, config.tenantId]);
+  }, [choosePreferredTenant]);
+
+  useEffect(() => {
+    if (bootstrap === 'ready' || bootstrap === 'empty') clearWorkspaceData();
+  }, [bootstrap, clearWorkspaceData, tenantId]);
 
   const refreshWorkspace = useCallback(async () => {
     if (!config.tenantId) return;
@@ -280,7 +250,7 @@ export default function WikiPage() {
             icon={<AlertCircle />}
             title={authenticationError ? t('wiki.authenticationRequired') : t('wiki.workspaceUnavailableTitle')}
             description={authenticationError ? t('wiki.authenticationRequiredDescription') : t('wiki.workspaceUnavailableDescription')}
-            action={<Button onClick={() => { setBootstrap('loading'); loadTenants(); }}><RefreshCw />{t('common.tryAgain')}</Button>}
+            action={<Button onClick={() => { loadTenants(); }}><RefreshCw />{t('common.tryAgain')}</Button>}
           />
           <details className="mx-6 mb-6 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
             <summary className="cursor-pointer font-medium">{t('wiki.technicalDetails')}</summary>

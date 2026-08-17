@@ -373,13 +373,15 @@ export default function PageContent({
           <DialogTitle>{t('meeting.wikiDestination')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">{t('meeting.wikiDestinationDescription')}</p>
+          <p className="text-sm text-muted-foreground">{wikiPublish.selectedTenant ? t('meeting.wikiNeedsClientProject') : t('meeting.wikiDestinationDescription')}</p>
+          {!wikiPublish.selectedTenant && (
           <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
             {t('meeting.wikiWorkspace')}
             <select value={wikiPublish.selectedTenant} onChange={event => wikiPublish.setSelectedTenant(event.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground">
               {wikiPublish.tenants.map(tenant => <option key={tenant.tenant_id} value={tenant.tenant_id}>{tenant.display_name || tenant.tenant_id} · {tenant.role === 'owner' ? t('wiki.owner') : t('wiki.guest')}</option>)}
             </select>
           </label>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
               {t('meeting.client')}

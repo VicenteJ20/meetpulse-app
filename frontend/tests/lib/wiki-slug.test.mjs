@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { isValidWikiId, slugifyWikiId, withMeetingFrontMatter } from '../../src/lib/wiki-slug.ts';
+import { resolvePreferredTenantId } from '../../src/services/wiki-config.ts';
 
 test('slugifyWikiId matches the wiki identifier alphabet', () => {
   assert.equal(slugifyWikiId('Acme Studio'), 'acme-studio');
@@ -13,6 +14,19 @@ test('isValidWikiId rejects free-text labels', () => {
   assert.equal(isValidWikiId('acme-studio'), true);
   assert.equal(isValidWikiId('Acme Studio'), false);
   assert.equal(isValidWikiId(''), false);
+});
+
+test('resolvePreferredTenantId uses the only tenant or a still-valid saved one', () => {
+  assert.equal(resolvePreferredTenantId([]), '');
+  assert.equal(resolvePreferredTenantId([{ tenant_id: 'solo' }], 'other'), 'solo');
+  assert.equal(
+    resolvePreferredTenantId([{ tenant_id: 'acme' }, { tenant_id: 'beta' }], 'beta'),
+    'beta',
+  );
+  assert.equal(
+    resolvePreferredTenantId([{ tenant_id: 'acme' }, { tenant_id: 'beta' }], 'gone'),
+    'acme',
+  );
 });
 
 test('withMeetingFrontMatter adds meeting_id without duplicating it', () => {

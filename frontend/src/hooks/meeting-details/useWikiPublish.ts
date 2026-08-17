@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { MeetingWikiState } from '@/types';
-import { getWikiConfig, getWikiLastDestination, saveWikiConfig, saveWikiLastDestination } from '@/services/wiki-config';
+import { getWikiConfig, getWikiLastDestination, resolvePreferredTenantId, saveWikiConfig, saveWikiLastDestination, type WikiConfig } from '@/services/wiki-config';
 import {
   listWikiTenants,
   WikiApi,
@@ -159,8 +159,8 @@ export function useWikiPublish({
         toast.error(t('meeting.wikiMissingTenant'));
         return false;
       }
-      const configured = getWikiConfig().tenantId || getWikiLastDestination()?.tenantId || '';
-      const tenantId = available.some(item => item.tenant_id === configured) ? configured : available[0].tenant_id;
+      const tenantId = resolvePreferredTenantId(available);
+      if (tenantId) saveWikiConfig({ ...getWikiConfig(), tenantId });
       setTenants(available);
       setSelectedTenant(tenantId);
       await loadCatalog(tenantId, client);
@@ -181,16 +181,25 @@ export function useWikiPublish({
   useEffect(() => {
     let cancelled = false;
     listWikiTenants().then(available => {
-      if (cancelled || !available.length) return;
+      if (cancelled) return;
       setTenants(available);
-      setSelectedTenant(current => (
-        available.some(item => item.tenant_id === current) ? current : available[0].tenant_id
-      ));
+      const selected = resolvePreferredTenantId(available);
+      if (selected) saveWikiConfig({ ...getWikiConfig(), tenantId: selected });
+      setSelectedTenant(selected);
     }).catch(error => {
       console.warn('Failed to load Wiki tenants', error);
     });
     return () => { cancelled = true; };
   }, [meeting.id]);
+
+  useEffect(() => {
+    const onChange = (event: Event) => {
+      const next = (event as CustomEvent<WikiConfig>).detail;
+      if (next.tenantId) setSelectedTenant(next.tenantId);
+    };
+    window.addEventListener('wiki-config-changed', onChange);
+    return () => window.removeEventListener('wiki-config-changed', onChange);
+  }, []);
 
   const ingest = useCallback(async (override?: { tenantId?: string; clientId?: string; projectId?: string; markdown?: string; title?: string }) => {
     const current = wikiStateRef.current;
@@ -205,8 +214,21 @@ export function useWikiPublish({
     );
     if (!resolved.ready) {
       pendingPublishRef.current = { title: override?.title, markdown: override?.markdown };
+      if (!resolved.tenantId) {
+        const available = tenants.length ? tenants : await listWikiTenants();
+        const preferredTenant = resolvePreferredTenantId(available);
+        if (preferredTenant) {
+          saveWikiConfig({ ...getWikiConfig(), tenantId: preferredTenant });
+          setSelectedTenant(preferredTenant);
+          const retry = resolveDestination(preferredTenant, override?.clientId ?? client, override?.projectId ?? project);
+          if (retry.ready) return ingest({ ...override, tenantId: preferredTenant });
+        } else if (!available.length) {
+          toast.error(t('meeting.wikiMissingTenant'));
+          return { ok: false };
+        }
+      }
       await openDestination();
-      toast.info(t('meeting.wikiNeedsDestination'));
+      toast.info(resolved.tenantId ? t('meeting.wikiNeedsClientProject') : t('meeting.wikiNeedsDestination'));
       return { ok: false, needsDestination: true as const };
     }
 
@@ -285,7 +307,7 @@ export function useWikiPublish({
     } finally {
       setIsPublishing(false);
     }
-  }, [client, getMarkdown, getRawMarkdown, meeting, meetingTitle, openDestination, persistWikiState, project, selectedTenant, t]);
+  }, [client, getMarkdown, getRawMarkdown, meeting, meetingTitle, openDestination, persistWikiState, project, selectedTenant, t, tenants]);
 
   const publishAfterAnalysis = useCallback(async (payload?: { title?: string; markdown?: string }) => {
     await refreshLocalHash();
