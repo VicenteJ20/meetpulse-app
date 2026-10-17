@@ -1,5 +1,6 @@
 "use client";
 
+import { desktopCapabilities } from '@/config/capabilities';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Copy, Save, Loader2, BookOpen, RotateCcw } from 'lucide-react';
@@ -30,7 +31,7 @@ export function SummaryUpdaterButtonGroup({
   onRetryWiki,
   onOpenWiki
 }: SummaryUpdaterButtonGroupProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const wikiPublished = ['published', 'curating', 'curated', 'conflict', 'diverged'].includes(wikiStatus);
   return (
     <ButtonGroup>
@@ -49,29 +50,29 @@ export function SummaryUpdaterButtonGroup({
         {isSaving ? (
           <>
             <Loader2 className="animate-spin" />
-            <span className="hidden lg:inline">Saving...</span>
+            <span className="hidden lg:inline">{locale === 'es' ? 'Guardando…' : 'Saving…'}</span>
           </>
         ) : (
           <>
             <Save />
-            <span className="hidden lg:inline">Save</span>
+            <span className="hidden lg:inline">{t('common.save')}</span>
           </>
         )}
       </Button>
 
-      {wikiStatus === 'error' && (
+      {desktopCapabilities.wikiEnabled && wikiStatus === 'error' && (
         <Button variant="outline" size="sm" title={t('meeting.wikiRetry')} onClick={onRetryWiki} disabled={!hasSummary} className="cursor-pointer">
           <RotateCcw />
           <span className="hidden lg:inline">{t('meeting.wikiRetry')}</span>
         </Button>
       )}
-      {wikiPublished && (
+      {desktopCapabilities.wikiEnabled && wikiPublished && (
         <Button variant="outline" size="sm" title={t('meeting.wikiOpen')} onClick={onOpenWiki} className="cursor-pointer">
           <BookOpen />
           <span className="hidden lg:inline">{t('meeting.wikiOpen')}</span>
         </Button>
       )}
-      {wikiStatus === 'publishing' && (
+      {desktopCapabilities.wikiEnabled && wikiStatus === 'publishing' && (
         <Button variant="outline" size="sm" disabled className="cursor-pointer">
           <Loader2 className="animate-spin" />
           <span className="hidden lg:inline">{t('meeting.wikiStatus.publishing')}</span>
@@ -91,7 +92,7 @@ export function SummaryUpdaterButtonGroup({
         className="cursor-pointer"
       >
         <Copy />
-        <span className="hidden lg:inline">Copy</span>
+        <span className="hidden lg:inline">{t('common.copy')}</span>
       </Button>
 
       {/* Find button */}

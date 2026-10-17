@@ -1,5 +1,6 @@
 'use client';
 
+import { desktopCapabilities } from '@/config/capabilities';
 import { useState } from 'react';
 import Image from 'next/image';
 import { ArrowUpRight, Check, Loader2, LockKeyhole } from 'lucide-react';
@@ -31,10 +32,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     catch (reason) { setError(readableError(reason)); }
   };
 
+  if (!desktopCapabilities.wikiEnabled) return <>{children}</>;
   if (session) return <div className="flex h-screen min-h-0 flex-col">
-    {reauthRequired && <div className="flex shrink-0 items-center justify-center gap-3 border-b border-amber-500/25 bg-amber-50 px-4 py-2 text-sm text-amber-950 dark:bg-amber-950/70 dark:text-amber-50">
+    {reauthRequired && <div className="flex shrink-0 items-center justify-center gap-3 border-b border-warning/25 bg-warning/10 px-4 py-2 text-sm text-foreground">
       <p className="font-medium">{t('auth.reauthTitle')}</p>
-      <p className="hidden text-amber-900/80 sm:block dark:text-amber-100/75">{t('auth.reauthDescription')}</p>
+      <p className="hidden text-muted-foreground sm:block">{t('auth.reauthDescription')}</p>
       <button type="button" onClick={() => { void handleSignIn(); }} className="shrink-0 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background">{t('auth.reauthAction')}</button>
     </div>}
     {error && <div role="alert" className="shrink-0 border-b border-destructive/25 bg-destructive/10 px-4 py-2 text-center text-sm text-destructive">{error}</div>}

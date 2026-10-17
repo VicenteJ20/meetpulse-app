@@ -1,5 +1,6 @@
 'use client';
 
+import { desktopCapabilities } from '@/config/capabilities';
 import React, { useEffect, useState } from 'react';
 import { BookOpen, Database as DatabaseIcon, FlaskConical, Mic, Settings2, Sparkles } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
@@ -32,7 +33,7 @@ export default function SettingsPage() {
     { value: 'summary', label: t('settings.summary'), icon: Sparkles },
     { value: 'wiki', label: t('settings.wiki'), icon: BookOpen },
     { value: 'beta', label: t('settings.beta'), icon: FlaskConical },
-  ];
+  ].filter(tab => tab.value !== 'wiki' || desktopCapabilities.wikiEnabled);
 
   return (
     <main className="custom-scrollbar h-screen overflow-y-auto">
@@ -57,7 +58,7 @@ export default function SettingsPage() {
             <TabsContent value="recording" className="mt-0"><RecordingSettings /></TabsContent>
             <TabsContent value="transcription" className="mt-0"><TranscriptSettings transcriptModelConfig={transcriptModelConfig} setTranscriptModelConfig={setTranscriptModelConfig} /></TabsContent>
             <TabsContent value="summary" className="mt-0"><SummaryModelSettings /></TabsContent>
-            <TabsContent value="wiki" className="mt-0"><WikiSettings /></TabsContent>
+            {desktopCapabilities.wikiEnabled && <TabsContent value="wiki" className="mt-0"><WikiSettings /></TabsContent>}
             <TabsContent value="beta" className="mt-0 py-5"><BetaSettings /></TabsContent>
           </Surface>
         </Tabs>

@@ -1,5 +1,6 @@
 'use client';
 
+import { desktopCapabilities } from '@/config/capabilities';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -78,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const didRestore = useRef(false);
   useEffect(() => {
+    if (!desktopCapabilities.wikiEnabled) { setLoading(false); return; }
     if (didRestore.current) return;
     didRestore.current = true;
     let cancelled = false;
@@ -96,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [applySession, refresh]);
 
   useEffect(() => {
-    if (!session || reauthRequired || session.reauthRequired) return;
+    if (!desktopCapabilities.wikiEnabled || !session || reauthRequired || session.reauthRequired) return;
 
     let cancelled = false;
     let timer: number | undefined;
@@ -164,6 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!desktopCapabilities.wikiEnabled) return;
     const expireNow = async () => {
       const expired = await expireGoogleSessionForDebug();
       applySession({ ...expired, stale: true });

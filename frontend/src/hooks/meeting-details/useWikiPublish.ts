@@ -1,3 +1,4 @@
+import { desktopCapabilities } from '@/config/capabilities';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
@@ -64,6 +65,7 @@ export function useWikiPublish({
   wikiStateRef.current = wikiState;
 
   useEffect(() => {
+    if (!desktopCapabilities.wikiEnabled) return;
     setWikiState(wikiStateFromMeeting(meeting));
   }, [
     meeting.id,
@@ -109,6 +111,7 @@ export function useWikiPublish({
   }, [getMarkdown]);
 
   useEffect(() => {
+    if (!desktopCapabilities.wikiEnabled) return;
     refreshLocalHash();
   }, [meeting.id, refreshLocalHash]);
 
@@ -131,7 +134,7 @@ export function useWikiPublish({
   const destination = useMemo(() => resolveDestination(selectedTenant, client, project), [selectedTenant, client, project]);
 
   const loadCatalog = useCallback(async (tenantId: string, clientId?: string) => {
-    if (!tenantId) {
+    if (!desktopCapabilities.wikiEnabled || !tenantId) {
       setClients([]);
       setProjects([]);
       return;
@@ -153,6 +156,7 @@ export function useWikiPublish({
   }, [client]);
 
   const openDestination = useCallback(async () => {
+    if (!desktopCapabilities.wikiEnabled) return false;
     try {
       const available = await listWikiTenants();
       if (!available.length) {
@@ -173,12 +177,14 @@ export function useWikiPublish({
   }, [client, loadCatalog, t]);
 
   useEffect(() => {
+    if (!desktopCapabilities.wikiEnabled) return;
     if (selectedTenant) {
       loadCatalog(selectedTenant, client);
     }
   }, [selectedTenant, client, loadCatalog]);
 
   useEffect(() => {
+    if (!desktopCapabilities.wikiEnabled) return;
     let cancelled = false;
     listWikiTenants().then(available => {
       if (cancelled) return;
@@ -193,6 +199,7 @@ export function useWikiPublish({
   }, [meeting.id]);
 
   useEffect(() => {
+    if (!desktopCapabilities.wikiEnabled) return;
     const onChange = (event: Event) => {
       const next = (event as CustomEvent<WikiConfig>).detail;
       if (next.tenantId) setSelectedTenant(next.tenantId);
@@ -202,6 +209,7 @@ export function useWikiPublish({
   }, []);
 
   const ingest = useCallback(async (override?: { tenantId?: string; clientId?: string; projectId?: string; markdown?: string; title?: string }) => {
+    if (!desktopCapabilities.wikiEnabled) return { ok: true, skipped: true as const };
     const current = wikiStateRef.current;
     if (current.wiki_source_key && current.wiki_ingest_status !== 'error') {
       return { ok: true, skipped: true as const };
@@ -310,6 +318,7 @@ export function useWikiPublish({
   }, [client, getMarkdown, getRawMarkdown, meeting, meetingTitle, openDestination, persistWikiState, project, selectedTenant, t, tenants]);
 
   const publishAfterAnalysis = useCallback(async (payload?: { title?: string; markdown?: string }) => {
+    if (!desktopCapabilities.wikiEnabled) return;
     await refreshLocalHash();
     if (wikiStateRef.current.wiki_source_key && wikiStateRef.current.wiki_ingest_status !== 'error') {
       return;
@@ -322,6 +331,7 @@ export function useWikiPublish({
   }, [ingest, selectedTenant]);
 
   useEffect(() => {
+    if (!desktopCapabilities.wikiEnabled) return;
     const jobId = wikiState.wiki_job_id;
     const tenantId = wikiState.wiki_tenant_id || getWikiConfig().tenantId;
     const librarian = wikiState.wiki_librarian_status;

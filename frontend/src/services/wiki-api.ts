@@ -1,3 +1,4 @@
+import { requireWikiEnabled } from '@/config/capabilities';
 import { getWikiConfig, type WikiConfig } from './wiki-config';
 import { currentGoogleSession } from './auth-service';
 
@@ -72,11 +73,13 @@ function wikiErrorFromBody(status: number, fallback: string, body: unknown): Wik
 }
 
 export async function wikiAccountRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  requireWikiEnabled();
   const baseUrl = getWikiConfig().baseUrl;
   const request = async (forceRefresh = false) => {
     const session = await currentGoogleSession(forceRefresh ? { forceRefresh: true } : undefined);
     if (!session) throw new WikiApiError('Sign in with Google before accessing the Wiki.', 401);
     try {
+      requireWikiEnabled();
       return await fetch(new URL(`/api/v1${path}`, baseUrl), {
         ...init,
         headers: {
@@ -125,6 +128,7 @@ export class WikiApi {
   }
 
   private async request<T>(path: string, init: RequestInit = {}, params?: Record<string, string | number | undefined>): Promise<T> {
+    requireWikiEnabled();
     const session = await currentGoogleSession();
     if (!session) throw new WikiApiError('Sign in with Google before accessing the Wiki.', 401);
     let response: Response;

@@ -1,5 +1,6 @@
 'use client';
 
+import { desktopCapabilities } from '@/config/capabilities';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -75,7 +76,7 @@ function WikiShellSkeleton({ label }: { label: string }) {
   );
 }
 
-export default function WikiPage() {
+function WikiPageContent() {
   const { t, formatDate } = useTranslation();
   const preferred = usePreferredWikiTenant();
   const { tenants, config, tenantId, status: bootstrap, error: bootstrapError, loadTenants, selectTenant: choosePreferredTenant } = preferred;
@@ -492,3 +493,5 @@ export default function WikiPage() {
     </main>
   );
 }
+
+export default function WikiPage() { return desktopCapabilities.wikiEnabled ? <WikiPageContent /> : null; }
