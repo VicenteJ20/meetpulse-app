@@ -1,5 +1,7 @@
 # MeetPulse
 
+La app de escritorio abre directamente en un espacio local. La integración Wiki se conserva desactivada; el asistente Coach/Chat, el historial por cliente/proyecto y las exportaciones PDF funcionan desde la app. Consulta [Desktop workspace](docs/meetpulse/DESKTOP_WORKSPACE.md) para configuración y verificación.
+
 MeetPulse es una aplicación de escritorio de inteligencia para reuniones. Nació sobre la base open source de Meetily, pero hoy es un producto distinto: su foco es transformar cada conversación en contexto reutilizable para proyectos, clientes y equipos.
 
 ![Banner MeetPulse](/docs/meetpulse/Banner.png)
