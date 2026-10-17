@@ -77,12 +77,9 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
       console.error('Failed to fetch Parakeet models:', err);
     }
 
-    allModels.push({
-      provider: 'gemini',
-      name: 'gemini-3.1-flash-lite',
-      displayName: 'Cloud Gemini: gemini-3.1-flash-lite',
-      size_mb: 0,
-    });
+    if (transcriptModelConfig?.provider === 'gemini' && transcriptModelConfig.model) {
+      allModels.push({ provider: 'gemini', name: transcriptModelConfig.model, displayName: `Cloud Gemini: ${transcriptModelConfig.model}`, size_mb: 0 });
+    }
 
     setAvailableModels(allModels);
 

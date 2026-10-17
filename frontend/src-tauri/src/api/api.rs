@@ -32,6 +32,8 @@ pub struct Meeting {
     pub title: String,
     pub client: Option<String>,
     pub project: Option<String>,
+    pub created_at: String,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -393,6 +395,8 @@ pub async fn api_get_meetings<R: Runtime>(
                     title: m.title,
                     client: m.client,
                     project: m.project,
+                    created_at: m.created_at.0.to_rfc3339(),
+                    tags: m.tags.and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default(),
                 })
                 .collect();
             Ok(result)
@@ -1137,6 +1141,7 @@ pub async fn api_save_transcript<R: Runtime>(
     transcripts: Vec<serde_json::Value>,
     folder_path: Option<String>,
     auth_token: Option<String>,
+    recording_session_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     log_info!(
         "api_save_transcript called for meeting: {}, transcripts: {}, folder_path: {:?}, auth_token: {}",
@@ -1181,6 +1186,7 @@ pub async fn api_save_transcript<R: Runtime>(
         &meeting_title,
         &transcripts_to_save,
         folder_path,
+        recording_session_id,
     )
     .await
     {

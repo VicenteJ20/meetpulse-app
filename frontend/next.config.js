@@ -31,6 +31,8 @@ const nextConfig = {
       // Keep ProseMirror single-instanced for BlockNote/Tiptap.
       config.resolve.alias = {
         ...config.resolve.alias,
+        // Markdown entities must also decode in the PDF worker, where document is unavailable.
+        'decode-named-character-reference$': require.resolve('decode-named-character-reference'),
         '@blocknote/core$': require.resolve('@blocknote/core'),
         '@blocknote/react$': require.resolve('@blocknote/react'),
         '@blocknote/shadcn$': require.resolve('@blocknote/shadcn'),

@@ -112,7 +112,7 @@ impl LLMProvider {
 ///
 /// # Returns
 /// The generated summary text or an error message
-pub async fn generate_summary(
+pub async fn generate_text(
     client: &Client,
     provider: &LLMProvider,
     model_name: &str,
@@ -127,6 +127,12 @@ pub async fn generate_summary(
     app_data_dir: Option<&PathBuf>,
     cancellation_token: Option<&CancellationToken>,
 ) -> Result<String, String> {
+    static LOCAL_GENERATION: once_cell::sync::Lazy<tokio::sync::Mutex<()>> = once_cell::sync::Lazy::new(|| tokio::sync::Mutex::new(()));
+    let _local_guard = if matches!(provider, LLMProvider::BuiltInAI | LLMProvider::Ollama) {
+        Some(if let Some(token) = cancellation_token {
+            tokio::select! { guard = LOCAL_GENERATION.lock() => guard, _ = token.cancelled() => return Err("Generation cancelled while waiting".into()) }
+        } else { LOCAL_GENERATION.lock().await })
+    } else { None };
     // Check if cancelled before starting
     if let Some(token) = cancellation_token {
         if token.is_cancelled() {
@@ -139,12 +145,13 @@ pub async fn generate_summary(
         let app_data_dir = app_data_dir
             .ok_or_else(|| "app_data_dir is required for BuiltInAI provider".to_string())?;
 
-        return crate::summary::summary_engine::generate_with_builtin(
+        return crate::summary::summary_engine::client::generate_text_with_builtin(
             app_data_dir,
             model_name,
             system_prompt,
             user_prompt,
             cancellation_token,
+            max_tokens,
         )
         .await
         .map_err(|e| e.to_string());
@@ -401,3 +408,6 @@ mod tests {
         assert_eq!(LLMProvider::from_str("gemini").unwrap(), LLMProvider::Gemini);
     }
 }
+
+// Preserve the existing internal summary API; generation itself is format-agnostic.
+pub use generate_text as generate_summary;

@@ -1,3 +1,4 @@
+pub mod desktop;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex as StdMutex;
@@ -532,6 +533,20 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            desktop::desktop_save_pdf,
+            desktop::providers::desktop_list_models,
+            desktop::providers::desktop_test_gemini_audio,
+            desktop::assistant::desktop_assistant_session,
+            desktop::assistant::desktop_assistant_sync,
+            desktop::assistant::desktop_assistant_recording_state,
+            desktop::assistant::desktop_assistant_preferences,
+            desktop::assistant::desktop_assistant_dismiss,
+            desktop::assistant::desktop_assistant_ask,
+            desktop::assistant::desktop_assistant_cancel,
+            desktop::search::desktop_search_status,
+            desktop::search::desktop_search_download,
+            desktop::search::desktop_search_index,
+
             auth::sign_in_with_google,
             auth::get_google_auth_token,
             auth::peek_google_auth_session,

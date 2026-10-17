@@ -1,3 +1,4 @@
+import { ProviderModelPicker } from '@/components/ProviderModelPicker';
 import { useState, useEffect, useRef } from 'react';
 import { useSidebar } from './Sidebar/SidebarProvider';
 import { invoke } from '@tauri-apps/api/core';
@@ -74,34 +75,8 @@ interface GroqModel {
   owned_by?: string;
 }
 
-// Fallback models for when API fetch fails or no API key provided
-const OPENAI_FALLBACK_MODELS = [
-  'gpt-4o',
-  'gpt-4o-mini',
-  'gpt-4-turbo',
-  'gpt-4',
-  'gpt-3.5-turbo',
-  'o1',
-  'o1-mini',
-  'o3',
-  'o3-mini',
-];
+// Remote catalogs are discovered through desktop_list_models; saved IDs remain selectable.
 
-const CLAUDE_FALLBACK_MODELS = [
-  'claude-sonnet-4-5-20250929',
-  'claude-haiku-4-5-20251001',
-  'claude-opus-4-5-20251101',
-  'claude-3-5-sonnet-latest',
-];
-
-const GROQ_FALLBACK_MODELS = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-70b-versatile',
-  'mixtral-8x7b-32768',
-  'gemma2-9b-it',
-];
-
-const GEMINI_FALLBACK_MODELS = ['gemini-3.1-flash-lite'];
 
 interface ModelSettingsModalProps {
   modelConfig: ModelConfig;
@@ -227,10 +202,10 @@ export function ModelSettingsModal({
 
   const modelOptions: Record<string, string[]> = {
     ollama: models.map((model) => model.name),
-    claude: claudeModels.length > 0 ? claudeModels : CLAUDE_FALLBACK_MODELS,
-    groq: groqModels.length > 0 ? groqModels : GROQ_FALLBACK_MODELS,
-    gemini: GEMINI_FALLBACK_MODELS,
-    openai: openaiModels.length > 0 ? openaiModels : OPENAI_FALLBACK_MODELS,
+    claude: claudeModels,
+    groq: groqModels,
+    gemini: [],
+    openai: openaiModels,
     openrouter: openRouterModels.map((m) => m.id),
     'builtin-ai': builtinAiModels.map((m) => m.name),
     'custom-openai': customOpenAIModel ? [customOpenAIModel] : [], // User specifies model manually
@@ -581,43 +556,6 @@ export function ModelSettingsModal({
     }
   };
 
-  // Auto-fetch OpenAI models when provider is openai and we have an API key
-  useEffect(() => {
-    if (modelConfig.provider === 'openai' && apiKey?.trim()) {
-      loadOpenAIModels(apiKey);
-    }
-  }, [modelConfig.provider, apiKey]);
-
-  // Auto-fetch Claude models when provider is claude and we have an API key
-  useEffect(() => {
-    if (modelConfig.provider === 'claude' && apiKey?.trim()) {
-      loadClaudeModels(apiKey);
-    }
-  }, [modelConfig.provider, apiKey]);
-
-  // Auto-fetch Groq models when provider is groq and we have an API key
-  useEffect(() => {
-    if (modelConfig.provider === 'groq' && apiKey?.trim()) {
-      loadGroqModels(apiKey);
-    }
-  }, [modelConfig.provider, apiKey]);
-
-  // Restore cached model when async model lists become available
-  useEffect(() => {
-    const providerModels = modelOptions[modelConfig.provider];
-    if (!providerModels || providerModels.length === 0) return;
-
-    // If current model is already valid, nothing to do
-    if (modelConfig.model && providerModels.includes(modelConfig.model)) return;
-
-    // Try to restore from localStorage cache
-    const map = JSON.parse(localStorage.getItem('providerModelMap') || '{}');
-    const cachedModel = map[modelConfig.provider];
-    if (cachedModel && providerModels.includes(cachedModel)) {
-      setModelConfig((prev: ModelConfig) => ({ ...prev, model: cachedModel }));
-    }
-  }, [models, openRouterModels, builtinAiModels, openaiModels, claudeModels, groqModels, modelConfig.provider]);
-
   const handleSave = async () => {
     // For custom-openai provider, save the custom config first
     if (modelConfig.provider === 'custom-openai') {
@@ -836,9 +774,7 @@ export function ModelSettingsModal({
                 const defaultModel = providerModels && providerModels.length > 0
                   ? providerModels[0]
                   : '';
-                const model = (savedModel && providerModels?.includes(savedModel))
-                  ? savedModel
-                  : defaultModel;
+                const model = savedModel || defaultModel;
 
                 setModelConfig({
                   ...modelConfig,
@@ -889,7 +825,8 @@ export function ModelSettingsModal({
               </SelectContent>
             </Select>
 
-            {modelConfig.provider !== 'builtin-ai' && modelConfig.provider !== 'custom-openai' && (
+            {modelConfig.provider !== 'builtin-ai' && modelConfig.provider !== 'ollama' && <ProviderModelPicker provider={modelConfig.provider} value={modelConfig.provider === 'custom-openai' ? customOpenAIModel : modelConfig.model} apiKey={modelConfig.provider === 'custom-openai' ? customOpenAIApiKey : apiKey} endpoint={modelConfig.provider === 'custom-openai' ? customOpenAIEndpoint : null} onChange={id => { if (modelConfig.provider === 'custom-openai') setCustomOpenAIModel(id); setModelConfig(prev => ({ ...prev, model: id })); }} />}
+            {modelConfig.provider === 'ollama' && (
               <Popover open={modelComboboxOpen} onOpenChange={setModelComboboxOpen} modal={true}>
                 <PopoverTrigger asChild>
                   <Button
@@ -908,10 +845,7 @@ export function ModelSettingsModal({
                   <Command>
                     <CommandInput placeholder="Search models..." />
                     <CommandList className="max-h-[300px]">
-                      {(modelConfig.provider === 'openrouter' && isLoadingOpenRouter) ||
-                       (modelConfig.provider === 'openai' && isLoadingOpenAI) ||
-                       (modelConfig.provider === 'claude' && isLoadingClaude) ||
-                       (modelConfig.provider === 'groq' && isLoadingGroq) ? (
+                      {false ? (
                         <div className="py-6 text-center text-sm text-muted-foreground">
                           <RefreshCw className="mx-auto h-4 w-4 animate-spin mb-2" />
                           Loading models...

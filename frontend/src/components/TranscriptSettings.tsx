@@ -1,3 +1,4 @@
+import { ProviderModelPicker } from '@/components/ProviderModelPicker';
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -67,9 +68,9 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
         parakeet: [], // Model selection handled by ParakeetModelManager component
         deepgram: ['nova-2-phonecall'],
         elevenLabs: ['eleven_multilingual_v2'],
-        groq: ['llama-3.3-70b-versatile'],
-        openai: ['gpt-4o'],
-        gemini: ['gemini-3.1-flash-lite'],
+        groq: [],
+        openai: [],
+        gemini: [],
     };
     const requiresApiKey = uiProvider === 'deepgram' || uiProvider === 'elevenLabs' || uiProvider === 'openai' || uiProvider === 'groq' || uiProvider === 'gemini';
 
@@ -130,7 +131,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                         const nextConfig: TranscriptModelProps = {
                                             ...transcriptModelConfig,
                                             provider,
-                                            model: modelOptions[provider][0],
+                                            model: provider === transcriptModelConfig.provider ? transcriptModelConfig.model : modelOptions[provider][0] || '',
                                             apiKey: null,
                                         };
                                         setTranscriptModelConfig(nextConfig);
@@ -152,26 +153,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                 </SelectContent>
                             </Select>
 
-                            {uiProvider !== 'localWhisper' && uiProvider !== 'parakeet' && (
-                                <Select
-                                    value={transcriptModelConfig.model}
-                                    onValueChange={(value) => {
-                                        const model = value as TranscriptModelProps['model'];
-                                        const nextConfig = { ...transcriptModelConfig, provider: uiProvider, model };
-                                        setTranscriptModelConfig(nextConfig);
-                                        void persistTranscriptConfig(nextConfig);
-                                    }}
-                                >
-                                    <SelectTrigger className='focus:ring-1 focus:ring-blue-500 focus:border-blue-500'>
-                                        <SelectValue placeholder="Select model" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {modelOptions[uiProvider].map((model) => (
-                                            <SelectItem key={model} value={model}>{model}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
+                            {['gemini','openai','groq'].includes(uiProvider) ? <ProviderModelPicker provider={uiProvider} purpose="transcription" value={transcriptModelConfig.model} apiKey={apiKey} onChange={model => { const config = { ...transcriptModelConfig, provider: uiProvider, model }; setTranscriptModelConfig(config); void persistTranscriptConfig(config); }}/> : uiProvider !== 'localWhisper' && uiProvider !== 'parakeet' ? <Input aria-label="Model" value={transcriptModelConfig.model} onChange={e => setTranscriptModelConfig({...transcriptModelConfig,model:e.target.value})} onBlur={() => void persistTranscriptConfig(transcriptModelConfig)}/> : null}
 
                         </div>
                     </div>
@@ -225,7 +207,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                         void persistTranscriptConfig({
                                             ...transcriptModelConfig,
                                             provider: uiProvider,
-                                            model: modelOptions[uiProvider][0] || transcriptModelConfig.model,
+                                            model: transcriptModelConfig.model,
                                             apiKey: apiKey || null,
                                         });
                                     }}
