@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { ModelConfig, ModelSettingsModal } from '@/components/ModelSettingsModal';
 import {
   Dialog,
@@ -59,6 +60,8 @@ export function SummaryGeneratorButtonGroup({
   onOpenModelSettings,
   languageSlot
 }: SummaryGeneratorButtonGroupProps) {
+  const { locale } = useTranslation();
+  const es = locale === 'es';
   const [isCheckingModels, setIsCheckingModels] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
@@ -257,7 +260,7 @@ export function SummaryGeneratorButtonGroup({
           title="Stop summary generation"
         >
           <Square className="xl:mr-2" size={18} fill="currentColor" />
-          <span className="hidden lg:inline xl:inline">Stop</span>
+          <span className="hidden lg:inline xl:inline">{es ? 'Detener' : 'Stop'}</span>
         </Button>
       ) : (
         <Button
@@ -280,12 +283,12 @@ export function SummaryGeneratorButtonGroup({
           {isCheckingModels || isModelConfigLoading ? (
             <>
               <Loader2 className="animate-spin xl:mr-2" size={18} />
-              <span className="hidden xl:inline">Processing...</span>
+              <span className="hidden xl:inline">{es ? 'Procesando…' : 'Processing…'}</span>
             </>
           ) : (
             <>
               <Sparkles className="xl:mr-2" size={18} />
-              <span className="hidden lg:inline xl:inline">{hasSummary ? 'Regenerate Summary' : 'Generate Summary'}</span>
+              <span className="hidden lg:inline xl:inline">{hasSummary ? (es ? 'Regenerar análisis' : 'Regenerate analysis') : (es ? 'Generar análisis' : 'Generate analysis')}</span>
             </>
           )}
         </Button>
@@ -303,7 +306,7 @@ export function SummaryGeneratorButtonGroup({
             className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
           >
             <Settings />
-            <span className="hidden lg:inline">AI Model</span>
+            <span className="hidden lg:inline">{es ? 'Modelo IA' : 'AI model'}</span>
           </Button>
         </DialogTrigger>
         <DialogContent
@@ -336,7 +339,7 @@ export function SummaryGeneratorButtonGroup({
               className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
             >
               <FileText />
-              <span className="hidden lg:inline">Template</span>
+              <span className="hidden lg:inline">{es ? 'Plantilla' : 'Template'}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

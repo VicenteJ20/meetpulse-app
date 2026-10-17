@@ -248,7 +248,7 @@ export default function Home() {
         {(hasMicrophone || isRecording) &&
           status !== RecordingStatus.PROCESSING_TRANSCRIPTS &&
           status !== RecordingStatus.SAVING && (
-            <div className="fixed bottom-7 left-[4.25rem] right-0 z-20">
+            <div className="recording-dock fixed bottom-7 left-16 right-0 z-20">
               <div className="flex justify-center px-6">
                 <div className="w-2/3 max-w-[750px] flex justify-center">
                   <div className="meetpulse-surface flex rounded-2xl bg-card/90 p-1 backdrop-blur">

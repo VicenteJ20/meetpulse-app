@@ -39,12 +39,16 @@ export class StorageService {
   async saveMeeting(
     meetingTitle: string,
     transcripts: Transcript[],
-    folderPath: string | null
+    folderPath: string | null,
+    recordingSessionId?: string | null
   ): Promise<SaveMeetingResponse> {
+    const sessionId = recordingSessionId ?? sessionStorage.getItem('indexeddb_current_meeting_id');
+    if (sessionId) await invoke('desktop_assistant_session', { id: sessionId, meetingId: null, title: meetingTitle, folderPath, context: null });
     return invoke<SaveMeetingResponse>('api_save_transcript', {
       meetingTitle,
       transcripts,
       folderPath,
+      recordingSessionId: sessionId,
     });
   }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { desktopCapabilities } from '@/config/capabilities';
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { ChevronDown, ChevronRight, ChevronRightCircle, File, Settings, PanelLeftClose, PanelLeftOpen, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Pencil, SearchIcon, X, BookOpen, LogOut, Info as InfoIcon } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -63,10 +64,14 @@ const Sidebar: React.FC = () => {
   // Get recording state from RecordingStateContext (single source of truth)
   const { isRecording } = useRecordingState();
   const { signOut } = useAuth();
-  const { t } = useTranslation();
+  useEffect(() => { if (isRecording && !isCollapsed) toggleCollapse(); }, [isRecording]);
+  const { t, locale } = useTranslation();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['meetings']));
   const initializedClientFolders = useRef<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [afterDate, setAfterDate] = useState('');
+  const [beforeDate, setBeforeDate] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
   const [showModelSettings, setShowModelSettings] = useState(false);
   const [modelConfig, setModelConfig] = useState<ModelConfig>({
     provider: 'ollama',
@@ -286,13 +291,16 @@ const Sidebar: React.FC = () => {
 
   // Filter recursively so a matching meeting keeps its client/project path.
   const filteredSidebarItems = useMemo(() => {
-    if (!searchQuery.trim()) return sidebarItems;
+    if (!searchQuery.trim() && !afterDate && !beforeDate && !tagFilter) return sidebarItems;
 
     const query = searchQuery.toLowerCase();
     const matchedMeetingIds = new Set(searchResults.map(result => result.id));
     const filterItem = (item: SidebarItem): SidebarItem | undefined => {
       if (item.type === 'file') {
-        return matchedMeetingIds.has(item.id) || item.title.toLowerCase().includes(query)
+        const meeting = meetings.find(m => m.id === item.id);
+        const day = meeting?.created_at?.slice(0, 10);
+        if ((afterDate && (!day || day < afterDate)) || (beforeDate && (!day || day > beforeDate)) || (tagFilter && !meeting?.tags?.includes(tagFilter))) return undefined;
+        return !query || matchedMeetingIds.has(item.id) || item.title.toLowerCase().includes(query)
           ? item
           : undefined;
       }
@@ -306,7 +314,7 @@ const Sidebar: React.FC = () => {
     return sidebarItems
       .map(filterItem)
       .filter((item): item is SidebarItem => item !== undefined);
-  }, [sidebarItems, searchQuery, searchResults]);
+  }, [sidebarItems, searchQuery, searchResults, afterDate, beforeDate, tagFilter, meetings]);
 
 
   const handleDelete = async (itemId: string) => {
@@ -562,8 +570,9 @@ const Sidebar: React.FC = () => {
             if (item.type === 'folder') {
               toggleFolder(item.id);
             } else {
-              setCurrentMeeting({ id: item.id, title: item.title });
-              const basePath = item.id.startsWith('intro-call') ? '/' :
+              const meeting = meetings.find(candidate => candidate.id === item.id);
+              setCurrentMeeting(meeting || { id: item.id, title: item.title });
+              const basePath = meeting ? `/meeting-details?id=${encodeURIComponent(item.id)}` : item.id.startsWith('intro-call') ? '/' :
                 item.id.includes('-') ? `/meeting-details?id=${item.id}` : `/notes/${item.id}`;
               router.push(basePath);
             }
@@ -686,82 +695,17 @@ const Sidebar: React.FC = () => {
 
   return (
     <>
-      <TooltipProvider>
-        <nav className="z-40 flex h-screen min-h-0 flex-col items-center border-r border-white/5 bg-[hsl(var(--sidebar))] px-3 py-3">
-          <Logo isCollapsed />
-          <div className="mt-4 flex flex-col items-center gap-2">
-            {railItem(t('nav.home'), Home, () => router.push('/'), pathname === '/')}
-            {railItem(
-              isRecording ? t('recording.active') : t('recording.start'),
-              isRecording ? Square : Mic,
-              handleRecordingToggle,
-              false,
-              'recording',
-            )}
-            {railItem(t('nav.meetings'), isCollapsed ? PanelLeftOpen : PanelLeftClose, toggleCollapse, !isCollapsed)}
-            {railItem(t('nav.wiki'), BookOpen, () => router.push('/wiki'), pathname === '/wiki')}
-            {railItem(t('nav.settings'), Settings, () => router.push('/settings'), pathname === '/settings')}
-          </div>
-          <div className="mt-auto flex flex-col items-center gap-2">
-            {railItem(t('nav.about'), InfoIcon, () => {
-              document.querySelector<HTMLButtonElement>('button[title="About MeetPulse"]')?.click();
-            })}
-            {railItem(t('nav.signOut'), LogOut, handleSignOut)}
-          </div>
-          <div className="hidden"><Info isCollapsed ref={undefined} /></div>
+      <aside data-collapsed={isCollapsed} className={`desktop-sidebar flex h-dvh min-h-0 flex-col overflow-hidden border-r border-border bg-card ${isCollapsed ? 'w-16' : 'w-60'}`}>
+        <header className="flex items-center justify-between p-3"><Logo isCollapsed={isCollapsed} />{!isCollapsed && <button aria-label={t('nav.collapseMeetings')} className="rounded p-1 hover:bg-muted" onClick={toggleCollapse}><PanelLeftClose size={18}/></button>}</header>
+        <nav aria-label={t('nav.meetings')} className="space-y-1 px-2">
+          {[[t('nav.home'), Home, () => router.push('/'), pathname === '/'], [t('recording.new'), Mic, handleRecordingToggle, isRecording], [t('nav.meetings'), PanelLeftOpen, () => { if (isCollapsed) toggleCollapse(); }, false], [t('nav.settings'), Settings, () => router.push('/settings'), pathname === '/settings']].map(([label, Icon, action, active]) => {
+            const NavIcon = Icon as typeof Home;
+            return <button key={String(label)} title={String(label)} aria-label={String(label)} onClick={action as () => void} className={`flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm ${active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:bg-muted'}`}><NavIcon size={18} className="shrink-0"/>{!isCollapsed && <span>{String(label)}</span>}</button>;
+          })}
+          {desktopCapabilities.wikiEnabled && <button onClick={() => router.push('/wiki')} className="flex items-center gap-3 p-3"><BookOpen size={18}/>{!isCollapsed && 'Wiki'}</button>}
         </nav>
-      </TooltipProvider>
-
-      <aside
-        className={`z-30 flex h-screen min-w-0 flex-col overflow-hidden border-r border-border/80 bg-card/95 backdrop-blur-xl transition-[width,opacity,transform] duration-300 ${
-          isCollapsed ? 'pointer-events-none w-0 -translate-x-3 opacity-0' : 'w-[19rem] translate-x-0 opacity-100'
-        }`}
-      >
-        <header className="border-b border-border/70 px-4 pb-4 pt-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t('nav.meetings')}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{meetings.length} {meetings.length === 1 ? 'meeting' : 'meetings'}</p>
-            </div>
-            <button onClick={toggleCollapse} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={t('nav.collapseMeetings')}>
-              <PanelLeftClose className="h-4 w-4" />
-            </button>
-          </div>
-          <InputGroup>
-            <InputGroupAddon><SearchIcon /></InputGroupAddon>
-            <InputGroupInput
-              placeholder={t('nav.searchMeetings')}
-              value={searchQuery}
-              onChange={event => handleSearchChange(event.target.value)}
-            />
-            {searchQuery && <InputGroupAddon align="inline-end"><InputGroupButton onClick={() => handleSearchChange('')}><X /></InputGroupButton></InputGroupAddon>}
-          </InputGroup>
-        </header>
-
-        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-2 py-3">
-          {meetings.length === 0 && !searchQuery ? (
-            <div className="px-5 py-10 text-center">
-              <Calendar className="mx-auto h-7 w-7 text-muted-foreground/50" />
-              <p className="mt-3 text-sm text-muted-foreground">{t('nav.noMeetings')}</p>
-            </div>
-          ) : (
-            filteredSidebarItems
-              .filter(item => item.type === 'folder' && expandedFolders.has(item.id) && item.children)
-              .map(item => <div key={`${item.id}-children`}>{item.children!.map(child => renderItem(child, 0))}</div>)
-          )}
-        </div>
-
-        <footer className="border-t border-border/70 p-3">
-          <button
-            onClick={handleRecordingToggle}
-            disabled={isRecording}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-foreground px-3 py-2.5 text-sm font-semibold text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            {isRecording ? t('recording.active') : t('recording.new')}
-          </button>
-          <p className="mt-3 text-center text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{APP_NAME} · v{APP_VERSION}</p>
-        </footer>
+        {!isCollapsed && <><div className="px-3 pb-3 pt-5"><InputGroup><InputGroupAddon><SearchIcon/></InputGroupAddon><InputGroupInput aria-label={t('nav.searchMeetings')} placeholder={t('nav.searchMeetings')} value={searchQuery} onChange={e => handleSearchChange(e.target.value)}/>{searchQuery && <InputGroupAddon align="inline-end"><InputGroupButton onClick={() => handleSearchChange('')}><X/></InputGroupButton></InputGroupAddon>}</InputGroup></div><details className="mx-3 mb-2 text-xs text-muted-foreground"><summary className="cursor-pointer">{locale === 'es' ? 'Filtrar por fecha y etiqueta' : 'Filter by date and tag'}</summary><div className="mt-2 space-y-2"><label className="block">{locale === 'es' ? 'Desde' : 'From'}<input type="date" value={afterDate} onChange={e => setAfterDate(e.target.value)} className="w-full rounded border bg-background p-1"/></label><label className="block">{locale === 'es' ? 'Hasta' : 'To'}<input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} className="w-full rounded border bg-background p-1"/></label><select aria-label={locale === 'es' ? 'Etiqueta' : 'Tag'} value={tagFilter} onChange={e => setTagFilter(e.target.value)} className="w-full rounded border bg-background p-1"><option value="">{locale === 'es' ? 'Todas las etiquetas' : 'All tags'}</option>{Array.from(new Set(meetings.flatMap(m => m.tags || []))).map(tag => <option key={tag}>{tag}</option>)}</select></div></details><div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-1 pb-3">{filteredSidebarItems.filter(item => item.type === 'folder' && item.children).map(item => <div key={item.id}>{item.children!.map(child => renderItem(child, 0))}</div>)}{meetings.length === 0 && <p className="p-4 text-sm text-muted-foreground">{t('nav.noMeetings')}</p>}</div></>}
+        <footer className="mt-auto space-y-2 border-t border-border p-2"><Info isCollapsed={isCollapsed}/>{desktopCapabilities.wikiEnabled && <button title={t('nav.signOut')} onClick={handleSignOut}><LogOut size={18}/></button>}{!isCollapsed && <p className="text-center text-[10px] text-muted-foreground">{APP_NAME} · {APP_VERSION}</p>}</footer>
       </aside>
 
       {/* Confirmation Modal for Delete */}

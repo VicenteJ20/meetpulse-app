@@ -1,6 +1,7 @@
 'use client'
 
 import './globals.css'
+import { AssistantProvider } from '@/contexts/AssistantContext'
 import { Source_Sans_3 } from 'next/font/google'
 import Sidebar from '@/components/Sidebar'
 import { SidebarProvider } from '@/components/Sidebar/SidebarProvider'
@@ -249,7 +250,7 @@ export default function RootLayout({
                 <OllamaDownloadProvider>
                   <OnboardingProvider>
                     <UpdateCheckProvider>
-                      <SidebarProvider>
+                      <SidebarProvider><AssistantProvider>
                         <TooltipProvider>
                           <RecordingPostProcessingProvider>
                             <ImportDialogProvider onOpen={handleOpenImportDialog}>
@@ -275,7 +276,7 @@ export default function RootLayout({
                             </ImportDialogProvider>
                           </RecordingPostProcessingProvider>
                         </TooltipProvider>
-                      </SidebarProvider>
+                      </AssistantProvider></SidebarProvider>
                     </UpdateCheckProvider>
                   </OnboardingProvider>
 

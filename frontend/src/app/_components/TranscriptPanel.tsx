@@ -1,3 +1,4 @@
+import { AssistantButton } from '@/contexts/AssistantContext';
 import { VirtualizedTranscriptView } from '@/components/VirtualizedTranscriptView';
 import { PermissionWarning } from '@/components/PermissionWarning';
 import { Button } from '@/components/ui/button';
@@ -34,12 +35,14 @@ export function TranscriptPanel({
   homeStats
 }: TranscriptPanelProps) {
   // Contexts
-  const { transcripts, transcriptContainerRef, copyTranscript } = useTranscripts();
+  const { transcripts, transcriptContainerRef, copyTranscript, meetingTitle } = useTranscripts();
   const { transcriptModelConfig } = useConfig();
   const { isRecording, isPaused } = useRecordingState();
   const { checkPermissions, isChecking, hasSystemAudio, hasMicrophone } = usePermissionCheck();
   const isLinux = useIsLinux();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const destination = useMemo(() => { try { const value = JSON.parse(localStorage.getItem('meetpulse-recording-context') || '{}'); return [value.client,value.project].filter(Boolean).join(' / '); } catch { return ''; } }, [meetingTitle]);
+  const transcriptionLocation = ['localWhisper','parakeet'].includes(transcriptModelConfig.provider) ? 'Local' : `API · ${transcriptModelConfig.provider}`;
 
   // Convert transcripts to segments for virtualized view
   const segments = useMemo(() =>
@@ -61,11 +64,11 @@ export function TranscriptPanel({
           <div className="flex min-w-0 items-center gap-3">
             <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${isRecording ? 'bg-recording/12 text-recording' : 'bg-muted text-muted-foreground'}`}><Radio className="h-5 w-5" /></span>
             <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold">{isRecording ? t('recording.active') : t('meeting.transcript')}</h1>
-              <p className="mt-0.5 text-xs text-muted-foreground">{isRecording ? t('recording.listening') : `${segments.length} segments`}</p>
+              <h1 className="truncate text-base font-semibold">{meetingTitle || (isRecording ? t('recording.active') : t('meeting.transcript'))}</h1>
+              <p className="mt-0.5 text-xs text-muted-foreground">{isRecording ? [t('recording.active'), destination, transcriptionLocation].filter(Boolean).join(' · ') : `${segments.length} ${locale === 'es' ? 'segmentos' : 'segments'}`}</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2"><AssistantButton/>
               <ButtonGroup>
                 {transcripts?.length > 0 && (
                   <Button

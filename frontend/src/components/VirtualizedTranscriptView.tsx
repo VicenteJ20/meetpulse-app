@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useEffect, memo } from "react";
+import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { useRef, useEffect, useState, memo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAutoScroll } from "@/hooks/useAutoScroll";
 import { useTranscriptStreaming } from "@/hooks/useTranscriptStreaming";
@@ -144,7 +145,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
     });
 
     // Custom hook for auto-scrolling (supports both virtualized and non-virtualized)
-    useAutoScroll({
+    const { autoScroll, scrollToBottom } = useAutoScroll({
         scrollRef,
         segments,
         isRecording,
@@ -153,6 +154,28 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
         virtualizationThreshold: VIRTUALIZATION_THRESHOLD,
         disableAutoScroll,
     });
+
+    const { locale } = useTranslation();
+    const [sourceTime, setSourceTime] = useState<number | null>(() => {
+        if (typeof window === 'undefined') return null;
+        const raw = new URLSearchParams(window.location.search).get('sourceTime');
+        return raw !== null && Number.isFinite(Number(raw)) ? Number(raw) : null;
+    });
+    const [highlight, setHighlight] = useState('');
+    useEffect(() => {
+        const onSource = (event: Event) => setSourceTime((event as CustomEvent<{start: number}>).detail.start);
+        window.addEventListener('meetpulse-source', onSource);
+        return () => window.removeEventListener('meetpulse-source', onSource);
+    }, []);
+    useEffect(() => {
+        if (sourceTime === null || !segments.length) return;
+        if (hasMore && segments[segments.length - 1].timestamp < sourceTime) { if (!isLoadingMore) onLoadMore?.(); return; }
+        const index = segments.reduce((best, segment, i) => Math.abs(segment.timestamp - sourceTime) < Math.abs(segments[best].timestamp - sourceTime) ? i : best, 0);
+        virtualizer.scrollToIndex(index, { align: 'center' }); setHighlight(segments[index].id); setSourceTime(null);
+
+    }, [sourceTime, segments.length, hasMore, isLoadingMore, onLoadMore, virtualizer]);
+
+    useEffect(() => { if (!highlight) return; const timer = setTimeout(() => setHighlight(''), 6000); return () => clearTimeout(timer); }, [highlight]);
 
     // Streaming text effect hook (typewriter animation for new transcripts)
     const { streamingSegmentId, getDisplayText } = useTranscriptStreaming(
@@ -233,6 +256,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
 
             {/* Content - add padding when recording to prevent overlap */}
             <div className={isRecording ? 'pt-2' : ''}>
+            {isRecording && !autoScroll && <button className="sticky top-2 z-10 mx-auto block rounded-full bg-brand px-4 py-2 text-sm text-brand-foreground shadow" onClick={scrollToBottom}>{locale === 'es' ? 'Volver al vivo' : 'Back to live'}</button>}
             {segments.length === 0 ? (
                 // Empty state
                 <motion.div
@@ -276,6 +300,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                             return (
                                 <div
                                     key={segment.id}
+                                    className={highlight === segment.id ? "transcript-source-highlight" : ""}
                                     data-index={virtualRow.index}
                                     ref={virtualizer.measureElement}
                                     style={{

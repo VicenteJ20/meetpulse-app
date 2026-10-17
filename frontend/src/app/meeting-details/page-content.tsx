@@ -17,9 +17,12 @@ import { useTemplates } from '@/hooks/meeting-details/useTemplates';
 import { useCopyOperations } from '@/hooks/meeting-details/useCopyOperations';
 import { useMeetingOperations } from '@/hooks/meeting-details/useMeetingOperations';
 import { useConfig } from '@/contexts/ConfigContext';
+import { desktopCapabilities } from '@/config/capabilities';
 import { getWikiLastDestination } from '@/services/wiki-config';
 import { useWikiPublish } from '@/hooks/meeting-details/useWikiPublish';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AssistantButton, useAssistantTarget } from '@/contexts/AssistantContext';
+import { PdfExports } from '@/components/MeetingDetails/PdfExports';
 import { CalendarDays } from 'lucide-react';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { useRouter } from 'next/navigation';
@@ -94,19 +97,23 @@ export default function PageContent({
     transcriptsCount: meeting.transcripts?.length
   });
 
+  const { locale } = useTranslation();
+  const [view, setView] = useState<'analysis' | 'transcript' | 'split'>(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('sourceTime') ? 'transcript' : 'analysis');
+  useEffect(() => { const showSource = () => setView('transcript'); window.addEventListener('meetpulse-source', showSource); return () => window.removeEventListener('meetpulse-source', showSource); }, []);
+  useEffect(() => { const query = window.matchMedia('(min-width: 1200px)'); const compact = () => { if (!query.matches) setView(current => current === 'split' ? 'transcript' : current); }; query.addEventListener('change', compact); return () => query.removeEventListener('change', compact); }, []);
   // State
-  const lastWikiDestination = typeof window === 'undefined' ? null : getWikiLastDestination();
+  const lastWikiDestination = !desktopCapabilities.wikiEnabled || typeof window === 'undefined' ? null : getWikiLastDestination();
   const [customPrompt, setCustomPrompt] = useState<string>(meeting.additional_context || '');
   const [client, setClient] = useState<string>(meeting.client || lastWikiDestination?.clientId || '');
   const [project, setProject] = useState<string>(meeting.project || lastWikiDestination?.projectId || '');
   const [isRecording] = useState(false);
   const [summaryResponse] = useState<SummaryResponse | null>(null);
-  const { serverAddress, refetchMeetings } = useSidebar();
+  const { serverAddress, refetchMeetings, meetings } = useSidebar();
   const { t, formatDate } = useTranslation();
   const router = useRouter();
 
   useEffect(() => {
-    const lastDestination = getWikiLastDestination();
+    const lastDestination = desktopCapabilities.wikiEnabled ? getWikiLastDestination() : null;
     setClient(meeting.client || lastDestination?.clientId || '');
     setProject(meeting.project || lastDestination?.projectId || '');
     setCustomPrompt(meeting.additional_context || '');
@@ -117,8 +124,8 @@ export default function PageContent({
       try {
         await invoke('api_save_meeting_metadata', {
           meetingId: meeting.id,
-          client: slugifyWikiId(client) || client,
-          project: slugifyWikiId(project) || project,
+          client: client.trim(),
+          project: project.trim(),
           additionalContext: customPrompt,
         });
         // Keep the client/project hierarchy in Meeting Notes in sync as soon
@@ -131,6 +138,7 @@ export default function PageContent({
     return () => window.clearTimeout(timeout);
   }, [meeting.id, client, project, customPrompt, refetchMeetings]);
 
+  useAssistantTarget({ id: `saved-${meeting.id}`, meetingId: meeting.id, title: meeting.title, folderPath: meeting.folder_path, context: JSON.stringify({ client, project, additionalContext: customPrompt }) });
   const analysisContext = [
     client.trim() ? `Client: ${client.trim()}` : '',
     project.trim() ? `Project: ${project.trim()}` : '',
@@ -187,12 +195,14 @@ export default function PageContent({
   };
 
   const getWikiMarkdown = useCallback(async () => {
-    const live = await meetingData.blockNoteSummaryRef.current?.getMarkdown?.() || '';
-    if (live) return live;
-    if (meetingData.aiSummary && 'markdown' in meetingData.aiSummary) {
-      return (meetingData.aiSummary as { markdown?: string }).markdown || '';
-    }
-    return '';
+    const editor = meetingData.blockNoteSummaryRef.current;
+    const current = await editor?.getMarkdown?.();
+    const summary = meetingData.aiSummary as unknown as { markdown?: string; summary_json?: unknown[] } | null;
+    // Empty is meaningful after the user deletes the document; never resurrect saved text.
+    if (editor && (typeof summary?.markdown === 'string' || Array.isArray(summary?.summary_json))) return current || '';
+    if (current) return current;
+    if (typeof summary?.markdown === 'string') return summary.markdown;
+    return Object.values(meetingData.aiSummary || {}).filter(section => section && typeof section === 'object' && 'title' in section && Array.isArray(section.blocks)).map(section => `## ${section.title}\n\n${section.blocks.map(block => block.content || '').join('\n\n')}`).join('\n\n');
   }, [meetingData.aiSummary, meetingData.blockNoteSummaryRef]);
 
   const getWikiRawMarkdown = useCallback(async () => {
@@ -281,9 +291,9 @@ export default function PageContent({
             <h1 className="truncate text-lg font-semibold tracking-[-0.02em]">{meetingData.meetingTitle || meeting.title}</h1>
             {(client || project) && <span className="hidden truncate rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground lg:inline">{[client, project].filter(Boolean).join(' / ')}</span>}
           </div>
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{meeting.created_at ? formatDate(meeting.created_at, { dateStyle: 'medium', timeStyle: 'short' }) : t('meeting.details')}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{meeting.created_at ? formatDate(meeting.created_at, { dateStyle: 'medium', timeStyle: 'short' }) : t('meeting.details')}</p><p role="status" className="mt-1 text-xs text-muted-foreground">{meetingData.isSaving ? (locale === 'es' ? 'Guardando…' : 'Saving…') : meetingData.isSummaryDirty || meetingData.isTitleDirty ? (locale === 'es' ? 'Cambios sin guardar' : 'Unsaved changes') : (locale === 'es' ? 'Guardado en este PC' : 'Saved on this PC')}</p>
         </div>
-        <div className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+        {desktopCapabilities.wikiEnabled && <div className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
           {t((
             {
               draft: 'meeting.wikiStatus.draft',
@@ -296,17 +306,19 @@ export default function PageContent({
               error: 'meeting.wikiStatus.error',
             } as const
           )[wikiPublish.status])}
-        </div>
+        </div>}
       </header>
-      <div className="flex flex-1 overflow-hidden">
-        <TranscriptPanel
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2"><div role="tablist" className="flex gap-1">{(['analysis','transcript','split'] as const).map(mode => <button key={mode} role="tab" aria-selected={view === mode} onClick={() => setView(mode)} className={`rounded-lg px-3 py-2 text-sm ${view === mode ? 'bg-brand/10 text-brand' : 'hover:bg-muted'} ${mode === 'split' ? 'hidden xl:block' : ''}`}>{mode === 'analysis' ? (locale === 'es' ? 'Análisis' : 'Analysis') : mode === 'transcript' ? (locale === 'es' ? 'Transcripción' : 'Transcript') : (locale === 'es' ? 'Vista dividida' : 'Split view')}</button>)}</div><div className="flex flex-wrap gap-2"><PdfExports meeting={{ ...meeting, title: meetingData.meetingTitle || meeting.title, client, project }} getAnalysis={getWikiMarkdown}/><AssistantButton/></div></div>
+      <details className="shrink-0 border-b border-border px-4 py-2 text-sm"><summary className="cursor-pointer font-medium">{locale === 'es' ? 'Detalles de la reunión' : 'Meeting details'} · {[client, project].filter(Boolean).join(' / ')}</summary><div className="grid gap-3 py-3 md:grid-cols-3"><label>{locale === 'es' ? 'Cliente' : 'Client'}<input list="local-clients" className="mt-1 w-full rounded border bg-background p-2" value={client} onChange={e => setClient(e.target.value)}/><datalist id="local-clients">{Array.from(new Set(meetings.map(m => m.client).filter(Boolean))).map(c => <option key={c!}>{c}</option>)}</datalist></label><label>{locale === 'es' ? 'Proyecto' : 'Project'}<input list="local-projects" className="mt-1 w-full rounded border bg-background p-2" value={project} onChange={e => setProject(e.target.value)}/><datalist id="local-projects">{Array.from(new Set(meetings.filter(m => m.client === client).map(m => m.project).filter(Boolean))).map(p => <option key={p!}>{p}</option>)}</datalist></label><label>{locale === 'es' ? 'Contexto adicional' : 'Additional context'}<textarea className="mt-1 w-full rounded border bg-background p-2" value={customPrompt} onChange={e => setCustomPrompt(e.target.value)}/></label></div></details>
+      <div className="meeting-workspace" data-view={view}>
+        <div className="meeting-transcript"><TranscriptPanel
           transcripts={meetingData.transcripts}
           customPrompt={customPrompt}
           onPromptChange={setCustomPrompt}
           client={client}
           project={project}
-          clientOptions={wikiPublish.clients.map(item => item.client_id)}
-          projectOptions={wikiPublish.projects.map(item => item.project_id)}
+          clientOptions={Array.from(new Set(meetings.map(item => item.client).filter(Boolean))) as string[]}
+          projectOptions={Array.from(new Set(meetings.filter(item => item.client === client).map(item => item.project).filter(Boolean))) as string[]}
           tags={meeting.tags || []}
           onClientChange={setClient}
           onProjectChange={setProject}
@@ -327,7 +339,7 @@ export default function PageContent({
           meetingFolderPath={meeting.folder_path}
           onRefetchTranscripts={onRefetchTranscripts}
         />
-        <SummaryPanel
+        </div><div className="meeting-analysis"><SummaryPanel
           meeting={meeting}
           meetingTitle={meetingData.meetingTitle}
           onTitleChange={meetingData.handleTitleChange}
@@ -364,7 +376,7 @@ export default function PageContent({
           wikiStatus={wikiPublish.status}
           onRetryWiki={() => { void wikiPublish.retryPublish(); }}
           onOpenWiki={() => router.push('/wiki')}
-        />
+        /></div>
       </div>
     </motion.div>
     <Dialog open={wikiPublish.destinationOpen} onOpenChange={wikiPublish.setDestinationOpen}>

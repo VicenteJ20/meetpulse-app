@@ -111,7 +111,9 @@ export function useRecordingStart(
 
       console.log('Parakeet ready - setting up meeting title and state');
 
-      const randomTitle = generateMeetingTitle();
+      let draft: { title?: string } = {};
+      try { draft = JSON.parse(localStorage.getItem('meetpulse-recording-context') || '{}'); } catch {}
+      const randomTitle = draft.title?.trim() || generateMeetingTitle();
       setMeetingTitle(randomTitle);
 
       // Set STARTING status before initiating backend recording

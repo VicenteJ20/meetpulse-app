@@ -1,3 +1,4 @@
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import React from "react";
 import { Info as InfoIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "./ui/dialog";
@@ -9,6 +10,7 @@ interface InfoProps {
 }
 
 const Info = React.forwardRef<HTMLButtonElement, InfoProps>(({ isCollapsed }, ref) => {
+  const { t } = useTranslation();
   return (
     <Dialog aria-describedby={undefined}>
       <DialogTrigger asChild>
@@ -23,7 +25,7 @@ const Info = React.forwardRef<HTMLButtonElement, InfoProps>(({ isCollapsed }, re
         >
           <InfoIcon className={`text-muted-foreground ${isCollapsed ? "w-5 h-5" : "w-4 h-4"}`} />
           {!isCollapsed && (
-            <span className="ml-2 text-sm text-foreground">About</span>
+            <span className="ml-2 text-sm text-foreground">{t('nav.about')}</span>
           )}
         </button>
       </DialogTrigger>

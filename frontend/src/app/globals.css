@@ -269,28 +269,19 @@
     color: hsl(var(--brand-foreground));
   }
 
-  .app-shell {
-    display: grid;
-    grid-template-columns: 4.25rem auto minmax(0, 1fr);
-    height: 100vh;
-    transition: grid-template-columns 240ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .app-shell-content {
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  @media (max-width: 860px) {
-    .app-shell,
-    .app-shell[data-panel-open="true"] {
-      grid-template-columns: 4.25rem minmax(0, 1fr);
-    }
-
-    .app-shell-content {
-      grid-column: 2;
-    }
-  }
+  .app-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100dvh; }
+  .app-shell:has(.desktop-sidebar[data-collapsed="true"]) { grid-template-columns: 64px minmax(0, 1fr); }
+  .app-shell-content { min-width: 0; overflow: hidden; }
+  .route-content > main, .route-content > .h-screen { height: 100%; }
+  .desktop-sidebar { transition: width 180ms ease; }
+  .meeting-workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+  .meeting-workspace[data-view="analysis"] > .meeting-transcript { display: none; }
+  .meeting-workspace[data-view="transcript"] > .meeting-analysis { display: none; }
+  .meeting-transcript, .meeting-analysis { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+  .meeting-workspace[data-view="split"] > .meeting-transcript { flex: 0 0 40%; border-right: 1px solid hsl(var(--border)); }
+  @media (max-width: 999px) { .assistant-panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 45; box-shadow: -16px 0 48px #0003; max-width: calc(100vw - 64px); } }
+  @media (max-width: 1199px) { .meeting-workspace[data-view="split"] > .meeting-transcript { flex: 1; } .meeting-workspace[data-view="split"] > .meeting-analysis { display: none; } }
+  .transcript-source-highlight { outline: 2px solid hsl(var(--brand)); background: hsl(var(--brand) / .1); border-radius: 8px; }
 
   .meeting-summary-editor {
     width: 100%;
@@ -481,3 +472,8 @@
     }
   }
 }
+
+@media (min-width: 1000px) { .app-shell[data-assistant-open="true"] { padding-right: var(--assistant-width, 360px); } }
+
+.app-shell:has(.desktop-sidebar[data-collapsed="false"]) .recording-dock { left: 240px; }
+@media (min-width: 1000px) { .app-shell[data-assistant-open="true"] .recording-dock { right: var(--assistant-width, 360px); } }

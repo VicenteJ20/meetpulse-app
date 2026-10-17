@@ -20,7 +20,7 @@ export function useMeetingData({ meeting, summaryData, onMeetingUpdated }: UseMe
   const [isTitleDirty, setIsTitleDirty] = useState(false);
   const [aiSummary, setAiSummary] = useState<Summary | null>(summaryData);
   const [isSaving, setIsSaving] = useState(false);
-  const [, setIsSummaryDirty] = useState(false);
+  const [isSummaryDirty, setIsSummaryDirty] = useState(false);
   const [, setError] = useState<string>('');
 
   // Ref for BlockNoteSummaryView
@@ -146,7 +146,7 @@ export function useMeetingData({ meeting, summaryData, onMeetingUpdated }: UseMe
     console.log('📝 Updating meeting title to:', newTitle);
     setMeetingTitle(newTitle);
     const updatedMeetings = sidebarMeetings.map((m: CurrentMeeting) =>
-      m.id === meeting.id ? { id: m.id, title: newTitle } : m
+      m.id === meeting.id ? { ...m, title: newTitle } : m
     );
     setMeetings(updatedMeetings);
     setCurrentMeeting({ id: meeting.id, title: newTitle });
@@ -160,6 +160,7 @@ export function useMeetingData({ meeting, summaryData, onMeetingUpdated }: UseMe
     isTitleDirty,
     aiSummary,
     isSaving,
+    isSummaryDirty,
     blockNoteSummaryRef,
 
     // Setters
