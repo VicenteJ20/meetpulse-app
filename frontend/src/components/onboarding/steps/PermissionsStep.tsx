@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { OnboardingContainer } from '../OnboardingContainer';
 import { PermissionRow } from '../shared';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
   const { setPermissionStatus, setPermissionsSkipped, permissions, completeOnboarding } = useOnboarding();
+  const { t } = useTranslation();
   const [isPending, setIsPending] = useState(false);
 
   // Check permissions - only logs current state, doesn't auto-authorize
@@ -29,10 +31,11 @@ export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
   const handleMicrophoneAction = async () => {
     if (permissions.microphone === 'denied') {
       // Try to open system settings
+      setPermissionStatus('microphone', 'not_determined');
       try {
         await invoke('open_system_settings');
       } catch {
-        alert('Please enable microphone access in System Preferences > Security & Privacy > Microphone');
+        alert(t('onboarding.microphoneSettingsHint'));
       }
       return;
     }
@@ -61,10 +64,11 @@ export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
   const handleSystemAudioAction = async () => {
     if (permissions.systemAudio === 'denied') {
       // Try to open system settings
+      setPermissionStatus('systemAudio', 'not_determined');
       try {
         await invoke('open_system_settings');
       } catch {
-        alert('Please enable Audio Capture in System Settings → Privacy & Security → Audio Capture');
+        alert(t('onboarding.systemAudioSettingsHint'));
       }
       return;
     }
@@ -113,8 +117,8 @@ export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
 
   return (
     <OnboardingContainer
-      title="Grant Permissions"
-      description="MeetPulse needs access to your microphone and system audio to record meetings"
+      title={t('onboarding.permissionsTitle')}
+      description={t('onboarding.permissionsDescription')}
       step={4}
       hideProgress={true}
       showNavigation={allPermissionsGranted}
@@ -126,8 +130,8 @@ export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
           {/* Microphone */}
           <PermissionRow
             icon={<Mic className="w-5 h-5" />}
-            title="Microphone"
-            description="Required to capture your voice during meetings"
+            title={t('onboarding.microphone')}
+            description={t('onboarding.microphoneDescription')}
             status={permissions.microphone}
             isPending={isPending}
             onAction={handleMicrophoneAction}
@@ -136,8 +140,8 @@ export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
           {/* System Audio */}
           <PermissionRow
             icon={<Volume2 className="w-5 h-5" />}
-            title="System Audio"
-            description="Click Enable to grant Audio Capture permission"
+            title={t('onboarding.systemAudio')}
+            description={t('onboarding.systemAudioDescription')}
             status={permissions.systemAudio}
             isPending={isPending}
             onAction={handleSystemAudioAction}
@@ -147,19 +151,19 @@ export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 pt-4">
           <Button onClick={handleFinish} disabled={!allPermissionsGranted} className="w-full h-11">
-            Finish Setup
+            {t('onboarding.finishSetup')}
           </Button>
 
           <button
             onClick={handleSkip}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            I'll do this later
+            {t('onboarding.doLater')}
           </button>
 
           {!allPermissionsGranted && (
             <p className="text-xs text-center text-muted-foreground">
-              Recording won't work without permissions. You can grant them later in settings.
+              {t('onboarding.permissionsNote')}
             </p>
           )}
         </div>

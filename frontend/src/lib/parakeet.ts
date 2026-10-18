@@ -1,4 +1,5 @@
 // Types for Parakeet (NVIDIA NeMo) integration
+import type { TranslationKey } from '@/i18n/catalogs';
 export interface ParakeetModelInfo {
   name: string;
   path: string;
@@ -32,7 +33,7 @@ export interface ParakeetEngineState {
 export interface ModelDisplayInfo {
   friendlyName: string;
   icon: string;
-  tagline: string;
+  taglineKey: TranslationKey;
   recommended?: boolean;
   tier: 'fastest' | 'balanced' | 'precise';
 }
@@ -41,20 +42,20 @@ export const MODEL_DISPLAY_CONFIG: Record<string, ModelDisplayInfo> = {
   'parakeet-tdt-0.6b-v3-int8': {
     friendlyName: 'Lightning',
     icon: '⚡',
-    tagline: 'Real time • Best for speed, great accuracy',
+    taglineKey: 'mr.parakeet.v3Int8',
     recommended: true,
     tier: 'fastest'
   },
   'parakeet-tdt-0.6b-v2-int8': {
     friendlyName: 'Compact',
     icon: '📦',
-    tagline: 'Real time • Smaller size',
+    taglineKey: 'mr.parakeet.v2Int8',
     tier: 'balanced'
   },
   'parakeet-tdt-0.6b-v3-fp32': {
     friendlyName: 'Precise',
     icon: '🎯',
-    tagline: '20x real-time • Higher accuracy',
+    taglineKey: 'mr.parakeet.v3Fp32',
     tier: 'precise'
   }
 };
@@ -64,21 +65,18 @@ export const MODEL_DISPLAY_CONFIG: Record<string, ModelDisplayInfo> = {
 // Source: https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx
 export const PARAKEET_MODEL_CONFIGS: Record<string, Partial<ParakeetModelInfo>> = {
   'parakeet-tdt-0.6b-v3-int8': {
-    description: 'Real time on M4 Max, optimized for speed',
     size_mb: 670, // Actual download: 652MB encoder + 18.2MB decoder + 0.2MB extras
     accuracy: 'High',
     speed: 'Ultra Fast',
     quantization: 'Int8'
   },
   'parakeet-tdt-0.6b-v2-int8': {
-    description: '25x real-time, smaller size with good accuracy',
     size_mb: 661, // Actual download: 652MB encoder + 9MB decoder + 0.15MB extras
     accuracy: 'High',
     speed: 'Very Fast',
     quantization: 'Int8'
   },
   'parakeet-tdt-0.6b-v3-fp32': {
-    description: '20x real-time on M4 Max, higher precision',
     size_mb: 2554, // Actual download: 2.44GB + 41.8MB encoder + 72.5MB decoder + 0.2MB extras
     accuracy: 'High',
     speed: 'Fast',

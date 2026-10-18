@@ -12,7 +12,7 @@ import {
   formatFileSize,
   getModelPerformanceBadge,
   isQuantizedModel,
-  getModelTagline,
+  getModelTaglineKeys,
   WhisperAPI
 } from '../lib/whisper';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -531,17 +531,20 @@ function ModelCard({
             ? 'corrupted'
             : 'error';
   const badge = isQuantizedModel(model.name) ? getModelPerformanceBadge(model.name) : null;
+  const tagline = getModelTaglineKeys(model.name, model.speed, model.accuracy);
+  const accuracy = model.accuracy === 'High' ? t('mr.accuracyHigh') : model.accuracy === 'Good' ? t('mr.accuracyGood') : t('mr.accuracyDecent');
+  const speed = model.speed === 'Very Fast' ? t('mr.speedValueVeryFast') : model.speed === 'Fast' ? t('mr.speedValueFast') : model.speed === 'Medium' ? t('mr.speedValueMedium') : t('mr.speedValueSlow');
 
   return (
     <ModelRow
       name={displayName}
-      description={getModelTagline(model.name, model.speed, model.accuracy)}
+      description={`${t(tagline.speedKey)} • ${t(tagline.featureKey)}${tagline.qualifierKey ? ` · ${t(tagline.qualifierKey)}` : ''}`}
       meta={
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span>{formatFileSize(model.size_mb)}</span>
-          <span>{t('mr.accuracy').replace('{value}', String(model.accuracy))}</span>
-          <span>{t('mr.speed').replace('{value}', String(model.speed))}</span>
-          {badge && <span className={badge.color === 'green' ? 'text-success' : badge.color === 'orange' ? 'text-warning' : ''}>{badge.label}</span>}
+          <span>{t('mr.accuracy').replace('{value}', accuracy)}</span>
+          <span>{t('mr.speed').replace('{value}', speed)}</span>
+          {badge && <span className={badge.color === 'green' ? 'text-success' : badge.color === 'orange' ? 'text-warning' : ''}>{t(badge.labelKey)}</span>}
         </span>
       }
       status={status}

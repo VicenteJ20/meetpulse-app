@@ -3,29 +3,31 @@ import { Lock, Sparkles, Cpu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OnboardingContainer } from '../OnboardingContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 export function WelcomeStep() {
   const { goNext } = useOnboarding();
+  const { t } = useTranslation();
 
   const features = [
     {
       icon: Lock,
-      title: 'Your data never leaves your device',
+      title: t('onboarding.featurePrivate'),
     },
     {
       icon: Sparkles,
-      title: 'Intelligent summaries & insights',
+      title: t('onboarding.featureInsights'),
     },
     {
       icon: Cpu,
-      title: 'Works offline, no cloud required',
+      title: t('onboarding.featureOffline'),
     },
   ];
 
   return (
     <OnboardingContainer
-      title="Welcome to MeetPulse"
-      description="Record. Transcribe. Summarize. All on your device."
+      title={t('onboarding.welcomeTitle')}
+      description={t('onboarding.welcomeDescription')}
       step={1}
       hideProgress={true}
     >
@@ -56,9 +58,9 @@ export function WelcomeStep() {
             onClick={goNext}
             className="w-full h-11 bg-brand hover:bg-brand/90 text-brand-foreground"
           >
-            Get Started
+            {t('onboarding.getStarted')}
           </Button>
-          <p className="text-xs text-center text-muted-foreground">Takes less than 3 minutes</p>
+          <p className="text-xs text-center text-muted-foreground">{t('onboarding.duration')}</p>
         </div>
       </div>
     </OnboardingContainer>

@@ -431,6 +431,7 @@ function ModelCard({
   onCancel,
   onDelete,
 }: ModelCardProps) {
+  const { t } = useTranslation();
   const displayInfo = getModelDisplayInfo(model.name);
   const downloadProgress =
     typeof model.status === 'object' && 'Downloading' in model.status
@@ -450,7 +451,7 @@ function ModelCard({
   return (
     <ModelRow
       name={displayInfo?.friendlyName || model.name}
-      description={displayInfo?.tagline || model.description || ''}
+      description={displayInfo ? t(displayInfo.taglineKey) : model.description || t('mr.modelDescriptionUnavailable')}
       status={status}
       progress={downloadProgress}
       progressLabel={model.size_mb && downloadProgress !== null ? `${formatFileSize(model.size_mb * downloadProgress / 100)} / ${formatFileSize(model.size_mb)}` : undefined}

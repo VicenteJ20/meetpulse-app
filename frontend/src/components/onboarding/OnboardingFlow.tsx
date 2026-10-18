@@ -12,8 +12,8 @@ interface OnboardingFlowProps {
 }
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
-  const { currentStep } = useOnboarding();
-  const [isMac, setIsMac] = React.useState(false);
+  const { currentStep, goToStep } = useOnboarding();
+  const [isMac, setIsMac] = React.useState<boolean | null>(null);
 
   useEffect(() => {
     // Check if running on macOS
@@ -31,6 +31,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     checkPlatform();
   }, []);
 
+  useEffect(() => {
+    // A setup saved on macOS can be resumed on another platform. Keep the
+    // non-macOS flow on the download step instead of rendering a blank screen.
+    if (isMac === false && currentStep === 4) goToStep(3);
+  }, [currentStep, goToStep, isMac]);
+
   // 4-Step Onboarding Flow (System-Recommended Models):
   // Step 1: Welcome - Introduce MeetPulse features
   // Step 2: Setup Overview - Database initialization + show recommended downloads
@@ -42,7 +48,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       {currentStep === 1 && <WelcomeStep />}
       {currentStep === 2 && <SetupOverviewStep />}
       {currentStep === 3 && <DownloadProgressStep onComplete={onComplete} />}
-      {currentStep === 4 && isMac && <PermissionsStep onComplete={onComplete} />}
+      {currentStep === 4 && isMac === true && <PermissionsStep onComplete={onComplete} />}
     </div>
   );
 }
