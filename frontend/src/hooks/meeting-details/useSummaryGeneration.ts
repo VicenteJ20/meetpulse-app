@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { aboutMePrompt } from '@/lib/aboutMe';
 import { Transcript, Summary } from '@/types';
 import { ModelConfig } from '@/components/ModelSettingsModal';
 import { CurrentMeeting, useSidebar } from '@/components/Sidebar/SidebarProvider';
@@ -156,7 +157,7 @@ export function useSummaryGeneration({
         meetingId: meeting.id,
         chunkSize: 40000,
         overlap: 1000,
-        customPrompt: customPrompt,
+        customPrompt: [aboutMePrompt(), customPrompt].filter(Boolean).join('\n\n'),
         templateId: selectedTemplate,
         summaryLanguage,
       }) as any;

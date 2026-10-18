@@ -556,7 +556,7 @@ pub async fn retrieve(
     from: Option<&str>,
     to: Option<&str>,
 ) -> Result<(Vec<Source>, bool), String> {
-    ensure_scoped_text_index(pool, Some(client), Some(project)).await?;
+    ensure_scoped_text_index(pool, Some(client), Some(project).filter(|p| !p.is_empty())).await?;
     let path = directory(app)?;
     let available = ready(&path);
     let q = if available {
@@ -569,7 +569,7 @@ pub async fn retrieve(
     } else {
         None
     };
-    let rows=sqlx::query("SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE m.client=? AND m.project=? AND (? IS NULL OR date(m.created_at)>=date(?)) AND (? IS NULL OR date(m.created_at)<=date(?))").bind(client).bind(project).bind(from).bind(from).bind(to).bind(to).fetch_all(pool).await.map_err(|e|e.to_string())?;
+    let rows=sqlx::query("SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE m.client=? AND (?='' OR m.project=?) AND (? IS NULL OR date(m.created_at)>=date(?)) AND (? IS NULL OR date(m.created_at)<=date(?))").bind(client).bind(project).bind(project).bind(from).bind(from).bind(to).bind(to).fetch_all(pool).await.map_err(|e|e.to_string())?;
     let partial = !available
         || rows
             .iter()
@@ -631,7 +631,7 @@ async fn text_matches(
     if keywords.is_empty() {
         return Ok(vec![]);
     }
-    sqlx::query_scalar::<_,String>("SELECT c.id FROM assistant_fts f JOIN assistant_chunks c ON c.id=f.id JOIN meetings m ON m.id=c.meeting_id WHERE assistant_fts MATCH ? AND m.client=? AND m.project=? AND (? IS NULL OR date(m.created_at)>=date(?)) AND (? IS NULL OR date(m.created_at)<=date(?)) ORDER BY bm25(assistant_fts) LIMIT 60").bind(&keywords).bind(client).bind(project).bind(from).bind(from).bind(to).bind(to).fetch_all(pool).await.map_err(|e|e.to_string())
+    sqlx::query_scalar::<_,String>("SELECT c.id FROM assistant_fts f JOIN assistant_chunks c ON c.id=f.id JOIN meetings m ON m.id=c.meeting_id WHERE assistant_fts MATCH ? AND m.client=? AND (?='' OR m.project=?) AND (? IS NULL OR date(m.created_at)>=date(?)) AND (? IS NULL OR date(m.created_at)<=date(?)) ORDER BY bm25(assistant_fts) LIMIT 60").bind(&keywords).bind(client).bind(project).bind(project).bind(from).bind(from).bind(to).bind(to).fetch_all(pool).await.map_err(|e|e.to_string())
 }
 
 #[cfg(test)]

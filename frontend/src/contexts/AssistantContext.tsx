@@ -18,7 +18,9 @@ import { useSidebar } from "@/components/Sidebar/SidebarProvider";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import { Button } from "@/components/ui/button";
 import { loadAssistantDefaults } from "@/lib/assistantDefaults";
+import { loadAboutMe } from "@/lib/aboutMe";
 import { AssistantPanel } from "./AssistantPanel";
+import { AskView } from "./AskView";
 
 export type Target = {
   id: string;
@@ -183,6 +185,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const defaultCadence = typeof window !== "undefined" ? loadAssistantDefaults().cadence : 60;
   useEffect(() => {
     setScope(target?.allMeetings ? "all" : "current");
+    setClient("");
+    setProject("");
     setQuestion(target?.initialQuestion ?? "");
     if (target?.allMeetings) {
       setTab("chat");
@@ -343,7 +347,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     if (kind === "coach" && (busy || !transcripts.some((t) => !t.is_partial)))
       return;
     if (kind === "chat" && (!question.trim() || busy === "chat")) return;
-    if (kind === "chat" && scope === "history" && (!client || !project)) {
+    if (kind === "chat" && scope === "history" && !client) {
       setError(
         es ? "Selecciona cliente y proyecto." : "Select client and project.",
       );
@@ -377,13 +381,14 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             kind,
             question: kind === "chat" ? text : "",
             client: kind === "chat" && scope === "history" ? client : null,
-            project: kind === "chat" && scope === "history" ? project : null,
+            project: kind === "chat" && scope === "history" && project ? project : null,
             allMeetings: kind === "chat" && scope === "all",
             from: from || null,
             to: to || null,
             locale,
             provider,
             model,
+            aboutMe: loadAboutMe().trim() || null,
           },
         },
       );
@@ -490,13 +495,28 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       );
   }
   const selectedScope =
-    scope === "current" ? "current" : scope === "all" ? "all meetings" : `${client} / ${project}`;
-  const shown = messages.filter(
-    (m) =>
-      m.kind === tab &&
-      !m.dismissed &&
-      (tab === "coach" || m.scope === selectedScope),
+    scope === "current" ? "current" : scope === "all" ? "all meetings" : project ? `${client} / ${project}` : client;
+  const isAskPage = !!target?.allMeetings && !live;
+  // En Preguntar la conversación entera se muestra completa: su alcance queda fijado por el primer mensaje.
+  const shown = messages.filter((m) =>
+    isAskPage
+      ? m.kind === "chat" && !m.dismissed
+      : m.kind === tab && !m.dismissed && (tab === "coach" || m.scope === selectedScope),
   );
+  const firstChatScope = isAskPage ? messages.find((m) => m.kind === "chat")?.scope : undefined;
+  useEffect(() => {
+    if (!firstChatScope) return;
+    if (firstChatScope === "all meetings") {
+      setScope("all");
+      setClient("");
+      setProject("");
+    } else {
+      const [savedClient, ...rest] = firstChatScope.split(" / ");
+      setScope("history");
+      setClient(savedClient);
+      setProject(rest.join(" / "));
+    }
+  }, [firstChatScope, session]);
   const isLocalProvider =
     provider === "builtin-ai" ||
     (provider === "ollama" &&
@@ -545,6 +565,35 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      {isAskPage && liveDockHost ? (
+        <AskView
+          t={t}
+          host={liveDockHost}
+          messages={shown}
+          busy={busy === "chat"}
+          error={error}
+          partial={partial}
+          question={question}
+          setQuestion={setQuestion}
+          ask={() => ask("chat")}
+          cancel={() => {
+            if (request.current) void invoke("desktop_assistant_cancel", { requestId: request.current });
+            request.current = "";
+            setBusy("");
+          }}
+          ready={!!session}
+          clients={clients}
+          projects={projects}
+          client={client}
+          project={project}
+          setClient={(value) => { setClient(value); setScope(value ? "history" : "all"); }}
+          setProject={setProject}
+          sourceClick={sourceClick}
+          isLocalProvider={isLocalProvider}
+          provider={provider}
+          model={model}
+        />
+      ) : (
       <AssistantPanel
         t={t}
         target={target}
@@ -597,6 +646,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         isLocalProvider={isLocalProvider}
         requestId={request.current}
       />
+      )}
     </Context.Provider>
   );
 }

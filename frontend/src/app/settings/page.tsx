@@ -2,7 +2,7 @@
 
 import { desktopCapabilities } from '@/config/capabilities';
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Cpu, Database as DatabaseIcon, Lightbulb, Mic, Settings2, ShieldCheck } from 'lucide-react';
+import { BookOpen, Cpu, UserRound, Database as DatabaseIcon, Lightbulb, Mic, Settings2, ShieldCheck } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { TranscriptSettings } from '@/components/TranscriptSettings';
 import { RecordingSettings } from '@/components/RecordingSettings';
@@ -10,6 +10,7 @@ import { PreferenceSettings } from '@/components/PreferenceSettings';
 import { ModelsSettings } from '@/components/settings/ModelsSettings';
 import { AssistantDefaultsSettings } from '@/components/settings/AssistantDefaultsSettings';
 import { PrivacySettings } from '@/components/settings/PrivacySettings';
+import { AboutMeSettings } from '@/components/settings/AboutMeSettings';
 import { useConfig } from '@/contexts/ConfigContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WikiSettings } from '@/components/WikiSettings';
@@ -32,6 +33,7 @@ export default function SettingsPage() {
     { value: 'recording', label: t('st.tabAudio'), icon: Mic },
     { value: 'transcription', label: t('settings.transcription'), icon: DatabaseIcon },
     { value: 'models', label: t('st.tabModels'), icon: Cpu },
+    { value: 'about', label: t('st.tabAbout'), icon: UserRound },
     { value: 'coach', label: t('st.tabCoach'), icon: Lightbulb },
     { value: 'privacy', label: t('st.tabPrivacy'), icon: ShieldCheck },
     { value: 'wiki', label: t('settings.wiki'), icon: BookOpen },
@@ -66,6 +68,7 @@ export default function SettingsPage() {
             <TabsContent value="recording" className="mt-0"><RecordingSettings /></TabsContent>
             <TabsContent value="transcription" className="mt-0"><TranscriptSettings transcriptModelConfig={transcriptModelConfig} setTranscriptModelConfig={setTranscriptModelConfig} /></TabsContent>
             <TabsContent value="models" className="mt-0"><ModelsSettings onGoTo={setActiveTab} /></TabsContent>
+            <TabsContent value="about" className="mt-0"><AboutMeSettings /></TabsContent>
             <TabsContent value="coach" className="mt-0"><AssistantDefaultsSettings /></TabsContent>
             <TabsContent value="privacy" className="mt-0"><PrivacySettings /></TabsContent>
             {desktopCapabilities.wikiEnabled && <TabsContent value="wiki" className="mt-0"><WikiSettings /></TabsContent>}
