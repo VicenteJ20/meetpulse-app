@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeetPulse v2 - En vivo</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="screens.css">
+<link rel="stylesheet" href="assistant.css">
+</head>
+<body>
+<div class="shell" id="shell">
+  <nav class="rail" data-current="live" aria-label="Principal"></nav>
+
+  <div class="main" id="liveRoot">
+    <header class="live-top">
+      <div class="rec-state">
+        <span class="rec-dot" aria-hidden="true"></span>
+        <div>
+          <div class="rec-time" id="clock" aria-live="off">00:00</div>
+          <div class="rec-label" id="recLabel">GRABANDO</div>
+        </div>
+      </div>
+
+      <div class="live-title">
+        <input id="liveTitle" placeholder="Reunión sin título" aria-label="Título de la reunión">
+        <div class="live-meta">
+          <input id="liveClient" placeholder="Cliente" aria-label="Cliente">
+          <input id="liveProject" placeholder="Proyecto" aria-label="Proyecto">
+        </div>
+        <div class="live-meta">
+          <a class="stt-chip" id="sttLabel" href="settings.html?tab=transcription" title="Motor de transcripción de esta reunión"></a>
+          <a class="flow" data-flow href="settings.html?tab=models"></a>
+        </div>
+      </div>
+
+      <div class="live-meter" aria-label="Niveles de audio">
+        <div class="lm"><i class="ph ph-microphone"></i><span style="width:66px">Micrófono</span><div class="meter-h" id="meterMic"></div></div>
+        <div class="lm"><i class="ph ph-speaker-high"></i><span style="width:66px">Sistema</span><div class="meter-h" id="meterSys"></div></div>
+      </div>
+
+      <div class="live-ctrl">
+        <button class="toggle-chip" id="coachChip" aria-pressed="false" title="Encender o apagar el coach">
+          <i class="ph ph-lightbulb"></i>Coach
+          <span class="switch" aria-hidden="true"><input type="checkbox" tabindex="-1" id="coachSwitch"><span class="track"></span></span>
+        </button>
+        <button class="toggle-chip" id="chatChip" aria-pressed="false" title="Mostrar u ocultar el chat">
+          <i class="ph ph-chats-circle"></i>Chat
+        </button>
+        <button class="btn" id="pauseBtn"><i class="ph-fill ph-pause"></i><span>Pausar</span></button>
+        <button class="btn btn-stop" id="stopBtn"><i class="ph-fill ph-stop"></i><span>Detener</span></button>
+      </div>
+    </header>
+
+    <div class="live-panes" id="panes" data-dock="on">
+      <section class="live-main" aria-label="Transcripción en vivo">
+        <div class="live-scroll scroll" id="liveScroll">
+          <div class="waiting" id="waiting"><i class="ph ph-waveform"></i><b>Esperando audio</b><span>La transcripción aparece aquí mientras hablan.</span></div>
+          <div id="liveTranscript"></div>
+          <div class="partial" id="partial" hidden><span class="time mono" id="partialT">00:00</span><span><span id="partialText"></span><span class="caret"></span></span></div>
+          <button class="back-live" id="backLive" hidden style="position:sticky"><i class="ph ph-arrow-down"></i>Volver al vivo</button>
+        </div>
+        <div class="demo-note"><i class="ph ph-info"></i><span>Demo: el reloj avanza 8 veces más rápido que el tiempo real.</span><span id="sttNote" hidden>Con Gemini el texto llega por bloques, por eso aparece por tandas.</span></div>
+      </section>
+
+      <aside class="dock" aria-label="Coach y chat">
+        <div class="dock-tabs">
+          <div class="seg" role="tablist">
+            <button role="tab" id="tabCoach" aria-checked="true"><i class="ph ph-lightbulb"></i>Coach <span class="cnt" id="coachCnt" hidden>0</span></button>
+            <button role="tab" id="tabChat" aria-checked="false"><i class="ph ph-chats-circle"></i>Chat</button>
+          </div>
+          <button class="icon-btn" id="dockClose" title="Ocultar panel" aria-label="Ocultar panel"><i class="ph ph-sidebar-simple"></i></button>
+        </div>
+
+        <!-- Coach -->
+        <div class="dock-panel" id="panelCoach">
+          <div class="coach-head">
+            <div class="ct"><b>Coach</b><span class="s" id="coachStatus">Apagado</span></div>
+            <select class="select" id="coachFreq" style="min-width:0;height:28px;font-size:.86em" aria-label="Frecuencia del coach">
+              <option>Cada 30 s</option><option selected>Cada minuto</option><option>Cada 2 min</option>
+            </select>
+          </div>
+          <div class="coach-list scroll" id="coachList"></div>
+        </div>
+
+        <!-- Chat -->
+        <div class="dock-panel" id="panelChat" hidden>
+          <div class="chat-live">
+            <div class="coach-head"><div class="ct"><b>Chat</b><span class="s">Sobre lo que se ha dicho hasta ahora</span></div>
+              <div data-model-picker data-slot="chat" data-default="llama32-3b" data-placement="bottom" data-align="right"></div></div>
+            <div class="chat-list scroll" id="liveChatList" aria-live="polite"></div>
+            <div class="chat-bottom">
+              <div class="suggest-row" id="liveSuggest"></div>
+              <form class="composer" id="liveChatForm">
+                <textarea id="liveChatInput" rows="1" placeholder="Pregunta sobre lo que llevan hablando" aria-label="Mensaje"></textarea>
+                <div class="composer-bar"><span class="hint">Enter envía</span><button class="send" type="submit" aria-label="Enviar"><i class="ph-fill ph-arrow-up"></i></button></div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+<script src="../shared/data.js"></script>
+<script src="data-v2.js"></script>
+<script src="../shared/ui.js"></script>
+<script src="shell.js"></script>
+<script src="live.js"></script>
+</body>
+</html>

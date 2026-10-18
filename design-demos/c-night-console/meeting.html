@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Night Console - Reunión</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell" data-pane="insights">
+  <header class="topstat">
+    <a class="brand" href="home.html" title="Nombre y logo provisionales"><i class="ph-fill ph-waveform"></i>MEETPULSE</a>
+    <div class="path"><a href="home.html">calderon</a>/<a href="home.html">portal-pedidos</a>/<b>sprint-14</b></div>
+    <span class="live-badge" data-live-badge hidden>EN VIVO</span>
+    <div class="right">
+      <a class="nav-lnk" href="home.html">Inicio</a>
+      <a class="nav-lnk" href="meeting.html" aria-current="page">Reuniones</a>
+      <button class="icon-btn" data-noop="Demo: aquí se abriría la búsqueda global." title="Buscar" aria-label="Buscar"><i class="ph ph-magnifying-glass"></i></button>
+      <button class="icon-btn" data-theme-toggle></button>
+      <button class="btn btn-rec" data-record><i class="ph-fill ph-record"></i><span>Grabar</span></button>
+    </div>
+  </header>
+
+  <div class="titlerow">
+    <h1>Planificación sprint 14</h1>
+    <div class="stats">
+      <div class="stat"><span class="mono-l">Duración</span><b data-player-dur>47:12</b></div>
+      <div class="stat"><span class="mono-l">Decisiones</span><b>4</b></div>
+      <div class="stat"><span class="mono-l">Acciones</span><b data-actions-stat>1/5</b></div>
+      <div class="stat"><span class="mono-l">Preguntas</span><b>2</b></div>
+      <div class="stat"><span class="mono-l">Riesgos</span><b>1</b></div>
+    </div>
+    <div class="acts">
+      <button class="btn" data-live-toggle><i class="ph-fill ph-record"></i><span>Simular en vivo</span></button>
+      <button class="btn" data-noop="Demo: exportación a PDF."><i class="ph ph-file-pdf"></i><span>Exportar PDF</span></button>
+    </div>
+  </div>
+
+  <section class="timeline" aria-label="Línea de tiempo">
+    <div class="tl-ctl player">
+      <button class="play" data-play aria-label="Reproducir"></button>
+      <span class="mono"><span data-player-time>00:00</span></span>
+      <button class="speed" data-speed title="Velocidad">1x</button>
+    </div>
+    <div class="tl-main">
+      <div class="tl-topics" id="tl-topics"></div>
+      <div class="wave" data-wave="170" role="slider" aria-label="Posición de audio"></div>
+      <span class="playhead" data-playhead></span>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Tú (micrófono)</span><span><i style="background:var(--text-2)"></i>Participantes (audio del sistema)</span></div>
+    </div>
+  </section>
+
+  <div class="mtabs" role="tablist" aria-label="Paneles">
+    <button data-pane-btn="transcript" aria-selected="false">TRANSCRIPCIÓN</button>
+    <button data-pane-btn="insights" aria-selected="true">INSIGHTS</button>
+    <button data-pane-btn="chat" aria-selected="false">ASISTENTE</button>
+  </div>
+
+  <div class="cols">
+    <section class="col col-t" aria-label="Transcripción">
+      <div class="col-head">
+        <span class="mono-l">Transcripción</span>
+        <span class="sp"></span>
+        <label class="search"><i class="ph ph-magnifying-glass"></i><input data-search type="text" placeholder="buscar (Ctrl K)" aria-label="Buscar en la transcripción"><span class="search-count" data-search-count></span></label>
+        <button class="icon-btn" data-font="-1" title="Texto más pequeño" aria-label="Texto más pequeño"><i class="ph ph-text-aa"></i></button>
+        <button class="icon-btn" data-font="1" title="Texto más grande" aria-label="Texto más grande"><i class="ph ph-text-a-underline"></i></button>
+      </div>
+      <div class="t-scroll scroll" data-transcript-scroll>
+        <div data-transcript data-mode="rows"></div>
+        <div class="listening" style="padding-left:12px" data-listening hidden><span class="pulse" style="border-radius:0"></span>Escuchando…</div>
+        <button class="back-live" data-back-live hidden><i class="ph ph-arrow-down"></i>Volver al vivo</button>
+      </div>
+    </section>
+
+    <section class="col col-i" aria-label="Insights">
+      <div class="col-head"><span class="mono-l">Insights</span><span class="sp"></span><span class="mono-l">fuente: transcripción</span></div>
+      <div class="i-scroll scroll"><div data-insights data-opts='{"sections":["summary","decisions","actions","talk","questions"],"summaryAs":"list"}'></div></div>
+    </section>
+
+    <aside class="col col-c" aria-label="Asistente">
+      <div class="col-head">
+        <span class="mono-l">Asistente</span>
+        <span class="sp"></span>
+        <div data-model-picker data-placement="bottom" data-align="right"></div>
+        <button class="icon-btn" data-chat-clear title="Nueva conversación" aria-label="Nueva conversación"><i class="ph ph-note-pencil"></i></button>
+      </div>
+      <div class="chat-list scroll" data-chat-list aria-live="polite"></div>
+      <div class="chat-bottom">
+        <div class="suggest-row" data-suggest></div>
+        <form class="composer" data-chat-form>
+          <textarea data-chat-input rows="1" placeholder="pregunta algo sobre la reunión" aria-label="Mensaje"></textarea>
+          <div class="composer-bar"><span class="hint">Enter envía</span><button class="send" type="submit" aria-label="Enviar"><i class="ph-fill ph-arrow-up"></i></button></div>
+        </form>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="botstat">
+    <span>modelo <b data-model-name style="color:var(--text);font-weight:500"></b></span>
+    <span class="mc-tag" data-model-kind></span>
+    <span data-model-privacy></span>
+    <span class="r"><i class="ph ph-check-circle"></i>guardado en este pc</span>
+  </footer>
+</div>
+<script src="../shared/data.js"></script>
+<script src="../shared/ui.js"></script>
+<script>
+  MP.revealTranscript = function () { var s = document.querySelector(".shell"); s.dataset.pane = "transcript"; document.querySelectorAll("[data-pane-btn]").forEach(function (b) { b.setAttribute("aria-selected", String(b.dataset.paneBtn === "transcript")); }); };
+  document.getElementById("tl-topics").innerHTML = MP.data.topics.map(function (t, i) {
+    return '<button style="--w:' + (t.to - t.from) + ';--i:' + i + '" data-seek="' + t.from + '" title="' + t.name + '">' + t.name + '</button>';
+  }).join("");
+</script>
+</body>
+</html>

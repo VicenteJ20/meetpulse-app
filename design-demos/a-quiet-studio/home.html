@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiet Studio - Inicio</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Principal">
+    <span class="logo-slot" title="Logo provisional"><i class="ph-fill ph-waveform"></i></span>
+    <a class="icon-btn" href="home.html" title="Inicio" aria-label="Inicio" aria-selected="true"><i class="ph ph-house"></i></a>
+    <a class="icon-btn" href="meeting.html" title="Reuniones" aria-label="Reuniones"><i class="ph ph-notebook"></i></a>
+    <button class="icon-btn" data-noop="Demo: aquí se abriría la búsqueda global." title="Buscar" aria-label="Buscar"><i class="ph ph-magnifying-glass"></i></button>
+    <button class="icon-btn" data-record title="Nueva grabación" aria-label="Nueva grabación"><i class="ph ph-microphone"></i></button>
+    <span class="spacer"></span>
+    <button class="icon-btn" data-theme-toggle></button>
+    <button class="icon-btn" data-noop="Demo: ajustes." title="Ajustes" aria-label="Ajustes"><i class="ph ph-gear-six"></i></button>
+  </nav>
+  <main class="home scroll">
+    <div class="home-in">
+      <header>
+        <h1>Nueva grabación</h1>
+        <p class="home-sub">Todo se transcribe y resume en este equipo.</p>
+      </header>
+
+      <section class="recorder" aria-label="Preparar grabación">
+        <div class="rec-main">
+          <div class="rec-fields">
+            <div class="field"><label for="f1">Título</label><input id="f1" placeholder="Planificación sprint 15"></div>
+            <div class="field"><label for="f2">Cliente</label><input id="f2" placeholder="Bodegas Calderón"></div>
+            <div class="field"><label for="f3">Proyecto</label><input id="f3" placeholder="Portal de pedidos"></div>
+          </div>
+          <div class="rec-row">
+            <button class="btn btn-rec" data-record><i class="ph-fill ph-microphone"></i>Grabar</button>
+            <button class="btn" data-import><i class="ph ph-upload-simple"></i>Importar audio</button>
+            <div class="meter rec-meter" data-meter="34" aria-label="Nivel del micrófono"></div>
+          </div>
+        </div>
+        <div class="rec-side">
+          <h2>Listo para grabar</h2>
+          <ul data-readiness></ul>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head"><h2>Reuniones recientes</h2><label class="search" style="max-width:240px"><i class="ph ph-magnifying-glass"></i><input type="text" placeholder="Buscar reuniones" aria-label="Buscar reuniones"></label></div>
+        <div class="mt-list" data-recent></div>
+      </section>
+    </div>
+  </main>
+</div>
+<script src="../shared/data.js"></script>
+<script src="../shared/ui.js"></script>
+</body>
+</html>

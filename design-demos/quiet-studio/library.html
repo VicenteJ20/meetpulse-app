@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeetPulse v2 - Biblioteca</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="screens.css">
+<link rel="stylesheet" href="assistant.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" data-current="library" aria-label="Principal"></nav>
+  <main class="lib" data-tabs="main" data-initial="meetings">
+    <header class="lib-head">
+      <div>
+        <h1>Biblioteca</h1>
+        <p class="home-sub">Todas tus reuniones y las acciones que salieron de ellas.</p>
+      </div>
+      <div class="lib-actions">
+        <button class="btn" data-open-ask><i class="ph ph-sparkle"></i>Preguntar sobre mis reuniones</button>
+        <button class="btn btn-rec" data-goto="live.html"><i class="ph-fill ph-microphone"></i>Grabar</button>
+      </div>
+    </header>
+    <div class="lib-tabs">
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="meetings">Reuniones <span class="count" id="cMeet"></span></button>
+        <button role="tab" data-tab="actions">Acciones <span class="count" id="cAct"></span></button>
+      </div>
+    </div>
+
+    <!-- Reuniones -->
+    <section class="lib-body" data-tab-panel="meetings">
+      <div class="lib-bar">
+        <label class="search" style="max-width:340px;margin:0"><i class="ph ph-magnifying-glass"></i><input id="q" type="text" placeholder="Filtrar por título, cliente o etiqueta" aria-label="Filtrar reuniones"></label>
+        <div class="chips" id="clientChips" role="group" aria-label="Cliente"></div>
+        <label class="opt-inline"><span class="switch"><input type="checkbox" id="onlyPending" role="switch"><span class="track"></span></span>Con acciones</label>
+      </div>
+      <div class="bulk" id="bulk" hidden>
+        <b id="bulkN"></b>
+        <button class="btn btn-sm" data-noop="Demo: se exportarían las reuniones seleccionadas."><i class="ph ph-export"></i>Exportar</button>
+        <button class="btn btn-sm" id="bulkRe"><i class="ph ph-arrows-clockwise"></i>Reanalizar con otro modelo</button>
+        <button class="btn btn-sm btn-danger" data-noop="Demo: pediría confirmación antes de eliminar."><i class="ph ph-trash"></i>Eliminar</button>
+        <button class="btn btn-sm btn-ghost" id="bulkClear">Quitar selección</button>
+      </div>
+      <div class="lib-list" id="meetList"></div>
+    </section>
+
+    <!-- Acciones -->
+    <section class="lib-body" data-tab-panel="actions" hidden>
+      <div class="lib-bar">
+        <div class="seg" data-seg="who" role="radiogroup" aria-label="Responsable"><button role="radio" data-value="all" aria-checked="true">Todas</button><button role="radio" data-value="mine" aria-checked="false">Solo mías</button></div>
+        <span class="hint" id="actSummary"></span>
+      </div>
+      <div id="actList"></div>
+    </section>
+  </main>
+</div>
+<script src="../shared/data.js"></script>
+<script src="data-v2.js"></script>
+<script src="../shared/ui.js"></script>
+<script src="shell.js"></script>
+<script src="library.js"></script>
+</body>
+</html>

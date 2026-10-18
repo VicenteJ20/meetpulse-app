@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeetPulse v2 - Preguntar</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="screens.css">
+<link rel="stylesheet" href="assistant.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" data-current="ask" aria-label="Principal"></nav>
+  <div class="ask-layout">
+    <aside class="ask-side" aria-label="Conversaciones">
+      <button class="btn btn-primary" id="newChat"><i class="ph ph-note-pencil"></i>Nueva conversación</button>
+      <div>
+        <p class="side-t">Recientes</p>
+        <div id="hist" class="hist"></div>
+      </div>
+      <div class="idx">
+        <p class="side-t">Índice local</p>
+        <div class="idx-row"><i class="dot"></i><b>Al día</b></div>
+        <p class="idx-d">128 reuniones, 4.310 fragmentos. Se actualiza solo cuando termina una reunión.</p>
+        <div class="idx-acts"><button class="btn btn-sm" id="reidx"><i class="ph ph-arrow-clockwise"></i>Reconstruir</button><a class="hint-link" href="settings.html?tab=privacy">Ajustes del índice</a></div>
+      </div>
+    </aside>
+    <section class="ask-main" data-assistant-page aria-label="Conversación"></section>
+  </div>
+</div>
+<script src="../shared/data.js"></script>
+<script src="data-v2.js"></script>
+<script src="../shared/ui.js"></script>
+<script src="shell.js"></script>
+<script>
+  (function () {
+    var $ = function (s) { return document.querySelector(s); };
+    $("#hist").innerHTML = MP.data.history.map(function (h) { return '<button class="hist-row" data-h><b>' + MP.esc(h.title) + '</b><span>' + h.when + '</span></button>'; }).join("");
+    $("#hist").addEventListener("click", function (e) { if (e.target.closest("[data-h]")) MP.toast("Demo: aquí se abriría la conversación."); });
+    $("#newChat").addEventListener("click", function () { document.querySelector("[data-new]").click(); });
+    $("#reidx").addEventListener("click", function (e) {
+      var b = e.currentTarget; b.classList.add("is-loading"); b.innerHTML = '<i class="ph ph-circle-notch spin"></i>Reconstruyendo';
+      setTimeout(function () { b.classList.remove("is-loading"); b.innerHTML = '<i class="ph ph-arrow-clockwise"></i>Reconstruir'; MP.toast("Índice reconstruido: 128 reuniones."); }, 1800);
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Night Console - Inicio</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell">
+  <header class="topstat">
+    <a class="brand" href="home.html" title="Nombre y logo provisionales"><i class="ph-fill ph-waveform"></i>MEETPULSE</a>
+    <div class="path"><b>inicio</b></div>
+    <div class="right">
+      <a class="nav-lnk" href="home.html" aria-current="page">Inicio</a>
+      <a class="nav-lnk" href="meeting.html">Reuniones</a>
+      <button class="icon-btn" data-noop="Demo: aquí se abriría la búsqueda global." title="Buscar" aria-label="Buscar"><i class="ph ph-magnifying-glass"></i></button>
+      <button class="icon-btn" data-theme-toggle></button>
+    </div>
+  </header>
+  <main class="home scroll">
+    <div class="home-grid">
+      <section class="panel-c" aria-label="Nueva grabación">
+        <div class="col-head"><span class="mono-l">Nueva grabación</span></div>
+        <div class="rec-body">
+          <div class="rec-fields">
+            <div class="field"><label for="f1">Título</label><input id="f1" placeholder="Planificación sprint 15"></div>
+            <div class="field"><label for="f2">Cliente</label><input id="f2" placeholder="Bodegas Calderón"></div>
+            <div class="field"><label for="f3">Proyecto</label><input id="f3" placeholder="Portal de pedidos"></div>
+          </div>
+          <div class="rec-row">
+            <button class="btn btn-rec" data-record><i class="ph-fill ph-record"></i>Grabar</button>
+            <button class="btn" data-import><i class="ph ph-upload-simple"></i>Importar audio</button>
+            <div class="meter rec-meter" data-meter="64" aria-label="Nivel del micrófono"></div>
+          </div>
+        </div>
+      </section>
+      <section class="panel-c" aria-label="Estado del sistema">
+        <div class="col-head"><span class="mono-l">Listo para grabar</span></div>
+        <ul class="checks" data-readiness></ul>
+      </section>
+      <section class="tbl" aria-label="Reuniones recientes">
+        <div class="col-head"><span class="mono-l">Reuniones recientes</span><span class="sp"></span><label class="search"><i class="ph ph-magnifying-glass"></i><input type="text" placeholder="filtrar" aria-label="Filtrar reuniones"></label></div>
+        <div class="mt-head"><span>Fecha</span><span>Título</span><span>Cliente / proyecto</span><span>Dur.</span><span>Acciones</span><span>Tema principal</span></div>
+        <div data-recent></div>
+      </section>
+    </div>
+  </main>
+</div>
+<script src="../shared/data.js"></script>
+<script src="../shared/ui.js"></script>
+</body>
+</html>

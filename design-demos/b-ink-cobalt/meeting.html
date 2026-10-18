@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ink &amp; Cobalt - Reunión</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell" data-tabs="main" data-initial="summary">
+  <header class="nav">
+    <div class="nav-in">
+      <a class="wordmark" href="home.html" title="Nombre y logo provisionales"><i class="ph-fill ph-waveform"></i>MeetPulse</a>
+      <nav class="nav-links" aria-label="Principal">
+        <a href="home.html">Inicio</a>
+        <a href="meeting.html" aria-current="page">Reuniones</a>
+        <a href="#" data-noop="Demo: ajustes.">Ajustes</a>
+      </nav>
+      <div class="nav-right">
+        <button class="nav-search" data-noop="Demo: aquí se abriría la búsqueda global."><i class="ph ph-magnifying-glass"></i><span>Buscar en todo</span><kbd>Ctrl K</kbd></button>
+        <button class="btn btn-ghost" data-theme-toggle data-label></button>
+        <button class="btn btn-primary" data-record><i class="ph-fill ph-microphone"></i><span>Grabar</span></button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="crumbs"><a href="home.html">Bodegas Calderón</a><i class="ph ph-caret-right"></i><a href="home.html">Portal de pedidos</a></div>
+    <h1>Planificación sprint 14</h1>
+    <div class="meta">
+      <span><i class="ph ph-calendar-blank"></i>vie 16 oct, 15:00</span>
+      <span><i class="ph ph-clock"></i>47 min</span>
+      <span><i class="ph ph-check-circle"></i>Guardado en este PC</span>
+      <span class="live-badge" data-live-badge hidden>Grabando en vivo</span>
+    </div>
+    <div class="tabbar">
+      <div class="tabs-b" role="tablist">
+        <button role="tab" data-tab="summary"><i class="ph ph-sparkle"></i>Resumen</button>
+        <button role="tab" data-tab="transcript"><i class="ph ph-text-align-left"></i>Transcripción</button>
+        <button role="tab" data-tab="chat"><i class="ph ph-chats-circle"></i>Conversación</button>
+      </div>
+      <div class="tab-actions">
+        <button class="btn" data-live-toggle><i class="ph-fill ph-record"></i><span>Simular en vivo</span></button>
+        <button class="btn" data-noop="Demo: exportación a PDF."><i class="ph ph-file-pdf"></i><span>Exportar PDF</span></button>
+        <div data-model-picker data-placement="bottom" data-align="right"></div>
+      </div>
+    </div>
+  </section>
+
+  <main class="stage">
+    <!-- Resumen -->
+    <div class="panel scroll" data-tab-panel="summary">
+      <div class="wrap">
+        <div class="sum">
+          <div class="sum-main" data-insights data-opts='{"sections":["summary","decisions","actions"],"noSummaryTitle":true}'></div>
+          <aside class="sum-aside" data-insights data-opts='{"sections":["topics","talk","questions"]}'></aside>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transcripción -->
+    <div class="panel" data-tab-panel="transcript" hidden>
+      <div class="wrap" style="flex:none">
+        <div class="tbar">
+          <label class="search"><i class="ph ph-magnifying-glass"></i><input data-search type="text" placeholder="Buscar en la transcripción" aria-label="Buscar en la transcripción"><span class="search-count" data-search-count></span><kbd>Ctrl K</kbd></label>
+          <div class="player">
+            <button class="play" data-play aria-label="Reproducir"></button>
+            <span class="mono"><span data-player-time>00:00</span> / <span data-player-dur>47:12</span></span>
+            <div class="wave" data-wave="90" role="slider" aria-label="Posición de audio"></div>
+            <button class="speed" data-speed title="Velocidad">1x</button>
+          </div>
+          <div style="display:flex;gap:2px">
+            <button class="icon-btn" data-font="-1" title="Texto más pequeño" aria-label="Texto más pequeño"><i class="ph ph-text-aa"></i></button>
+            <button class="icon-btn" data-font="1" title="Texto más grande" aria-label="Texto más grande"><i class="ph ph-text-a-underline"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="t-scroll scroll" data-transcript-scroll>
+        <div class="wrap">
+          <div data-transcript data-mode="grouped"></div>
+          <div class="listening" data-listening hidden><span class="pulse"></span>Escuchando…</div>
+        </div>
+        <button class="back-live" data-back-live hidden><i class="ph ph-arrow-down"></i>Volver al vivo</button>
+      </div>
+    </div>
+
+    <!-- Conversación -->
+    <div class="panel" data-tab-panel="chat" hidden>
+      <div class="chat-wrap">
+        <div class="chat-tools"><button class="btn btn-ghost" data-chat-clear><i class="ph ph-note-pencil"></i>Nueva conversación</button></div>
+        <div class="chat-list scroll" data-chat-list aria-live="polite"></div>
+        <div class="chat-bottom">
+          <div class="suggest-row" data-suggest></div>
+          <form class="composer" data-chat-form>
+            <textarea data-chat-input rows="1" placeholder="Pregunta sobre decisiones, acciones o cualquier momento" aria-label="Mensaje"></textarea>
+            <div class="composer-bar">
+              <div data-model-picker data-placement="top"></div>
+              <span class="hint">Enter envía, Shift+Enter agrega una línea</span>
+              <button class="send" type="submit" aria-label="Enviar"><i class="ph-fill ph-arrow-up"></i></button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="../shared/data.js"></script>
+<script src="../shared/ui.js"></script>
+<script>
+  MP.revealTranscript = function () { if (MP.showTab_main) MP.showTab_main("transcript"); };
+</script>
+</body>
+</html>
