@@ -31,15 +31,20 @@ export function AssistantModelSelect({
 
   useEffect(() => {
     let active = true;
-    invoke<{ models: { id: string; name: string }[] }>('desktop_list_models', {
+    const ollama = invoke<{ models: { id: string; name: string }[] }>('desktop_list_models', {
       provider: 'ollama',
       purpose: 'analysis',
       apiKey: null,
       endpoint: modelConfig.ollamaEndpoint ?? null,
       refresh: false,
     })
-      .then((list) => { if (active) setLocal((list.models ?? []).map((m) => ({ provider: 'ollama', id: m.id, label: m.name || m.id }))); })
-      .catch(() => { if (active) setLocal([]); });
+      .then((list) => (list.models ?? []).map((m) => ({ provider: 'ollama', id: m.id, label: m.name || m.id })))
+      .catch(() => [] as Entry[]);
+    // IA integrada: solo los modelos ya descargados.
+    const builtIn = invoke<{ name: string; display_name: string; status: { type: string } }[]>('builtin_ai_list_models')
+      .then((items) => items.filter((m) => m.status.type === 'available').map((m) => ({ provider: 'builtin-ai', id: m.name, label: m.display_name || m.name })))
+      .catch(() => [] as Entry[]);
+    void Promise.all([builtIn, ollama]).then(([a, b]) => { if (active) setLocal([...a, ...b]); });
     return () => { active = false; };
   }, [modelConfig.ollamaEndpoint]);
 

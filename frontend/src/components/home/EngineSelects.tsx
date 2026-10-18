@@ -125,7 +125,8 @@ export function LanguageSelect() {
 }
 
 type ModelList = { models: { id: string; name: string }[] };
-type LocalModel = { provider: string; id: string; name: string };
+type LocalModel = { provider: string; id: string; name: string; available?: boolean; legacy?: boolean };
+type BuiltInInfo = { name: string; display_name: string; status: { type: string }; lifecycle?: string };
 
 export function SummaryModelSelect() {
   const { t } = useTranslation();
@@ -146,7 +147,14 @@ export function SummaryModelSelect() {
       })
         .then((list) => (list.models ?? []).map((m) => ({ provider, id: m.id, name: m.name || m.id })))
         .catch(() => []);
-    void Promise.all([load('ollama'), load('builtin-ai')]).then(([a, b]) => { if (active) setLocal([...a, ...b]); });
+    // IA integrada: se listan todos los del catálogo; los no descargados quedan inactivos.
+    const loadBuiltIn = (): Promise<LocalModel[]> =>
+      invoke<BuiltInInfo[]>('builtin_ai_list_models')
+        .then((items) => items
+          .map((m) => ({ provider: 'builtin-ai', id: m.name, name: m.display_name || m.name, available: m.status.type === 'available', legacy: !!m.lifecycle && m.lifecycle !== 'current' }))
+          .sort((x, y) => Number(x.legacy) - Number(y.legacy)))
+        .catch(() => []);
+    void Promise.all([loadBuiltIn(), load('ollama')]).then(([a, b]) => { if (active) setLocal([...a, ...b]); });
     return () => { active = false; };
   }, [modelConfig.ollamaEndpoint]);
 
@@ -197,7 +205,15 @@ export function SummaryModelSelect() {
             <SelectGroup>
               <SelectLabel className={groupLabel}>{t('home.groupLocal')}</SelectLabel>
               {localList.map((m) => (
-                <SelectItem key={`${m.provider}:${m.id}`} value={`${m.provider}:${m.id}`}>{PROVIDER_NAME[m.provider]} · {m.name}</SelectItem>
+                <SelectItem
+                  key={`${m.provider}:${m.id}`}
+                  value={`${m.provider}:${m.id}`}
+                  disabled={m.available === false && `${m.provider}:${m.id}` !== current}
+                >
+                  {PROVIDER_NAME[m.provider]} · {m.name}
+                  {m.legacy ? ` · ${t('builtin.legacy').toLowerCase()}` : ''}
+                  {m.available === false ? ` · ${t('home.notDownloaded')}` : ''}
+                </SelectItem>
               ))}
             </SelectGroup>
           )}

@@ -24,3 +24,9 @@ export function aboutMePrompt(): string {
     ? `About the user (the person who recorded this meeting; "[Usuario]" lines in the transcript are them, "[Equipo]" lines are the other participants): ${about}`
     : '';
 }
+
+/** Iniciales del usuario a partir de su descripción ("Soy Vicente Jorquera…"). Vacío si no se encuentran. */
+export function aboutMeInitials(): string {
+  const match = /(?:soy|me llamo|i am|i'm|my name is)\s+([\p{L}]+)\s+([\p{L}]+)/iu.exec(loadAboutMe());
+  return match ? (match[1][0] + match[2][0]).toUpperCase() : '';
+}
