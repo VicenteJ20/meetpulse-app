@@ -1,3 +1,5 @@
+import { ModelRow, type ModelRowStatus } from '@/components/ui/model-row';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import React, { useState, useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
@@ -28,6 +30,7 @@ export function ModelManager({
   className = '',
   autoSave = false
 }: ModelManagerProps) {
+  const { t } = useTranslation();
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -404,7 +407,7 @@ export function ModelManager({
   if (error) {
     return (
       <div className={`bg-destructive/10 border border-destructive/25 rounded-lg p-4 ${className}`}>
-        <p className="text-sm text-destructive">Failed to load models</p>
+        <p className="text-sm text-destructive">{t('mr.loadFailed')}</p>
         <p className="text-xs text-destructive mt-1">{error}</p>
       </div>
     );
@@ -447,7 +450,7 @@ export function ModelManager({
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="advanced-models">
             <AccordionTrigger>
-              <span className='text-lg'>Advanced Models</span>
+              <span className='text-sm font-medium'>{t('mr.advanced')}</span>
             </AccordionTrigger>
             <AccordionContent>
               <div className="space-y-3 pt-4">
@@ -510,219 +513,46 @@ function ModelCard({
   onDownload,
   onCancel,
   onDelete,
-  isDownloading,
   displayName
 }: ModelCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  const isAvailable = model.status === 'Available';
-  const isMissing = model.status === 'Missing';
-  const isError = typeof model.status === 'object' && 'Error' in model.status;
-  const isCorrupted = typeof model.status === 'object' && 'Corrupted' in model.status;
+  const { t } = useTranslation();
   const downloadProgress =
     typeof model.status === 'object' && 'Downloading' in model.status
       ? model.status.Downloading
       : null;
+  const status: ModelRowStatus =
+    downloadProgress !== null
+      ? 'downloading'
+      : model.status === 'Available'
+        ? 'available'
+        : model.status === 'Missing'
+          ? 'missing'
+          : typeof model.status === 'object' && 'Corrupted' in model.status
+            ? 'corrupted'
+            : 'error';
+  const badge = isQuantizedModel(model.name) ? getModelPerformanceBadge(model.name) : null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className={`
-        relative rounded-lg border-2 transition-all cursor-pointer
-        ${isSelected && isAvailable
-          ? 'border-brand bg-brand/10'
-          : isAvailable
-            ? 'border-border hover:border-border bg-card'
-            : 'border-border bg-muted/50'
-        }
-        ${isAvailable ? '' : 'cursor-default'}
-      `}
-      onClick={() => {
-        if (isAvailable) onSelect();
-      }}
-    >
-      {/* Recommended Badge */}
-      {isRecommended && (
-        <div className="absolute -top-2 -right-2 bg-brand text-brand-foreground text-xs px-2 py-0.5 rounded-full font-medium">
-          Recommended
-        </div>
-      )}
-
-      <div className="p-3">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1">
-            {/* Model Name and Tagline */}
-            <div className="flex items-center gap-2 flex-wrap mb-2">
-              <span className="text-2xl">{getModelIcon(model.accuracy)}</span>
-              <h3 className="font-semibold text-foreground">{displayName}</h3>
-              <span className="text-sm text-muted-foreground">•</span>
-              <span className="text-sm text-muted-foreground">{getModelTagline(model.name, model.speed, model.accuracy)}</span>
-              {isSelected && isAvailable && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="bg-brand text-brand-foreground px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1"
-                >
-                  ✓
-                </motion.span>
-              )}
-              {isQuantizedModel(model.name) && (
-                <span className={`px-2 py-0.5 rounded-full text-xs ${getModelPerformanceBadge(model.name).color === 'green'
-                  ? 'bg-success/15 text-success'
-                  : getModelPerformanceBadge(model.name).color === 'orange'
-                    ? 'bg-warning/15 text-warning'
-                    : 'bg-muted text-foreground'
-                  }`}>
-                  {getModelPerformanceBadge(model.name).label}
-                </span>
-              )}
-            </div>
-
-            {/* Model Specs */}
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground ml-9 mt-1.5">
-              <span className="flex items-center space-x-1">
-                <span>📦</span>
-                <span>{formatFileSize(model.size_mb)}</span>
-              </span>
-              <span className="flex items-center space-x-1">
-                <span>🎯</span>
-                <span>{model.accuracy} accuracy</span>
-              </span>
-              <span className="flex items-center space-x-1">
-                <span>⚡</span>
-                <span>{model.speed} processing</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Status/Action */}
-          <div className="ml-4 flex items-center gap-2">
-            {isAvailable && (
-              <>
-                <div className="flex items-center gap-1.5 text-success">
-                  <div className="w-2 h-2 bg-success rounded-full"></div>
-                  <span className="text-xs font-medium">Ready</span>
-                </div>
-                <AnimatePresence>
-                  {isHovered && (
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ duration: 0.15 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete();
-                      }}
-                      className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                      title="Delete model to free up space"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-              </>
-            )}
-
-            {isMissing && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDownload();
-                }}
-                className="bg-brand text-brand-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-brand/90 transition-colors"
-              >
-                Download
-              </button>
-            )}
-
-            {downloadProgress === null && isError && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDownload();
-                }}
-                className="bg-destructive text-destructive-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-destructive/90 transition-colors"
-              >
-                Retry
-              </button>
-            )}
-
-            {isCorrupted && (
-              <div className="flex gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete();
-                  }}
-                  className="bg-warning text-brand-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-warning/90 transition-colors"
-                >
-                  Delete
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDownload();
-                  }}
-                  className="bg-brand text-brand-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-brand/90 transition-colors"
-                >
-                  Re-download
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Full-width Download Progress Bar - PROMINENT */}
-        {downloadProgress !== null && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mt-3 pt-3 border-t border-border"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-brand">Downloading...</span>
-                <span className="text-sm font-semibold text-brand">{Math.round(downloadProgress)}%</span>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCancel();
-                }}
-                className="text-xs text-muted-foreground hover:text-destructive font-medium transition-colors px-2 py-1 rounded hover:bg-destructive/10"
-                title="Cancel download"
-              >
-                Cancel
-              </button>
-            </div>
-            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-gradient-to-r from-brand to-brand rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${downloadProgress}%` }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {model.size_mb ? (
-                <>
-                  {formatFileSize(model.size_mb * downloadProgress / 100)} / {formatFileSize(model.size_mb)}
-                </>
-              ) : (
-                'Downloading...'
-              )}
-            </p>
-          </motion.div>
-        )}
-      </div>
-    </motion.div>
+    <ModelRow
+      name={displayName}
+      description={getModelTagline(model.name, model.speed, model.accuracy)}
+      meta={
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span>{formatFileSize(model.size_mb)}</span>
+          <span>{t('mr.accuracy').replace('{value}', String(model.accuracy))}</span>
+          <span>{t('mr.speed').replace('{value}', String(model.speed))}</span>
+          {badge && <span className={badge.color === 'green' ? 'text-success' : badge.color === 'orange' ? 'text-warning' : ''}>{badge.label}</span>}
+        </span>
+      }
+      status={status}
+      progress={downloadProgress}
+      progressLabel={model.size_mb && downloadProgress !== null ? `${formatFileSize(model.size_mb * downloadProgress / 100)} / ${formatFileSize(model.size_mb)}` : undefined}
+      selected={isSelected}
+      recommended={isRecommended}
+      onSelect={onSelect}
+      onDownload={onDownload}
+      onCancel={onCancel}
+      onDelete={onDelete}
+    />
   );
 }
