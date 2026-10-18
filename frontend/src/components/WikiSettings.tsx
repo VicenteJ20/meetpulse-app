@@ -1,5 +1,7 @@
 'use client';
 
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -86,19 +88,19 @@ export function WikiSettings() {
     <section className="space-y-3">
       <label className="block text-sm font-medium">
         {t('settings.wikiUrl')}
-        <input
+        <Input
+          className="mt-1"
           value={config.baseUrl}
           onChange={event => setConfig({ ...config, baseUrl: event.target.value })}
           placeholder={DEFAULT_WIKI_CONFIG.baseUrl}
-          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
         />
       </label>
       <div className="flex items-center gap-3">
-        <button onClick={save} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">{t('common.save')}</button>
-        <button onClick={check} disabled={checking} className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted/50 disabled:opacity-60">
+        <Button onClick={save}>{t('common.save')}</Button>
+        <Button variant="outline" onClick={check} disabled={checking}>
           {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           {t('settings.wikiTest')}
-        </button>
+        </Button>
         {connected === true && <span className="inline-flex items-center gap-1 text-sm text-emerald-700"><CheckCircle2 className="h-4 w-4" />{t('settings.wikiConnected')}</span>}
         {connected === false && <span className="text-sm text-destructive">{t('settings.wikiConnectionFailed')}</span>}
       </div>

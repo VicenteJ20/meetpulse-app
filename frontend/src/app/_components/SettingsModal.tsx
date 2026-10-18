@@ -1,3 +1,4 @@
+import { Switch } from '@/components/ui/switch';
 import { ModelConfig } from "@/components/ModelSettingsModal";
 import { PreferenceSettings } from "@/components/PreferenceSettings";
 import { DeviceSelection } from "@/components/DeviceSelection";
@@ -272,15 +273,7 @@ export function SettingsModals({
           <div className="p-6 pt-4 border-t border-border flex items-center justify-between">
             {/* Confidence Indicator Toggle */}
             <div className="flex items-center gap-3">
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showConfidenceIndicator}
-                  onChange={(e) => toggleConfidenceIndicator(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-card after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Switch checked={showConfidenceIndicator} onCheckedChange={toggleConfidenceIndicator} aria-label="Confidence indicators" />
               <div>
                 <p className="text-sm font-medium text-foreground">Show Confidence Indicators</p>
                 <p className="text-xs text-muted-foreground">Display colored dots showing transcription confidence quality</p>
