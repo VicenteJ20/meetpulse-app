@@ -86,9 +86,9 @@ export function OnboardingContainer({
 
         {/* Header - Fixed */}
         <div className="mb-4 text-center space-y-3 flex-shrink-0">
-          <h1 className="animate-fade-in-up text-4xl font-semibold tracking-[-0.04em] text-foreground">{title}</h1>
+          <h1 className="animate-enter text-3xl font-semibold tracking-[-0.03em] text-foreground">{title}</h1>
           {description && (
-            <p className="animate-fade-in-up delay-75 mx-auto max-w-md text-base text-muted-foreground">
+            <p style={{ animationDelay: '70ms' }} className="animate-enter mx-auto max-w-md text-base text-muted-foreground">
               {description}
             </p>
           )}
@@ -96,7 +96,7 @@ export function OnboardingContainer({
 
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto pr-2">
-          <div className="space-y-6">{children}</div>
+          <div key={step} className="animate-enter space-y-6" style={{ animationDelay: '120ms' }}>{children}</div>
         </div>
       </div>
     </div>

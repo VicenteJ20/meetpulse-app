@@ -20,9 +20,9 @@ export function PermissionRow({ icon, title, description, status, isPending = fa
   return (
     <div
       className={cn(
-        'flex items-center justify-between rounded-2xl border px-6 py-5',
-        'transition-all duration-200',
-        isAuthorized ? 'border-foreground bg-muted' : isDenied ? 'border-destructive/30 bg-destructive/10' : 'bg-card border-border'
+        'flex items-center justify-between rounded-xl border px-5 py-4',
+        'transition-[background-color,border-color] duration-200',
+        isAuthorized ? 'border-success/40 bg-success/5' : isDenied ? 'border-destructive/30 bg-destructive/10' : 'bg-card border-border'
       )}
     >
       {/* Left side: Icon + Info */}

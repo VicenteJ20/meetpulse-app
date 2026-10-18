@@ -375,6 +375,7 @@
   .meeting-workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; }
   .meeting-workspace[data-view="analysis"] > .meeting-transcript { display: none; }
   .meeting-workspace[data-view="transcript"] > .meeting-analysis { display: none; }
+  .meeting-workspace > * { animation: enter 0.3s var(--ease-out); }
   .meeting-transcript, .meeting-analysis { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; }
   .meeting-workspace[data-view="split"] > .meeting-transcript { flex: 0 0 40%; border-right: 1px solid hsl(var(--border)); }
   .assistant-panel { transition: width 180ms ease; }

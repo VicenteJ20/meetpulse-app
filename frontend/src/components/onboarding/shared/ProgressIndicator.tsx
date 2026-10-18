@@ -36,16 +36,16 @@ export function ProgressIndicator({ current, total, onStepClick }: ProgressIndic
                   isCompleted
                     ? 'w-7 h-7 bg-success rounded-full'
                     : isActive
-                      ? 'w-8 h-8 bg-foreground rounded-full'
+                      ? 'w-8 h-8 bg-brand rounded-full shadow-[0_0_0_4px_hsl(var(--brand)/0.18)]'
                       : 'w-6 h-6 bg-muted-foreground/30 rounded-full'
                 } ${isClickable ? 'cursor-pointer hover:scale-110 hover:shadow-md' : 'cursor-default'}`}
               >
                 {isCompleted ? (
-                  <Check className="w-4 h-4 text-white" />
+                  <Check className="w-4 h-4 text-background" />
                 ) : (
                   <StepIcon
                     className={`transition-all duration-300 ${
-                      isActive ? 'w-4 h-4 text-white' : 'w-3 h-3 text-muted-foreground'
+                      isActive ? 'w-4 h-4 text-brand-foreground' : 'w-3 h-3 text-muted-foreground'
                     }`}
                   />
                 )}

@@ -26,6 +26,7 @@ import { PdfExports } from '@/components/MeetingDetails/PdfExports';
 import { CalendarDays, ChevronRight } from 'lucide-react';
 import { Segmented } from '@/components/ui/segmented';
 import { SelectField } from '@/components/ui/select-field';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MeetingMetaPopover } from '@/components/MeetingDetails/MeetingMetaPopover';
 import { DataFlowChip } from '@/components/DataFlowChip';
@@ -469,8 +470,8 @@ export default function PageContent({
           </div>
         </div>
         <DialogFooter>
-          <button onClick={() => wikiPublish.setDestinationOpen(false)} className="rounded-md border px-3 py-2 text-sm">{t('common.cancel')}</button>
-          <button onClick={() => { wikiPublish.confirmDestination(); }} disabled={!wikiPublish.destination.ready || wikiPublish.isPublishing} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{t('meeting.wikiPublishNow')}</button>
+          <Button variant="outline" onClick={() => wikiPublish.setDestinationOpen(false)}>{t('common.cancel')}</Button>
+          <Button onClick={() => { wikiPublish.confirmDestination(); }} disabled={!wikiPublish.destination.ready || wikiPublish.isPublishing}>{t('meeting.wikiPublishNow')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
