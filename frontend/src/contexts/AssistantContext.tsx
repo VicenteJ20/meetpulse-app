@@ -33,6 +33,7 @@ import { useConfig } from "@/contexts/ConfigContext";
 import { useSidebar } from "@/components/Sidebar/SidebarProvider";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import { Button } from "@/components/ui/button";
+import { loadAssistantDefaults } from "@/lib/assistantDefaults";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { SelectField } from "@/components/ui/select-field";
@@ -170,6 +171,23 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             : "",
       }
     : savedTarget;
+  const defaultCadence = typeof window !== "undefined" ? loadAssistantDefaults().cadence : 60;
+  const startedFor = useRef("");
+  useEffect(() => {
+    if (!isRecording || !currentMeetingId || startedFor.current === currentMeetingId) return;
+    startedFor.current = currentMeetingId;
+    const defaults = loadAssistantDefaults();
+    // Se aplica tras el reinicio de estado que ocurre al cambiar de reunión.
+    const timer = setTimeout(() => {
+      if (defaults.chatOnStart) setOpen(true);
+      if (defaults.coachOnStart) {
+        setTab("coach");
+        setOpen(true);
+        setCoach(true);
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [isRecording, currentMeetingId]);
   const provider = prefs.provider || modelConfig.provider;
   const model = prefs.model ?? modelConfig.model;
   useEffect(() => {
@@ -376,10 +394,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     if (!coach) return;
     const timer = setInterval(
       () => coachJob.current(),
-      (prefs.cadence || 60) * 1000,
+      (prefs.cadence || defaultCadence) * 1000,
     );
     return () => clearInterval(timer);
-  }, [coach, prefs.cadence, session]);
+  }, [coach, prefs.cadence, defaultCadence, session]);
   const pollSearch = useCallback(async () => {
     try {
       setSearch(await invoke<SearchStatus>("desktop_search_status"));
@@ -677,42 +695,11 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
                 {t("assistant.useAnalysis")}
               </Button>
               <p className="text-xs text-muted-foreground">{t("assistant.apiNote")}</p>
-              <div className="space-y-2 border-t border-border pt-3">
-                <p className="text-xs text-muted-foreground">
-                  {search?.ready
-                    ? indexLabel
-                    : t("assistant.indexInitial")}
-                  {search && search.totalBytes > 0 && !search.ready
-                    ? ` ${Math.round((search.downloaded / search.totalBytes) * 100)}%`
-                    : ""}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={search?.downloading}
-                    onClick={async () => {
-                      await searchAction("desktop_search_download", { action: "start" });
-                    }}
-                  >
-                    {t("assistant.downloadIndex")}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => void searchAction("desktop_search_download", { action: "pause" })}>
-                    {t("assistant.pause")}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => void searchAction("desktop_search_download", { action: "cancel" })}>
-                    {t("assistant.cancel")}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => void searchAction("desktop_search_index", { cancel: false })}>
-                    {t("assistant.updateIndex")}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => void searchAction("desktop_search_index", { cancel: true })}>
-                    {t("assistant.stopIndex")}
-                  </Button>
-                </div>
-                {search?.error && (
-                  <p role="alert" className="text-xs text-destructive">{search.error}</p>
-                )}
+              <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
+                <p className="text-xs text-muted-foreground">{indexLabel}</p>
+                <Button size="sm" variant="outline" onClick={() => router.push("/settings?tab=privacy")}>
+                  {t("st.manageSearch")}
+                </Button>
               </div>
             </div>
           )}
@@ -731,7 +718,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               <SelectField
                 aria-label={t("assistant.interval")}
                 className="h-7 w-20 text-xs"
-                value={String(prefs.cadence || 60)}
+                value={String(prefs.cadence || defaultCadence)}
                 onValueChange={(next) => void savePrefs({ ...prefs, cadence: Number(next) })}
                 options={[30, 60, 120].map((n) => ({ value: String(n), label: `${n}s` }))}
               />

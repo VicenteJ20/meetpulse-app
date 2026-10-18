@@ -5,7 +5,6 @@ import { Switch } from "./ui/switch"
 import { Check, FolderOpen, Laptop, Moon, Sun } from "lucide-react"
 import { invoke } from "@tauri-apps/api/core"
 import Analytics from "@/lib/analytics"
-import AnalyticsConsentSwitch from "./AnalyticsConsentSwitch"
 import { useConfig, NotificationSettings } from "@/contexts/ConfigContext"
 import { ThemePreference, UiLocale, useTranslation, useUiPreferences } from "@/contexts/UiPreferencesContext"
 
@@ -238,10 +237,6 @@ export function PreferenceSettings() {
         </div>
       </section>
 
-      {/* Analytics Section */}
-      <section className="py-7">
-        <AnalyticsConsentSwitch />
-      </section>
     </div>
   )
 }

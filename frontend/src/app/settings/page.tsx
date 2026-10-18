@@ -2,13 +2,14 @@
 
 import { desktopCapabilities } from '@/config/capabilities';
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Database as DatabaseIcon, FlaskConical, Mic, Settings2, Sparkles } from 'lucide-react';
+import { BookOpen, Cpu, Database as DatabaseIcon, Lightbulb, Mic, Settings2, ShieldCheck } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { TranscriptSettings } from '@/components/TranscriptSettings';
 import { RecordingSettings } from '@/components/RecordingSettings';
 import { PreferenceSettings } from '@/components/PreferenceSettings';
-import { SummaryModelSettings } from '@/components/SummaryModelSettings';
-import { BetaSettings } from '@/components/BetaSettings';
+import { ModelsSettings } from '@/components/settings/ModelsSettings';
+import { AssistantDefaultsSettings } from '@/components/settings/AssistantDefaultsSettings';
+import { PrivacySettings } from '@/components/settings/PrivacySettings';
 import { useConfig } from '@/contexts/ConfigContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WikiSettings } from '@/components/WikiSettings';
@@ -28,12 +29,19 @@ export default function SettingsPage() {
 
   const tabs = [
     { value: 'general', label: t('settings.general'), icon: Settings2 },
-    { value: 'recording', label: t('settings.recording'), icon: Mic },
+    { value: 'recording', label: t('st.tabAudio'), icon: Mic },
     { value: 'transcription', label: t('settings.transcription'), icon: DatabaseIcon },
-    { value: 'summary', label: t('settings.summary'), icon: Sparkles },
+    { value: 'models', label: t('st.tabModels'), icon: Cpu },
+    { value: 'coach', label: t('st.tabCoach'), icon: Lightbulb },
+    { value: 'privacy', label: t('st.tabPrivacy'), icon: ShieldCheck },
     { value: 'wiki', label: t('settings.wiki'), icon: BookOpen },
-    { value: 'beta', label: t('settings.beta'), icon: FlaskConical },
   ].filter(tab => tab.value !== 'wiki' || desktopCapabilities.wikiEnabled);
+
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab');
+    if (requested && tabs.some(tab => tab.value === requested)) setActiveTab(requested);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <main className="custom-scrollbar h-screen overflow-y-auto">
@@ -57,9 +65,10 @@ export default function SettingsPage() {
             <TabsContent value="general" className="mt-0"><PreferenceSettings /></TabsContent>
             <TabsContent value="recording" className="mt-0"><RecordingSettings /></TabsContent>
             <TabsContent value="transcription" className="mt-0"><TranscriptSettings transcriptModelConfig={transcriptModelConfig} setTranscriptModelConfig={setTranscriptModelConfig} /></TabsContent>
-            <TabsContent value="summary" className="mt-0"><SummaryModelSettings /></TabsContent>
+            <TabsContent value="models" className="mt-0"><ModelsSettings onGoTo={setActiveTab} /></TabsContent>
+            <TabsContent value="coach" className="mt-0"><AssistantDefaultsSettings /></TabsContent>
+            <TabsContent value="privacy" className="mt-0"><PrivacySettings /></TabsContent>
             {desktopCapabilities.wikiEnabled && <TabsContent value="wiki" className="mt-0"><WikiSettings /></TabsContent>}
-            <TabsContent value="beta" className="mt-0 py-5"><BetaSettings /></TabsContent>
           </div>
         </Tabs>
       </div>
