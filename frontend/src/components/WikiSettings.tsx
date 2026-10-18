@@ -61,7 +61,7 @@ export function WikiSettings() {
         <p className="mt-1 text-sm text-muted-foreground">{t('wiki.preferredWorkspaceDescription')}</p>
       </div>
       {preferred.status === 'loading' ? (
-        <div className="h-9 w-56 animate-pulse rounded-lg bg-muted" />
+        <div className="h-9 w-56 skeleton-shimmer rounded-lg bg-muted" />
       ) : preferred.status === 'error' ? (
         <p className="text-sm text-destructive">{preferred.error || t('wiki.workspaceUnavailableDescription')}</p>
       ) : preferred.status === 'empty' ? (

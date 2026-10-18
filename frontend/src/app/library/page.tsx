@@ -15,6 +15,7 @@ import { PageHeader, EmptyState } from '@/components/ui/product';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function LibraryPage() {
   const router = useRouter();
@@ -224,23 +225,22 @@ export default function LibraryPage() {
             />
           </div>
         ) : (
-          <ul className="product-surface divide-y divide-border overflow-hidden">
-            {visible.map((meeting) => {
+          <ul className="product-surface stagger divide-y divide-border overflow-hidden">
+            {visible.map((meeting, index) => {
               const isSelected = selected.has(meeting.id);
               return (
                 <li
                   key={meeting.id}
+                  style={{ '--i': Math.min(index, 10) } as React.CSSProperties}
                   className={cn(
                     'group grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 transition-colors',
                     isSelected ? 'bg-accent' : 'hover:bg-muted/50',
                   )}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={isSelected}
-                    onChange={() => toggle(meeting.id)}
+                    onCheckedChange={() => toggle(meeting.id)}
                     aria-label={meeting.title}
-                    className="size-4 cursor-pointer rounded border-input accent-[hsl(var(--brand))]"
                   />
                   <button type="button" onClick={() => open(meeting)} className="flex min-w-0 flex-col gap-1 text-left">
                     <span className="flex items-center gap-2">

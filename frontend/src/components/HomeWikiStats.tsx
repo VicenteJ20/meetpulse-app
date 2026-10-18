@@ -49,7 +49,7 @@ export function HomeWikiStats() {
 
     <div className="mt-4">
       {preferred.status === 'loading' ? (
-        <div className="h-9 w-48 animate-pulse rounded-lg bg-muted" />
+        <div className="h-9 w-48 skeleton-shimmer rounded-lg bg-muted" />
       ) : preferred.status === 'error' ? (
         <p className="text-sm text-destructive">{preferred.error || t('wiki.workspaceUnavailableDescription')}</p>
       ) : preferred.status === 'empty' ? (

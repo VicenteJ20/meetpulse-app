@@ -69,7 +69,7 @@ function SuggestInput({ value, onValueChange, options, wrapperClassName, classNa
         }}
       />
       {visible && (
-        <ul role="listbox" className="absolute left-0 top-full z-50 mt-1 max-h-48 min-w-full overflow-auto rounded-lg border border-border bg-popover p-1 text-sm shadow-lg">
+        <ul role="listbox" className="absolute left-0 top-full z-50 mt-1 max-h-48 min-w-full overflow-auto animate-pop rounded-[10px] border border-border bg-popover p-1 text-sm shadow-[0_16px_40px_-12px_rgb(20_30_60_/_0.24)]">
           {matches.map((option, index) => (
             <li
               key={option}
@@ -79,7 +79,7 @@ function SuggestInput({ value, onValueChange, options, wrapperClassName, classNa
                 event.preventDefault()
                 choose(option)
               }}
-              className={cn("cursor-pointer truncate rounded-md px-2 py-1.5", index === active ? "bg-accent text-accent-foreground" : "hover:bg-muted")}
+              className={cn("cursor-pointer truncate rounded-md px-2 py-1.5 transition-colors", index === active ? "bg-accent text-accent-foreground" : "hover:bg-muted")}
             >
               {option}
             </li>

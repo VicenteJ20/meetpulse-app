@@ -91,7 +91,7 @@ export function TranscriptPanel({
         <div className={cn('flex flex-wrap items-center gap-x-5 gap-y-2', isRecording ? 'w-full' : 'mx-auto max-w-4xl')}>
           {isRecording ? (
             <div className="flex items-center gap-2.5">
-              <span className={cn('size-2.5 rounded-full', isPaused ? 'bg-warning' : 'animate-pulse bg-recording')} aria-hidden="true" />
+              <span className={cn('size-2.5 rounded-full', isPaused ? 'bg-warning' : 'animate-rec-pulse bg-recording shadow-[0_0_0_4px_hsl(var(--recording)/0.2)]')} aria-hidden="true" />
               <div className="leading-none">
                 <div className="font-mono text-lg font-medium tabular-nums">{clock}</div>
                 <div className={cn('mt-1 text-[0.65rem] font-semibold tracking-wider', isPaused ? 'text-warning' : 'text-recording')}>
@@ -106,7 +106,7 @@ export function TranscriptPanel({
             {isRecording ? (
               <Input
                 aria-label={t('home.fieldTitle')}
-                className="h-8 max-w-[28rem] border-transparent bg-transparent px-1 text-base font-semibold tracking-tight shadow-none hover:border-input focus-visible:border-ring"
+                className="h-8 max-w-[28rem] rounded-none border-0 border-b border-transparent bg-transparent px-0 text-[1.2em] font-semibold tracking-[-0.02em] shadow-none hover:border-input focus-visible:border-brand focus-visible:ring-0"
                 value={meetingTitle}
                 onChange={(event) => setMeetingTitle(event.target.value)}
                 placeholder={t('live.untitled')}
@@ -162,12 +162,12 @@ export function TranscriptPanel({
                 aria-pressed={coach}
                 title={t('live.coachTip')}
                 onClick={toggleCoach}
-                className={cn('inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[0.8rem] font-medium transition-colors', coach ? 'border-brand bg-accent text-accent-foreground' : 'border-border bg-card hover:bg-muted')}
+                className={cn('inline-flex h-8 items-center gap-2 rounded-full border pl-3 pr-2.5 text-[0.8rem] font-medium transition-colors duration-150', coach ? 'border-brand bg-accent text-accent-foreground' : 'border-input bg-card text-muted-foreground hover:border-muted-foreground')}
               >
                 <Lightbulb className="size-4" />
                 {t('live.coach')}
-                <span className={cn('relative h-4 w-7 rounded-full transition-colors', coach ? 'bg-brand' : 'bg-muted-foreground/30')}>
-                  <span className={cn('absolute top-0.5 size-3 rounded-full bg-card shadow transition-all', coach ? 'left-3.5' : 'left-0.5')} />
+                <span className={cn('relative h-[18px] w-[30px] rounded-full transition-colors duration-200', coach ? 'bg-brand' : 'bg-input')}>
+                  <span className={cn('absolute left-0.5 top-0.5 size-3.5 rounded-full bg-[#fff] shadow-[0_1px_3px_rgb(0_0_0/0.3)] transition-transform duration-[220ms] ease-[cubic-bezier(0.16,1,0.3,1)]', coach && 'translate-x-3')} />
                 </span>
               </button>
             )}
@@ -176,7 +176,7 @@ export function TranscriptPanel({
               aria-pressed={open && activeTab === 'chat'}
               title={t('live.chatTip')}
               onClick={toggleChat}
-              className={cn('inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[0.8rem] font-medium transition-colors', open && activeTab === 'chat' ? 'border-brand bg-accent text-accent-foreground' : 'border-border bg-card hover:bg-muted')}
+              className={cn('inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[0.8rem] font-medium transition-colors duration-150', open && activeTab === 'chat' ? 'border-brand bg-accent text-accent-foreground' : 'border-input bg-card text-muted-foreground hover:border-muted-foreground')}
             >
               <MessagesSquare className="size-4" />
               {t('live.chat')}

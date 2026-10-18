@@ -54,7 +54,7 @@ export default function SettingsPage() {
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
-                  className="justify-start gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+                  className="justify-start gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground shadow-none hover:bg-muted/60 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
                 >
                   <tab.icon className="h-4 w-4" /> {tab.label}
                 </TabsTrigger>

@@ -110,10 +110,11 @@ export default function AskPage() {
           <h2 id="ask-recent-title" className="mb-1 px-2 text-xs font-semibold text-muted-foreground">
             {t('ask.recent')}
           </h2>
-          <div className="grid gap-0.5">
-            {recent.map((item) => (
+          <div className="stagger grid gap-0.5">
+            {recent.map((item, i) => (
               <button
                 key={item.id}
+                style={{ '--i': Math.min(i, 8) } as React.CSSProperties}
                 type="button"
                 onClick={() => setConversation({ id: item.id, title: item.title })}
                 aria-current={conversation.id === item.id ? 'page' : undefined}
@@ -132,7 +133,7 @@ export default function AskPage() {
         <section className="mt-auto rounded-lg border border-border bg-card p-3" aria-labelledby="ask-index-title">
           <h2 id="ask-index-title" className="mb-2 text-xs font-semibold text-muted-foreground">{t('ask.localIndex')}</h2>
           <div className="flex items-center gap-2 text-sm">
-            <span className={`size-2 rounded-full ${index?.ready ? 'bg-success' : 'bg-muted-foreground/50'}`} />
+            <span className={`size-2 rounded-full ${index?.indexing ? 'animate-rec-pulse bg-brand' : index?.ready ? 'bg-success' : 'bg-muted-foreground/50'}`} />
             <strong className="font-medium">{statusLabel}</strong>
           </div>
           <p className="my-2 text-xs leading-relaxed text-muted-foreground">{statusDetail}</p>

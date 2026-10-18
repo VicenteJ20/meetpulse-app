@@ -14,7 +14,7 @@ export function ThemedToaster() {
       closeButton
       toastOptions={{
         classNames: {
-          toast: 'border-border bg-popover text-popover-foreground shadow-xl',
+          toast: 'rounded-[10px] border-border bg-popover text-popover-foreground shadow-[0_16px_40px_-12px_rgb(20_30_60_/_0.24)]',
           title: 'text-foreground',
           description: 'text-muted-foreground',
           closeButton: 'border-border bg-background text-foreground hover:bg-muted',

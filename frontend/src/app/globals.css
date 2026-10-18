@@ -32,6 +32,72 @@
   animation: vibrate 0.3s linear;
 }
 
+/* Movimiento Quiet Studio v2: una sola curva de salida suave para todo lo que aparece */
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+@keyframes flash {
+  0% { background-color: hsl(var(--brand) / 0.28); }
+  100% { background-color: transparent; }
+}
+
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.animate-pop { animation: pop 0.16s var(--ease-out); }
+.animate-enter { animation: enter 0.4s var(--ease-out) both; }
+.animate-slide-in-right { animation: slide-in-right 0.22s var(--ease-out); }
+.animate-flash { animation: flash 1.8s ease-out; }
+.animate-rec-pulse { animation: rec-pulse 1.6s ease-in-out infinite; }
+.animate-blink { animation: blink 1.2s infinite; }
+
+/* Entrada escalonada para listas: define --i en cada hijo */
+.stagger > * { animation: enter 0.4s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 35ms); }
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--surface-subtle)) 50%, hsl(var(--muted)) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton-shimmer { animation: none; }
+}
+
 @keyframes fade-in {
   0% {
     opacity: 0;
@@ -172,11 +238,25 @@
     height: 100%;
   }
 
-  button,
+  button {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Campos: borde de acento y halo suave, sin separación (igual que el mock v2) */
   input,
   textarea,
   select {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25 focus-visible:ring-offset-0;
+  }
+
+  ::selection {
+    background: hsl(var(--brand) / 0.22);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary {
+    cursor: pointer;
   }
 
   /* Make the window draggable */

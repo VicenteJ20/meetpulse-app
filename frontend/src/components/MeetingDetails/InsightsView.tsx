@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { AlertTriangle, CheckCircle2, CircleHelp, ListChecks, Route, Sparkles } from 'lucide-react';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import {
   initials,
@@ -114,12 +115,11 @@ export function InsightsView({ markdown, onChange }: InsightsViewProps) {
                   return (
                     <li key={item.line} className="group flex items-start gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50">
                       {checkable ? (
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={!!item.checked}
-                          onChange={() => onChange(toggleCheckbox(markdown, item.line))}
+                          onCheckedChange={() => onChange(toggleCheckbox(markdown, item.line))}
                           aria-label={cap(action.task)}
-                          className="mt-1 size-4 shrink-0 cursor-pointer rounded border-input accent-[hsl(var(--brand))]"
+                          className="mt-0.5"
                         />
                       ) : (
                         <span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted-foreground/50" />

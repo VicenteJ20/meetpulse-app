@@ -56,19 +56,19 @@ function WikiShellSkeleton({ label }: { label: string }) {
       <p className="sr-only" role="status">{label}</p>
       <div className="mx-auto flex h-full max-w-[1700px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-border px-5">
-          <div className="flex items-center gap-3"><div className="h-9 w-9 animate-pulse rounded-xl bg-muted" /><div><div className="h-3 w-24 animate-pulse rounded bg-muted" /><div className="mt-2 h-2.5 w-40 animate-pulse rounded bg-muted" /></div></div>
-          <div className="h-9 w-40 animate-pulse rounded-lg bg-muted" />
+          <div className="flex items-center gap-3"><div className="h-9 w-9 skeleton-shimmer rounded-xl bg-muted" /><div><div className="h-3 w-24 skeleton-shimmer rounded bg-muted" /><div className="mt-2 h-2.5 w-40 skeleton-shimmer rounded bg-muted" /></div></div>
+          <div className="h-9 w-40 skeleton-shimmer rounded-lg bg-muted" />
         </header>
         <div className="grid min-h-0 flex-1 md:grid-cols-[17rem_minmax(0,1fr)]">
           <aside className="hidden border-r border-border p-4 md:block">
-            <div className="h-9 animate-pulse rounded-xl bg-muted" />
-            <div className="mt-6 space-y-3">{[0, 1, 2, 3].map(item => <div key={item} className="h-10 animate-pulse rounded-xl bg-muted/70" />)}</div>
+            <div className="h-9 skeleton-shimmer rounded-xl bg-muted" />
+            <div className="mt-6 space-y-3">{[0, 1, 2, 3].map(item => <div key={item} className="h-10 skeleton-shimmer rounded-xl bg-muted/70" />)}</div>
           </aside>
           <section className="p-6 lg:p-10">
-            <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-            <div className="mt-4 h-9 w-80 max-w-full animate-pulse rounded bg-muted" />
-            <div className="mt-3 h-3 w-96 max-w-full animate-pulse rounded bg-muted" />
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(item => <div key={item} className="h-40 animate-pulse rounded-2xl bg-muted/70" />)}</div>
+            <div className="h-4 w-32 skeleton-shimmer rounded bg-muted" />
+            <div className="mt-4 h-9 w-80 max-w-full skeleton-shimmer rounded bg-muted" />
+            <div className="mt-3 h-3 w-96 max-w-full skeleton-shimmer rounded bg-muted" />
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(item => <div key={item} className="h-40 skeleton-shimmer rounded-2xl bg-muted/70" />)}</div>
           </section>
         </div>
       </div>
@@ -375,7 +375,7 @@ function WikiPageContent() {
                   <div className="mt-8 flex items-end justify-between gap-4">
                     <div><h2 className="text-xl font-semibold tracking-[-0.025em]">{t('wiki.chooseClient')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('wiki.chooseClientDescription')}</p></div>
                   </div>
-                  {loading && !clients.length ? <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(item => <div key={item} className="h-40 animate-pulse rounded-2xl bg-muted" />)}</div> : filteredClients.length ? (
+                  {loading && !clients.length ? <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(item => <div key={item} className="h-40 skeleton-shimmer rounded-2xl bg-muted" />)}</div> : filteredClients.length ? (
                     <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {filteredClients.map(client => (
                       <button key={client.client_id} onClick={() => selectClient(client.client_id)} className="group flex min-h-40 flex-col rounded-2xl border border-border bg-background p-5 text-left transition hover:-translate-y-0.5 hover:border-brand/35 hover:shadow-lg hover:shadow-brand/5">
@@ -398,7 +398,7 @@ function WikiPageContent() {
                   <div className="flex gap-2 rounded-xl bg-muted/60 px-4 py-3 text-sm"><FolderKanban className="h-4 w-4 text-brand" /><strong>{activeClient?.project_count ?? projects.length}</strong><span className="text-muted-foreground">{t('wiki.projects').toLowerCase()}</span></div>
                 </div>
                 <div className="mt-8"><h2 className="text-xl font-semibold tracking-[-0.025em]">{t('wiki.activeProjects')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('wiki.activeProjectsDescription')}</p></div>
-                {navigationLoading ? <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(item => <div key={item} className="h-44 animate-pulse rounded-2xl bg-muted" />)}</div> : filteredProjects.length ? (
+                {navigationLoading ? <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(item => <div key={item} className="h-44 skeleton-shimmer rounded-2xl bg-muted" />)}</div> : filteredProjects.length ? (
                   <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {filteredProjects.map(project => (
                       <button key={project.project_id} onClick={() => selectProject(project.project_id)} className="group flex min-h-44 flex-col rounded-2xl border border-border bg-background p-5 text-left transition hover:-translate-y-0.5 hover:border-brand/35 hover:shadow-lg hover:shadow-brand/5">
@@ -418,7 +418,7 @@ function WikiPageContent() {
                 <Button variant="ghost" size="sm" onClick={() => selectClient(clientId)} className="-ml-3 mb-4 text-muted-foreground"><ArrowLeft />{clientId}</Button>
                 <h1 className="text-3xl font-semibold tracking-[-0.04em]">{projectId}</h1>
 
-                {navigationLoading ? <div className="mt-8 h-48 animate-pulse rounded-2xl bg-muted" /> : (
+                {navigationLoading ? <div className="mt-8 h-48 skeleton-shimmer rounded-2xl bg-muted" /> : (
                   <>
                     <section className="mt-8">
                       {contextDocument ? (

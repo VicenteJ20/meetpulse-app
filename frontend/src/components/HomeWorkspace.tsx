@@ -4,7 +4,8 @@ import { SuggestInput } from '@/components/ui/suggest-input';
 import { desktopCapabilities } from '@/config/capabilities';
 import { useEffect, useState } from 'react';
 import { useAssistant } from '@/contexts/AssistantContext';
-import { ArrowRight, Cloud, Cpu, Import, LockKeyhole, Mic, Search, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, ChevronDown, Cloud, Cpu, Import, LockKeyhole, Mic, Search, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useConfig } from '@/contexts/ConfigContext';
@@ -14,6 +15,8 @@ import { useDataFlow } from '@/hooks/useDataFlow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
+import { Switch } from '@/components/ui/switch';
+import { loadAssistantDefaults, saveAssistantDefaults, type AssistantDefaults } from '@/lib/assistantDefaults';
 import { EmptyState, PageHeader, Surface } from '@/components/ui/product';
 import { HomeWikiStats } from '@/components/HomeWikiStats';
 import { TranscriptionLanguageControl } from '@/components/TranscriptionLanguageControl';
@@ -24,14 +27,32 @@ import { OPEN_PALETTE_EVENT } from '@/components/Rail';
 const RECORDING_CONTEXT_KEY = 'meetpulse-recording-context';
 
 function EngineChip({ label, name, cloud }: { label: string; name: string; cloud: boolean }) {
+  const { t } = useTranslation();
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="inline-flex h-8 items-center gap-2 rounded-md border border-input bg-card px-2.5 text-sm">
+      <Link
+        href="/settings"
+        title={t('home.changeEngine')}
+        className="group inline-flex h-8 items-center gap-2 rounded-md border border-input bg-card px-2.5 text-sm transition-[border-color,background-color] duration-150 hover:border-muted-foreground hover:bg-muted/50"
+      >
         {cloud ? <Cloud className="size-4 text-warning" /> : <Cpu className="size-4 text-success" />}
         <span className="truncate font-medium">{name || '—'}</span>
-      </span>
+        <ChevronDown className="size-3.5 text-muted-foreground transition-transform duration-200 group-hover:translate-y-0.5" />
+      </Link>
     </div>
+  );
+}
+
+function AssistantOption({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2.5">
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
+      <span className="grid text-sm leading-tight">
+        <b className="font-medium">{label}</b>
+        <em className="text-[0.84em] not-italic text-muted-foreground">{hint}</em>
+      </span>
+    </label>
   );
 }
 
@@ -55,10 +76,12 @@ export function HomeWorkspace({
   const { t, formatDate } = useTranslation();
   const { setTarget } = useAssistant();
   const flow = useDataFlow();
+  const [assistant, setAssistant] = useState<AssistantDefaults>({ coachOnStart: false, chatOnStart: false, cadence: 60 });
   const [draft, setDraft] = useState({ title: '', client: '', project: '', additionalContext: '' });
 
   useEffect(() => {
     setTarget(null);
+    setAssistant(loadAssistantDefaults());
     try {
       const stored = localStorage.getItem(RECORDING_CONTEXT_KEY);
       if (stored) setDraft(JSON.parse(stored));
@@ -71,6 +94,12 @@ export function HomeWorkspace({
     const next = { ...draft, [key]: value };
     setDraft(next);
     localStorage.setItem(RECORDING_CONTEXT_KEY, JSON.stringify(next));
+  };
+
+  const updateAssistant = (patch: Partial<AssistantDefaults>) => {
+    const next = { ...assistant, ...patch };
+    setAssistant(next);
+    saveAssistantDefaults(next);
   };
 
   const recent = meetings.slice(0, 6);
@@ -136,6 +165,11 @@ export function HomeWorkspace({
               <DataFlowChip className="ml-auto self-center" />
             </div>
 
+            <div className="flex flex-wrap gap-x-7 gap-y-3 border-t border-border pt-4">
+              <AssistantOption label={t('home.coachOpt')} hint={t('home.coachOptDesc')} checked={assistant.coachOnStart} onChange={(v) => updateAssistant({ coachOnStart: v })} />
+              <AssistantOption label={t('home.chatOpt')} hint={t('home.chatOptDesc')} checked={assistant.chatOnStart} onChange={(v) => updateAssistant({ chatOnStart: v })} />
+            </div>
+
             {recoverableCount > 0 && (
               <button className="flex items-center gap-2 text-sm font-medium text-brand hover:underline" onClick={onOpenRecovery}>
                 {recoverableCount} {recoverableCount === 1 ? t('home.recoverableOne') : t('home.recoverableMany')}{' '}
@@ -173,10 +207,11 @@ export function HomeWorkspace({
             )}
           </div>
           {recent.length > 0 ? (
-            <div className="divide-y divide-border">
-              {recent.map((meeting) => (
+            <div className="stagger divide-y divide-border">
+              {recent.map((meeting, index) => (
                 <button
                   key={meeting.id}
+                  style={{ '--i': index } as React.CSSProperties}
                   onClick={() => openMeeting(meeting)}
                   className="group flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-muted/50"
                 >
