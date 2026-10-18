@@ -6,7 +6,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { FileText, Library, Mic, Pencil, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { useSidebar, type CurrentMeeting } from '@/components/Sidebar/SidebarProvider';
-import { useAssistant } from '@/contexts/AssistantContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { ConfirmationModal } from '@/components/ConfirmationModel/confirmation-modal';
 import { Button } from '@/components/ui/button';
@@ -14,15 +13,18 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader, EmptyState } from '@/components/ui/product';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
 
 export default function LibraryPage() {
   const router = useRouter();
   const { t, formatDate } = useTranslation();
-  const assistant = useAssistant();
   const { meetings, setMeetings, setCurrentMeeting, handleRecordingToggle } = useSidebar();
   const [query, setQuery] = useState('');
   const [client, setClient] = useState<string>('');
+  const [tag, setTag] = useState<string>('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [renaming, setRenaming] = useState<CurrentMeeting | null>(null);
@@ -33,18 +35,27 @@ export default function LibraryPage() {
     [meetings],
   );
   const hasUnclassified = meetings.some((m) => !m.client);
+  const tags = useMemo(
+    () => Array.from(new Set(meetings.flatMap((meeting) => meeting.tags ?? []).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [meetings],
+  );
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return [...meetings]
       .filter((m) => (client === '' ? true : client === '__none__' ? !m.client : m.client === client))
+      .filter((m) => !tag || (m.tags ?? []).includes(tag))
+      .filter((m) => {
+        const date = m.created_at?.slice(0, 10) ?? '';
+        return (!fromDate || (date && date >= fromDate)) && (!toDate || (date && date <= toDate));
+      })
       .filter(
         (m) =>
           !q ||
           `${m.title} ${m.client ?? ''} ${m.project ?? ''} ${(m.tags ?? []).join(' ')}`.toLowerCase().includes(q),
       )
       .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
-  }, [meetings, query, client]);
+  }, [meetings, query, client, tag, fromDate, toDate]);
 
   const open = (meeting: CurrentMeeting) => {
     setCurrentMeeting(meeting);
@@ -92,6 +103,9 @@ export default function LibraryPage() {
   const clearFilters = () => {
     setQuery('');
     setClient('');
+    setTag('');
+    setFromDate('');
+    setToDate('');
   };
 
   return (
@@ -102,7 +116,7 @@ export default function LibraryPage() {
           description={t('library.description')}
           actions={
             <>
-              <Button variant="outline" onClick={assistant.toggle}>
+              <Button variant="outline" onClick={() => router.push('/ask')}>
                 <Sparkles /> {t('nav.ask')}
               </Button>
               <Button variant="recording" onClick={handleRecordingToggle}>
@@ -140,6 +154,36 @@ export default function LibraryPage() {
                 {chip.label}
               </button>
             ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              aria-label={t('library.fromDate')}
+              title={t('library.fromDate')}
+              className="h-8 w-[9.5rem]"
+            />
+            <span aria-hidden="true" className="text-xs text-muted-foreground">–</span>
+            <Input
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              aria-label={t('library.toDate')}
+              title={t('library.toDate')}
+              className="h-8 w-[9.5rem]"
+            />
+            <SelectField
+              aria-label={t('library.allTags')}
+              value={tag}
+              onValueChange={setTag}
+              placeholder={t('library.allTags')}
+              className="h-8 w-40"
+              options={[
+                { value: '', label: t('library.allTags') },
+                ...tags.map((value) => ({ value, label: value })),
+              ]}
+            />
           </div>
         </div>
 
