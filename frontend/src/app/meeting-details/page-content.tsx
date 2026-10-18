@@ -21,7 +21,8 @@ import { desktopCapabilities } from '@/config/capabilities';
 import { getWikiLastDestination } from '@/services/wiki-config';
 import { useWikiPublish } from '@/hooks/meeting-details/useWikiPublish';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AssistantButton, useAssistantTarget } from '@/contexts/AssistantContext';
+import { AssistantButton, LiveAssistantDockHost, useAssistant, useAssistantTarget } from '@/contexts/AssistantContext';
+import { ResizeHandle } from '@/components/ui/resize-handle';
 import { PdfExports } from '@/components/MeetingDetails/PdfExports';
 import { CalendarDays, ChevronRight } from 'lucide-react';
 import { Segmented } from '@/components/ui/segmented';
@@ -105,6 +106,20 @@ export default function PageContent({
 
   const { locale } = useTranslation();
   const [view, setView] = useState<'analysis' | 'transcript' | 'split'>('split');
+  const { open: assistantOpen } = useAssistant();
+  // Ancho de las columnas de transcripción y chat: se recuerda por dispositivo.
+  const [columns, setColumns] = useState({ transcript: 460, chat: 380 });
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('meetpulse-meeting-columns') || '{}');
+      setColumns(current => ({ transcript: Number(saved.transcript) || current.transcript, chat: Number(saved.chat) || current.chat }));
+    } catch {}
+  }, []);
+  const resizeColumn = (key: 'transcript' | 'chat', value: number) => setColumns(current => {
+    const next = { ...current, [key]: value };
+    try { localStorage.setItem('meetpulse-meeting-columns', JSON.stringify(next)); } catch {}
+    return next;
+  });
   useEffect(() => {
     const query = window.matchMedia('(min-width: 1200px)');
     const wantsSource = new URLSearchParams(window.location.search).has('sourceTime');
@@ -371,7 +386,7 @@ export default function PageContent({
         />
       </div>
 
-      <div className="meeting-workspace" data-view={view}>
+      <div className="meeting-workspace" data-view={view} data-chat={assistantOpen ? 'on' : 'off'} style={{ '--col-t': `${columns.transcript}px`, '--col-c': `${columns.chat}px` } as React.CSSProperties}>
         <div className="meeting-transcript"><TranscriptPanel
           transcripts={meetingData.transcripts}
           customPrompt={customPrompt}
@@ -398,7 +413,9 @@ export default function PageContent({
           meetingFolderPath={meeting.folder_path}
           onRefetchTranscripts={onRefetchTranscripts}
         />
-        </div><div className="meeting-analysis"><SummaryPanel
+        </div>
+        <ResizeHandle data-handle="transcript" side="start" min={300} max={900} value={columns.transcript} onChange={value => resizeColumn('transcript', value)} label={t('meeting.resizeTranscript')} />
+        <div className="meeting-analysis"><SummaryPanel
           meeting={meeting}
           meetingTitle={meetingData.meetingTitle}
           onTitleChange={meetingData.handleTitleChange}
@@ -436,6 +453,8 @@ export default function PageContent({
           onRetryWiki={() => { void wikiPublish.retryPublish(); }}
           onOpenWiki={() => router.push('/wiki')}
         /></div>
+        <ResizeHandle data-handle="chat" side="end" min={300} max={640} value={columns.chat} onChange={value => resizeColumn('chat', value)} label={t('meeting.resizeChat')} />
+        <LiveAssistantDockHost isOpen={assistantOpen} />
       </div>
     </div>
     <Dialog open={wikiPublish.destinationOpen} onOpenChange={wikiPublish.setDestinationOpen}>

@@ -8,6 +8,7 @@ import { useTranscriptStreaming } from "@/hooks/useTranscriptStreaming";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { motion } from "framer-motion";
+import { Mic, Users } from "lucide-react";
 import { TranscriptSegmentData } from "@/types";
 import { estimateTranscriptSegmentHeight } from "@/lib/transcriptLayout";
 
@@ -81,12 +82,21 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence?: number;
     isStreaming: boolean;
     showConfidence: boolean;
-    speakerLabel?: { text: string; me: boolean };
+    speakerLabel?: { text: string; source: string; me: boolean; first: boolean };
 }) {
     const displayText = cleanStopWords(text) || (text.trim() === '' ? '[Silence]' : text);
 
     return (
         <div id={`segment-${id}`} className="pb-3">
+            {speakerLabel && (
+                <div className={`flex items-center gap-2 pb-1.5 text-sm font-semibold ${speakerLabel.first ? 'pt-1' : 'mt-3 border-t border-border pt-4'}`}>
+                    <span className={`grid size-[22px] place-items-center rounded-full text-[0.6rem] font-semibold ${speakerLabel.me ? 'bg-accent text-brand' : 'bg-muted text-muted-foreground'}`}>
+                        {speakerLabel.me ? <Mic className="size-3" /> : <Users className="size-3" />}
+                    </span>
+                    {speakerLabel.text}
+                    <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">{speakerLabel.source}</span>
+                </div>
+            )}
             <div className="flex items-start gap-2">
                 <Tooltip>
                     <TooltipTrigger>
@@ -101,9 +111,6 @@ const TranscriptSegment = memo(function TranscriptSegment({
                     </TooltipContent>
                 </Tooltip>
                 <div className="min-w-0 flex-1">
-                    {speakerLabel && (
-                        <span className={`mb-0.5 ml-3 inline-block text-xs font-semibold ${speakerLabel.me ? 'text-brand' : 'text-muted-foreground'}`}>{speakerLabel.text}</span>
-                    )}
                     <div
                         className={`rounded-lg border px-3 py-2 transition-colors duration-300 ${
                             isStreaming
@@ -163,7 +170,12 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
     // El rótulo solo se muestra cuando cambia quien habla
     const labelFor = (segment: TranscriptSegmentData, previous?: TranscriptSegmentData) =>
         segment.speaker && segment.speaker !== previous?.speaker
-            ? { text: t(segment.speaker === 'me' ? 'transcript.me' : 'transcript.team'), me: segment.speaker === 'me' }
+            ? {
+                text: t(segment.speaker === 'me' ? 'transcript.me' : 'transcript.team'),
+                source: t(segment.speaker === 'me' ? 'transcript.micSource' : 'transcript.systemSource'),
+                me: segment.speaker === 'me',
+                first: !previous,
+            }
             : undefined;
     const [sourceTime, setSourceTime] = useState<number | null>(() => {
         if (typeof window === 'undefined') return null;

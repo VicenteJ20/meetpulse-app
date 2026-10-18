@@ -314,9 +314,12 @@ export default function LibraryPage() {
                       ) : (
                         <span>{t('library.noClient')}</span>
                       )}
-                      {(meeting.tags ?? []).map((tag) => (
-                        <Badge key={tag}>{tag}</Badge>
+                      {(meeting.tags ?? []).slice(0, 3).map((tag) => (
+                        <Badge key={tag} variant="accent" className="border border-brand/20 px-2.5 text-xs font-medium">{tag}</Badge>
                       ))}
+                      {(meeting.tags ?? []).length > 3 && (
+                        <span className="text-xs text-muted-foreground" title={(meeting.tags ?? []).slice(3).join(', ')}>+{(meeting.tags ?? []).length - 3}</span>
+                      )}
                     </span>
                   </button>
                   <div className="flex items-center gap-1">

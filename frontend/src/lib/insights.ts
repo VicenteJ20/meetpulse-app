@@ -160,3 +160,19 @@ export function initials(name: string): string {
   if (parts.length === 0) return '?';
   return (parts.length === 1 ? parts[0].slice(0, 2) : parts[0][0] + parts[1][0]).toUpperCase();
 }
+
+/** Separa una marca de tiempo final "[mm:ss]" (o "(mm:ss)") y la devuelve en segundos. */
+export function extractTime(text: string): { text: string; seconds: number | null } {
+  const match = /\s*[\[(](\d{1,3}):(\d{2})[\])]\s*\.?\s*$/.exec(text);
+  if (!match) return { text: text.trim(), seconds: null };
+  return { text: text.slice(0, match.index).trim(), seconds: Number(match[1]) * 60 + Number(match[2]) };
+}
+
+/** Separa la fecha límite "Fecha: …" al final de una tarea. */
+export function extractDue(text: string): { text: string; due: string | null } {
+  const match = /\s*(?:Fecha|Plazo|Due)\s*:\s*([^.\[]+?)\.?\s*$/i.exec(text);
+  if (!match) return { text: text.trim(), due: null };
+  return { text: text.slice(0, match.index).trim().replace(/[.\s]+$/, ''), due: match[1].trim() };
+}
+
+export const formatClock = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;

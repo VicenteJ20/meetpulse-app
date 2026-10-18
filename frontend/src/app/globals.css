@@ -377,7 +377,18 @@
   .meeting-workspace[data-view="transcript"] > .meeting-analysis { display: none; }
   .meeting-workspace > * { animation: enter 0.3s var(--ease-out); }
   .meeting-transcript, .meeting-analysis { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; }
-  .meeting-workspace[data-view="split"] > .meeting-transcript { flex: 0 0 40%; border-right: 1px solid hsl(var(--border)); }
+  .meeting-workspace { background: hsl(var(--background)); }
+  .meeting-workspace[data-view="split"] > .meeting-transcript { flex: 0 0 var(--col-t, 40%); }
+  .meeting-workspace > [data-handle] { display: none; }
+  .meeting-workspace[data-view="split"] > [data-handle="transcript"] { display: block; }
+  .meeting-workspace > .live-dock-host { display: none; flex: 0 0 var(--col-c, 380px); background: hsl(var(--card)); border-left: 1px solid hsl(var(--border)); }
+  .meeting-workspace[data-chat="on"] > .live-dock-host { display: flex; }
+  .meeting-workspace[data-chat="on"] > [data-handle="chat"] { display: block; }
+  .meeting-workspace[data-chat="on"] > .live-dock-host { border-left: 0; }
+  @media (max-width: 1199px) {
+    .meeting-workspace[data-chat="on"] > .live-dock-host { position: fixed; right: 0; top: 0; bottom: 0; z-index: 45; width: min(400px, calc(100vw - 64px)); border-left: 1px solid hsl(var(--border)); box-shadow: -16px 0 48px #0003; }
+    .meeting-workspace[data-chat="on"] > [data-handle="chat"] { display: none; }
+  }
   .assistant-panel { transition: width 180ms ease; }
   .live-panes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 390px); overflow: hidden; }
   .live-panes[data-dock="off"] { grid-template-columns: minmax(0, 1fr); }

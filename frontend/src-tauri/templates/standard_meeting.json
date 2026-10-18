@@ -9,21 +9,21 @@
     },
     {
       "title": "Decisiones",
-      "instruction": "Lista numerada de decisiones concretas, una por linea y en una sola oracion. Si no hubo decisiones formales, escribe una unica linea que lo indique",
+      "instruction": "Lista numerada de decisiones concretas, una por linea y en una sola oracion. Al final de cada linea agrega entre corchetes el minuto en que se acordo, tomado de las marcas [mm:ss] de la transcripcion. Si no hubo decisiones formales, escribe una unica linea que lo indique",
       "format": "list",
-      "item_format": "1. Decision concreta."
+      "item_format": "1. Decision concreta. [mm:ss]"
     },
     {
       "title": "Acciones",
-      "instruction": "Lista de verificacion con una accion por linea. Comienza con el responsable en negrita seguido de dos puntos y la tarea clara; agrega la fecha limite solo si se menciono. Usa Equipo si no hay una persona asignada",
+      "instruction": "Lista de verificacion con una accion por linea. Comienza con el responsable en negrita seguido de dos puntos y la tarea clara; agrega la fecha limite solo si se menciono y, al final, entre corchetes el minuto donde se acordo ([mm:ss]). Las lineas marcadas [Usuario] son de quien grabo la reunion y las [Equipo] de los demas participantes; usa los nombres que se mencionen y Equipo si no hay una persona asignada",
       "format": "list",
-      "item_format": "- [ ] **Responsable:** tarea clara. Fecha: dia o fecha si se menciono."
+      "item_format": "- [ ] **Responsable:** tarea clara. Fecha: dia o fecha si se menciono. [mm:ss]"
     },
     {
       "title": "Temas",
-      "instruction": "Lista de los temas discutidos, no cronologica. Cada tema en una linea: nombre breve en negrita seguido de dos puntos y una o dos oraciones con hallazgos, datos o herramientas",
+      "instruction": "Lista de los temas discutidos, en orden de aparicion. Cada tema en una linea: nombre breve en negrita seguido de dos puntos, una o dos oraciones con hallazgos, datos o herramientas, y al final entre corchetes el minuto en que empezo a tratarse ([mm:ss])",
       "format": "list",
-      "item_format": "- **Tema:** descripcion breve."
+      "item_format": "- **Tema:** descripcion breve. [mm:ss]"
     },
     {
       "title": "Preguntas abiertas y riesgos",

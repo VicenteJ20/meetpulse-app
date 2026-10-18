@@ -48,8 +48,8 @@ test('meeting summary controls keep semantic contrast and iconography', async ()
   assert.match(languagePicker, /bg-popover text-popover-foreground/);
   assert.match(languagePicker, /bg-brand\/10 font-medium text-brand/);
   assert.doesNotMatch(summaryControls, /slate-|text-white/);
-  assert.match(summaryControls, /border-brand bg-brand text-brand-foreground/);
-  assert.match(summaryControls, /data-\[state=open\]:bg-accent/);
+  assert.match(summaryControls, /variant=\{hasSummary \? 'outline' : 'default'\}/);
+  assert.match(summaryControls, /data-\[state=open\]:border-brand/);
 });
 
 test('BlockNote editors follow the application theme', async () => {

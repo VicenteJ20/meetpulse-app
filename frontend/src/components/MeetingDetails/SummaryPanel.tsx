@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Segmented } from '@/components/ui/segmented';
 import { InsightsView } from './InsightsView';
+import { parseInsights } from '@/lib/insights';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { LanguagePickerPopover } from '@/components/LanguagePickerPopover';
@@ -295,7 +296,9 @@ export function SummaryPanel({
   ) : null;
 
   const summaryMarkdown = (aiSummary as unknown as { markdown?: string } | null)?.markdown ?? '';
-  const showInsights = mode === 'insights' && summaryMarkdown.trim().length > 0;
+  const hasInsights = parseInsights(summaryMarkdown).some((section) => section.kind !== 'other');
+  const hasLegacySummary = summaryMarkdown.trim().length > 0 && !hasInsights;
+  const showInsights = mode === 'insights' && hasInsights;
 
   const generatorGroup = (
     <SummaryGeneratorButtonGroup
@@ -318,22 +321,18 @@ export function SummaryPanel({
   );
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
+    <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-card">
       {/* Encabezado del panel: título a la izquierda, acciones a la derecha */}
       <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-border px-4">
-        {summaryMarkdown.trim() && !isSummaryLoading ? (
-          <Segmented
-            aria-label={t('meeting.summary')}
-            value={mode}
-            onValueChange={setMode}
-            options={[
-              { value: 'insights', label: t('insights.tabInsights') },
-              { value: 'document', label: t('insights.tabDocument') },
-            ]}
-          />
-        ) : (
-          <h2 className="text-sm font-semibold tracking-tight">{t('meeting.summary')}</h2>
-        )}
+        <Segmented
+          aria-label={t('insights.tabInsights')}
+          value={mode}
+          onValueChange={setMode}
+          options={[
+            { value: 'insights', label: t('insights.tabInsights') },
+            { value: 'document', label: t('insights.tabDocument'), disabled: !summaryMarkdown.trim() },
+          ]}
+        />
         <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5">
           {summaryActions}
           {generatorGroup}
@@ -352,9 +351,10 @@ export function SummaryPanel({
           <Skeleton className="h-4 w-8/12" />
           <Skeleton className="h-4 w-10/12" />
         </div>
-      ) : !aiSummary ? (
+      ) : !aiSummary || (mode === 'insights' && hasLegacySummary) ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <EmptyStateSummary
+            legacy={!!aiSummary}
             onGenerate={() => onGenerateSummary(customPrompt)}
             hasModel={modelConfig.provider !== null && modelConfig.model !== null}
             isGenerating={isSummaryLoading}

@@ -4,7 +4,8 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Cloud, Lock, Quote, ShieldCheck, Sparkles, Square } from "lucide-react";
+import { ArrowUp, Lock, Quote, Sparkles, Square } from "lucide-react";
+import { AssistantModelSelect } from "@/components/AssistantModelSelect";
 import { Button } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/select-field";
 import { cn } from "@/lib/utils";
@@ -30,9 +31,9 @@ type Props = {
   setClient: (client: string) => void;
   setProject: (project: string) => void;
   sourceClick: (source: Source) => void;
-  isLocalProvider: boolean;
   provider: string;
   model: string;
+  onModelChange: (provider: string, model: string) => void;
 };
 
 const mmss = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
@@ -42,7 +43,7 @@ export function AskView(props: Props) {
   const {
     t, host, messages, busy, error, partial, question, setQuestion, ask, cancel, ready,
     clients, projects, client, project, setClient, setProject, sourceClick,
-    isLocalProvider, provider, model,
+    provider, model, onModelChange,
   } = props;
   const empty = messages.length === 0 && !busy;
   // Con mensajes, el alcance queda fijo: evita mezclar información de otros clientes en la misma conversación.
@@ -146,13 +147,7 @@ export function AskView(props: Props) {
               />
             </>
           )}
-          <span className="ml-auto hidden min-w-0 items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
-            {isLocalProvider ? <ShieldCheck className="size-3.5 shrink-0 text-success" /> : <Cloud className="size-3.5 shrink-0 text-warning" />}
-            <span className="truncate">
-              {isLocalProvider ? t("assistant.privacyLocal") : t("assistant.privacyCloud").replace("{provider}", provider)}
-              {model ? ` · ${model}` : ""}
-            </span>
-          </span>
+          <AssistantModelSelect className="ml-auto" provider={provider} model={model} onChange={onModelChange} />
           {busy ? (
             <Button type="button" size="icon" variant="outline" className="size-8 rounded-full" onClick={cancel} aria-label={t("assistant.cancel")}>
               <Square className="size-3.5 fill-current" />

@@ -589,9 +589,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           setClient={(value) => { setClient(value); setScope(value ? "history" : "all"); }}
           setProject={setProject}
           sourceClick={sourceClick}
-          isLocalProvider={isLocalProvider}
           provider={provider}
           model={model}
+          onModelChange={(nextProvider, nextModel) => void savePrefs({ ...prefs, provider: nextProvider, model: nextModel })}
         />
       ) : (
       <AssistantPanel

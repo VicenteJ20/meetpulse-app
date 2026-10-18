@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import catalog from '@/config/models.json';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { useTranscriptionModels } from '@/hooks/useTranscriptionModels';
@@ -23,16 +24,26 @@ function Labeled({ label, hint, children }: { label: string; hint?: string; chil
   );
 }
 
+// Los modelos en la nube salen de src/config/models.json: ahí se agregan o quitan sin tocar código.
+type CatalogEntry = { provider: string; id: string; label: string };
+const CLOUD_TRANSCRIPTION = catalog.transcription as CatalogEntry[];
+const CLOUD_ANALYSIS = catalog.analysis as CatalogEntry[];
+
 const PROVIDER_LABEL: Record<string, string> = { whisper: 'Whisper', parakeet: 'Parakeet', gemini: 'Gemini' };
+const PROVIDER_NAME: Record<string, string> = { ollama: 'Ollama', 'builtin-ai': 'MeetPulse' };
+const isCloudProvider = (provider: string) => provider !== 'ollama' && provider !== 'builtin-ai';
+const groupLabel = 'text-xs text-muted-foreground';
 
 export function TranscriptionEngineSelect() {
   const { t } = useTranslation();
-  const { transcriptModelConfig, setTranscriptModelConfig } = useConfig();
+  const { transcriptModelConfig, setTranscriptModelConfig, providerApiKeys } = useConfig();
   const { availableModels, loadingModels, fetchModels } = useTranscriptionModels(transcriptModelConfig);
 
   useEffect(() => { void fetchModels(); }, [fetchModels]);
 
   const current = `${transcriptModelConfig.provider === 'localWhisper' ? 'whisper' : transcriptModelConfig.provider}:${transcriptModelConfig.model}`;
+  const local = availableModels.filter((m) => m.provider !== 'gemini');
+  const geminiKey = providerApiKeys.gemini ?? (transcriptModelConfig.provider === 'gemini' ? transcriptModelConfig.apiKey : null);
 
   const save = async (key: string) => {
     const separator = key.indexOf(':');
@@ -44,7 +55,7 @@ export function TranscriptionEngineSelect() {
       ...previous,
       provider: mapped,
       model,
-      apiKey: mapped === previous.provider ? previous.apiKey : null,
+      apiKey: mapped === 'gemini' ? geminiKey : mapped === previous.provider ? previous.apiKey : null,
     };
     setTranscriptModelConfig(next);
     try {
@@ -56,22 +67,37 @@ export function TranscriptionEngineSelect() {
     }
   };
 
+  const cloud = [...CLOUD_TRANSCRIPTION];
+  if (transcriptModelConfig.provider === 'gemini' && !cloud.some((m) => m.id === transcriptModelConfig.model)) {
+    cloud.unshift({ provider: 'gemini', id: transcriptModelConfig.model, label: transcriptModelConfig.model });
+  }
+
   return (
     <Labeled label={t('home.transcribeWith')}>
-      <Select value={current} onValueChange={(value) => void save(value)} disabled={loadingModels && availableModels.length === 0}>
+      <Select value={current} onValueChange={(value) => void save(value)} disabled={loadingModels && local.length === 0}>
         <SelectTrigger aria-label={t('home.transcribeWith')}>
           <SelectValue placeholder="—" />
         </SelectTrigger>
         <SelectContent>
-          {availableModels.map((model) => (
-            <SelectItem key={`${model.provider}:${model.name}`} value={`${model.provider}:${model.name}`}>
-              {PROVIDER_LABEL[model.provider]} · {model.name}
-            </SelectItem>
-          ))}
-          {/* El motor configurado puede no estar descargado todavía: se muestra igual para no dejar el campo vacío */}
-          {!availableModels.some((m) => `${m.provider}:${m.name}` === current) && transcriptModelConfig.model && (
-            <SelectItem value={current}>{transcriptModelConfig.model}</SelectItem>
-          )}
+          <SelectGroup>
+            <SelectLabel className={groupLabel}>{t('home.groupLocal')}</SelectLabel>
+            {local.map((model) => (
+              <SelectItem key={`${model.provider}:${model.name}`} value={`${model.provider}:${model.name}`}>
+                {PROVIDER_LABEL[model.provider]} · {model.name}
+              </SelectItem>
+            ))}
+            {!local.some((m) => `${m.provider}:${m.name}` === current) && transcriptModelConfig.provider !== 'gemini' && transcriptModelConfig.model && (
+              <SelectItem value={current}>{transcriptModelConfig.model}</SelectItem>
+            )}
+          </SelectGroup>
+          <SelectGroup>
+            <SelectLabel className={groupLabel}>{t('home.groupCloud')}</SelectLabel>
+            {cloud.map((model) => (
+              <SelectItem key={`${model.provider}:${model.id}`} value={`${model.provider}:${model.id}`} disabled={!geminiKey}>
+                {model.label}{!geminiKey ? ` · ${t('home.needsKey')}` : ''}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
     </Labeled>
@@ -100,30 +126,42 @@ export function LanguageSelect() {
   );
 }
 
-type Catalog = { models: { id: string; name: string }[] };
+type ModelList = { models: { id: string; name: string }[] };
+type LocalModel = { provider: string; id: string; name: string };
 
 export function SummaryModelSelect() {
   const { t } = useTranslation();
-  const { modelConfig, setModelConfig } = useConfig();
-  const [models, setModels] = useState<{ id: string; name: string }[]>([]);
+  const { modelConfig, setModelConfig, providerApiKeys } = useConfig();
+  const [local, setLocal] = useState<LocalModel[]>([]);
 
+  // Locales: los que expone Ollama y los integrados. Los de nube salen del catálogo editable.
   useEffect(() => {
     let active = true;
-    invoke<Catalog>('desktop_list_models', {
-      provider: modelConfig.provider,
-      purpose: 'analysis',
-      apiKey: modelConfig.apiKey ?? null,
-      endpoint: modelConfig.ollamaEndpoint ?? null,
-      refresh: false,
-    })
-      .then((catalog) => { if (active) setModels(catalog.models ?? []); })
-      .catch(() => { if (active) setModels([]); });
+    const load = (provider: string): Promise<LocalModel[]> =>
+      invoke<ModelList>('desktop_list_models', {
+        provider,
+        purpose: 'analysis',
+        apiKey: null,
+        endpoint: provider === 'ollama' ? modelConfig.ollamaEndpoint ?? null : null,
+        refresh: false,
+      })
+        .then((list) => (list.models ?? []).map((m) => ({ provider, id: m.id, name: m.name || m.id })))
+        .catch(() => []);
+    void Promise.all([load('ollama'), load('builtin-ai')]).then(([a, b]) => { if (active) setLocal([...a, ...b]); });
     return () => { active = false; };
-  }, [modelConfig.provider, modelConfig.apiKey, modelConfig.ollamaEndpoint]);
+  }, [modelConfig.ollamaEndpoint]);
 
-  const save = async (model: string) => {
+  const keyFor = (provider: string): string | null => {
+    if (!isCloudProvider(provider)) return null;
+    return (providerApiKeys as Record<string, string | null>)[provider] ?? (modelConfig.provider === provider ? modelConfig.apiKey ?? null : null);
+  };
+
+  const save = async (value: string) => {
+    const separator = value.indexOf(':');
+    const provider = value.slice(0, separator);
+    const model = value.slice(separator + 1);
     const previous = modelConfig;
-    const next = { ...previous, model };
+    const next = { ...previous, provider: provider as typeof previous.provider, model, apiKey: keyFor(provider) };
     setModelConfig(next);
     try {
       await invoke('api_save_model_config', {
@@ -140,18 +178,42 @@ export function SummaryModelSelect() {
     }
   };
 
-  const options = models.some((m) => m.id === modelConfig.model) ? models : [{ id: modelConfig.model, name: modelConfig.model }, ...models];
+  const current = `${modelConfig.provider}:${modelConfig.model}`;
+  const cloud = [...CLOUD_ANALYSIS];
+  const localList = [...local];
+  if (isCloudProvider(modelConfig.provider) && !cloud.some((m) => m.provider === modelConfig.provider && m.id === modelConfig.model)) {
+    cloud.unshift({ provider: modelConfig.provider, id: modelConfig.model, label: modelConfig.model });
+  } else if (!isCloudProvider(modelConfig.provider) && !localList.some((m) => m.provider === modelConfig.provider && m.id === modelConfig.model)) {
+    localList.unshift({ provider: modelConfig.provider, id: modelConfig.model, name: modelConfig.model });
+  }
 
   return (
     <Labeled label={t('home.summarizeWith')}>
-      <Select value={modelConfig.model} onValueChange={(value) => void save(value)}>
+      <Select value={current} onValueChange={(value) => void save(value)}>
         <SelectTrigger aria-label={t('home.summarizeWith')}>
           <SelectValue placeholder="—" />
         </SelectTrigger>
         <SelectContent>
-          {options.filter((m) => m.id).map((m) => (
-            <SelectItem key={m.id} value={m.id}>{m.name || m.id}</SelectItem>
-          ))}
+          {localList.length > 0 && (
+            <SelectGroup>
+              <SelectLabel className={groupLabel}>{t('home.groupLocal')}</SelectLabel>
+              {localList.map((m) => (
+                <SelectItem key={`${m.provider}:${m.id}`} value={`${m.provider}:${m.id}`}>{PROVIDER_NAME[m.provider]} · {m.name}</SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+          <SelectGroup>
+            <SelectLabel className={groupLabel}>{t('home.groupCloud')}</SelectLabel>
+            {cloud.map((m) => {
+              const hasKey = !!keyFor(m.provider);
+              const value = `${m.provider}:${m.id}`;
+              return (
+                <SelectItem key={value} value={value} disabled={!hasKey && value !== current}>
+                  {m.label}{!hasKey ? ` · ${t('home.needsKey')}` : ''}
+                </SelectItem>
+              );
+            })}
+          </SelectGroup>
         </SelectContent>
       </Select>
     </Labeled>

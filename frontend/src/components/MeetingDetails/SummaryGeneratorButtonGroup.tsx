@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sparkles, Settings, Loader2, FileText, Check, Square } from 'lucide-react';
+import { Sparkles, Loader2, FileText, Check, Square, ChevronDown, Cpu, RefreshCw } from 'lucide-react';
 import Analytics from '@/lib/analytics';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
@@ -243,73 +243,63 @@ export function SummaryGeneratorButtonGroup({
 
   const isGenerating = summaryStatus === 'processing' || summaryStatus === 'summarizing' || summaryStatus === 'regenerating';
 
+  const isCloud = modelConfig.provider !== 'ollama' && modelConfig.provider !== 'builtin-ai';
+  const templateName = availableTemplates.find((template) => template.id === selectedTemplate)?.name;
+  const busy = isCheckingModels || isModelConfigLoading;
+
   return (
     <div className="flex flex-nowrap items-center gap-1.5">
-      {/* Generate Summary or Stop button */}
-      {isGenerating ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-destructive/25 bg-destructive/10 text-destructive hover:bg-destructive/15"
-          onClick={() => {
-            Analytics.trackButtonClick('stop_summary_generation', 'meeting_details');
-            onStopGeneration();
-          }}
-          title="Stop summary generation"
-        >
-          <Square fill="currentColor" />
-          {t('meeting.stop')}
-        </Button>
-      ) : (
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-brand bg-brand text-brand-foreground hover:bg-brand/90 hover:text-brand-foreground"
-          onClick={() => {
-            Analytics.trackButtonClick('generate_summary', 'meeting_details');
-            checkOllamaModelsAndGenerate();
-          }}
-          disabled={isCheckingModels || isModelConfigLoading}
-          title={
-            isModelConfigLoading
-              ? 'Loading model configuration...'
-              : isCheckingModels
-                ? 'Checking models...'
-                : hasSummary ? 'Regenerate AI Summary' : 'Generate AI Summary'
-          }
-        >
-          {isCheckingModels || isModelConfigLoading ? (
-            <>
-              <Loader2 className="animate-spin" />
-              {t('meeting.processing')}
-            </>
-          ) : (
-            <>
-              <Sparkles />
-              {hasSummary ? t('meeting.regenerate') : t('meeting.generate')}
-            </>
-          )}
-        </Button>
+      {/* Plantilla */}
+      {availableTemplates.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              title={t('meeting.template')}
+              aria-label={t('meeting.template')}
+              className="max-w-[10rem] data-[state=open]:border-brand"
+            >
+              <FileText />
+              <span className="hidden truncate min-[1500px]:inline">{templateName ?? t('meeting.template')}</span>
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {availableTemplates.map((template) => (
+              <DropdownMenuItem
+                key={template.id}
+                onClick={() => onTemplateSelect(template.id, template.name)}
+                title={template.description}
+                className="flex items-center justify-between gap-2"
+              >
+                <span>{template.name}</span>
+                {selectedTemplate === template.id && <Check className="h-4 w-4 text-brand" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
 
-      {languageSlot}
-
-      {/* Settings button */}
+      {/* Modelo */}
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
         <DialogTrigger asChild>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             title={t('meeting.model')}
             aria-label={t('meeting.model')}
-            className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+            className="max-w-[12rem] data-[state=open]:border-brand"
           >
-            <Settings />
-                      </Button>
+            <Cpu />
+            <span className="hidden truncate min-[1500px]:inline">{modelConfig.model}</span>
+            <span className={`rounded-full px-1.5 text-[0.65rem] font-semibold leading-4 ${isCloud ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success'}`}>
+              {isCloud ? t('insights.modelCloud') : t('insights.modelLocal')}
+            </span>
+            <ChevronDown className="size-3.5 text-muted-foreground" />
+          </Button>
         </DialogTrigger>
-        <DialogContent
-          aria-describedby={undefined}
-        >
+        <DialogContent aria-describedby={undefined}>
           <VisuallyHidden>
             <DialogTitle>Model Settings</DialogTitle>
           </VisuallyHidden>
@@ -326,37 +316,38 @@ export function SummaryGeneratorButtonGroup({
         </DialogContent>
       </Dialog>
 
-      {/* Template selector dropdown */}
-      {availableTemplates.length > 0 && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              title={t('meeting.template')}
-              aria-label={t('meeting.template')}
-              className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
-            >
-              <FileText />
-                          </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {availableTemplates.map((template) => (
-              <DropdownMenuItem
-                key={template.id}
-                onClick={() => onTemplateSelect(template.id, template.name)}
-                title={template.description}
-                className="flex items-center justify-between gap-2"
-              >
-                <span>{template.name}</span>
-                {selectedTemplate === template.id && (
-                  <Check className="h-4 w-4 text-success" />
-                )}
-              </DropdownMenuItem>
-            ))}
+      {languageSlot}
 
-          </DropdownMenuContent>
-        </DropdownMenu>
+      {/* Generar / Regenerar / Detener */}
+      {isGenerating ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-destructive/25 bg-destructive/10 text-destructive hover:bg-destructive/15"
+          onClick={() => {
+            Analytics.trackButtonClick('stop_summary_generation', 'meeting_details');
+            onStopGeneration();
+          }}
+          title="Stop summary generation"
+        >
+          <Square fill="currentColor" />
+          {t('meeting.stop')}
+        </Button>
+      ) : (
+        <Button
+          size={hasSummary ? 'icon' : 'sm'}
+          variant={hasSummary ? 'outline' : 'default'}
+          className={hasSummary ? 'size-8' : undefined}
+          onClick={() => {
+            Analytics.trackButtonClick('generate_summary', 'meeting_details');
+            checkOllamaModelsAndGenerate();
+          }}
+          disabled={busy}
+          title={hasSummary ? t('meeting.regenerate') : t('meeting.generate')}
+          aria-label={hasSummary ? t('meeting.regenerate') : t('meeting.generate')}
+        >
+          {busy ? <Loader2 className="animate-spin" /> : hasSummary ? <RefreshCw /> : <><Sparkles />{t('meeting.generate')}</>}
+        </Button>
       )}
     </div>
   );

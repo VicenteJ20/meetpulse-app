@@ -3,11 +3,14 @@
 import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { AlertTriangle, CheckCircle2, CircleHelp, ListChecks, Route, Sparkles } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CheckCircle2, CircleHelp, ListChecks, Route, Sparkles } from 'lucide-react';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import {
+  extractDue,
+  extractTime,
+  formatClock,
   initials,
   parseAction,
   parseInsights,
@@ -31,6 +34,20 @@ function Inline({ children }: { children: string }) {
     >
       {children}
     </ReactMarkdown>
+  );
+}
+
+// Marca de tiempo: lleva a ese momento de la transcripción.
+function TimeChip({ seconds }: { seconds: number | null }) {
+  if (seconds === null) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new CustomEvent('meetpulse-source', { detail: { start: seconds } }))}
+      className="ml-auto shrink-0 self-start rounded-full border border-transparent bg-accent px-2 py-0.5 font-mono text-[0.72rem] tabular-nums leading-4 text-accent-foreground transition-colors hover:border-brand"
+    >
+      {formatClock(seconds)}
+    </button>
   );
 }
 
@@ -88,12 +105,16 @@ export function InsightsView({ markdown, onChange }: InsightsViewProps) {
             <>
               <SectionTitle icon={CheckCircle2} label={t('insights.decisions')} count={section.items.length} />
               <ol className="divide-y divide-border">
-                {section.items.map((item, index) => (
-                  <li key={item.line} className="flex items-baseline gap-4 py-2.5 first:pt-0">
-                    <span className="w-5 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
-                    <span className="min-w-0 flex-1 text-[0.97rem] leading-snug"><Inline>{item.text}</Inline></span>
-                  </li>
-                ))}
+                {section.items.map((item, index) => {
+                  const timed = extractTime(item.text);
+                  return (
+                    <li key={item.line} className="flex items-baseline gap-4 py-2.5 first:pt-0">
+                      <span className="w-5 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
+                      <span className="min-w-0 flex-1 text-[0.97rem] leading-snug"><Inline>{timed.text}</Inline></span>
+                      <TimeChip seconds={timed.seconds} />
+                    </li>
+                  );
+                })}
               </ol>
             </>
           )}
@@ -110,7 +131,9 @@ export function InsightsView({ markdown, onChange }: InsightsViewProps) {
               </p>
               <ul className="-mx-2 space-y-0.5">
                 {section.items.map((item) => {
-                  const action = parseAction(item.text);
+                  const timed = extractTime(item.text);
+                  const dueSplit = extractDue(timed.text);
+                  const action = parseAction(dueSplit.text);
                   const checkable = item.checked !== undefined;
                   return (
                     <li key={item.line} className="group flex items-start gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50">
@@ -128,7 +151,7 @@ export function InsightsView({ markdown, onChange }: InsightsViewProps) {
                         <p className={cn('text-[0.97rem] leading-snug', item.checked && 'text-muted-foreground line-through decoration-border')}>
                           <Inline>{cap(action.task)}</Inline>
                         </p>
-                        {(action.owner || action.context) && (
+                        {(action.owner || action.context || dueSplit.due) && (
                           <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                             {action.owner && (
                               <span className="inline-flex items-center gap-1.5">
@@ -136,10 +159,14 @@ export function InsightsView({ markdown, onChange }: InsightsViewProps) {
                                 {action.owner}
                               </span>
                             )}
+                            {dueSplit.due && (
+                              <span className="inline-flex items-center gap-1.5"><CalendarDays className="size-3.5" />{dueSplit.due}</span>
+                            )}
                             {action.context && <span className="italic">{action.context}</span>}
                           </p>
                         )}
                       </div>
+                      <TimeChip seconds={timed.seconds} />
                     </li>
                   );
                 })}
@@ -152,7 +179,8 @@ export function InsightsView({ markdown, onChange }: InsightsViewProps) {
               <SectionTitle icon={Route} label={t('insights.topics')} count={section.items.length} />
               <ul className="space-y-3.5">
                 {section.items.map((item, index) => {
-                  const topic = parseTopic(item.text);
+                  const timedTopic = extractTime(item.text);
+                  const topic = parseTopic(timedTopic.text);
                   return (
                     <li key={item.line} className="flex gap-3">
                       <span className="mt-[0.45rem] size-2 shrink-0 rounded-[3px] bg-brand" style={{ opacity: Math.max(0.35, 1 - index * 0.14) }} />
@@ -171,6 +199,7 @@ export function InsightsView({ markdown, onChange }: InsightsViewProps) {
                           </ul>
                         )}
                       </div>
+                      <TimeChip seconds={timedTopic.seconds} />
                     </li>
                   );
                 })}
