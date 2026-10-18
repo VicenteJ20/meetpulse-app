@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { catalogs, TranslationKey } from '@/i18n/catalogs';
+import { withAssistant } from '@/config/brand';
 
 export type UiLocale = 'en' | 'es';
 export type ThemePreference = 'light' | 'dark' | 'system';
@@ -77,7 +78,7 @@ export function UiPreferencesProvider({ children }: { children: React.ReactNode 
     theme,
     setTheme,
     resolvedTheme,
-    t: key => catalogs[locale][key],
+    t: key => withAssistant(catalogs[locale][key]),
     formatDate: (value, options) => new Intl.DateTimeFormat(locale, options).format(new Date(value)),
     formatNumber: (value, options) => new Intl.NumberFormat(locale, options).format(value),
   }), [locale, resolvedTheme, setLocale, setTheme, theme]);

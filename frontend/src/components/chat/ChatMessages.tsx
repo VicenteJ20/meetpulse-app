@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
-import { ChevronDown, Quote, Sparkles } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, ChevronDown, Quote, Sparkles } from "lucide-react";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import { cn } from "@/lib/utils";
 import type { Message, Source } from "@/contexts/AssistantContext";
@@ -98,15 +98,109 @@ export function AssistantMessage({ message, sourceClick, large = false }: { mess
   );
 }
 
-export function ChatThread({ messages, sourceClick, large }: { messages: Message[]; sourceClick: (source: Source) => void; large?: boolean }) {
+export type PendingReply = { question: string; stage: "loading" | "searching" | "analyzing" | "long" };
+
+// Respuesta en curso: el avatar late, el estado cambia por etapas y las líneas insinúan el texto que viene.
+function PendingBubble({ stage }: { stage: PendingReply["stage"] }) {
+  const { t } = useTranslation();
   return (
-    <div className="flex flex-col gap-6">
-      {messages.map((message) =>
+    <div role="status" aria-live="polite" className="animate-enter flex gap-3">
+      <span className="relative mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-accent text-brand">
+        <span className="absolute inset-0 animate-ping rounded-full bg-brand/25 [animation-duration:1.8s]" aria-hidden="true" />
+        <Sparkles className="relative size-4 animate-rec-pulse" />
+      </span>
+      <div className="min-w-0 flex-1 pt-1">
+        <p key={stage} className="animate-enter text-sm text-muted-foreground">{t(`chat.stage.${stage}` as "chat.stage.loading")}</p>
+        <div className="mt-3 space-y-2" aria-hidden="true">
+          <div className="skeleton-shimmer h-3 w-11/12 rounded" />
+          <div className="skeleton-shimmer h-3 w-9/12 rounded" />
+          <div className="skeleton-shimmer h-3 w-6/12 rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ChatDisclaimer({ className }: { className?: string }) {
+  const { t } = useTranslation();
+  return <p className={cn("text-center text-xs text-muted-foreground", className)}>{t("chat.disclaimer")}</p>;
+}
+
+// Hilo de la conversación. Se pega al final mientras llega contenido, salvo que la persona suba a leer.
+export function ChatThread({
+  messages,
+  sourceClick,
+  large,
+  pending,
+}: {
+  messages: Message[];
+  sourceClick: (source: Source) => void;
+  large?: boolean;
+  pending?: PendingReply;
+}) {
+  const { t } = useTranslation();
+  const root = useRef<HTMLDivElement>(null);
+  const stick = useRef(true);
+  const [away, setAway] = useState(false);
+
+  const scroller = () => root.current?.closest<HTMLElement>("[data-chat-scroll]") ?? null;
+
+  useEffect(() => {
+    const el = scroller();
+    if (!el) return;
+    const onScroll = () => {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 72;
+      stick.current = atBottom;
+      setAway(!atBottom);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Al enviar, siempre se baja; después solo si ya se estaba al final.
+  useEffect(() => {
+    if (pending) stick.current = true;
+  }, [!!pending]);
+
+  useEffect(() => {
+    const el = scroller();
+    if (el && stick.current) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messages.length, pending?.stage, !!pending]);
+
+  const toLatest = () => {
+    const el = scroller();
+    stick.current = true;
+    el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  };
+
+  return (
+    <div ref={root} className="flex flex-col gap-6">
+      {messages.map((message, index) =>
         message.role === "user" ? (
-          <UserMessage key={message.id} message={message} />
+          <UserMessage key={`u-${index}`} message={message} />
         ) : (
-          <AssistantMessage key={message.id} message={message} sourceClick={sourceClick} large={large} />
+          <AssistantMessage key={`a-${index}`} message={message} sourceClick={sourceClick} large={large} />
         ),
+      )}
+      {pending && (
+        <>
+          {pending.question && (
+            <div className="animate-enter flex justify-end">
+              <p className="max-w-[88%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-muted px-3.5 py-2 text-[0.92rem] leading-6 text-foreground">{pending.question}</p>
+            </div>
+          )}
+          <PendingBubble stage={pending.stage} />
+        </>
+      )}
+      {away && (
+        <button
+          type="button"
+          onClick={toLatest}
+          className="animate-pop sticky bottom-2 mx-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-[0_8px_24px_-8px_rgb(20_30_60_/_0.35)] transition-colors hover:bg-muted"
+        >
+          <ArrowDown className="size-3.5" />
+          {t("chat.toLatest")}
+        </button>
       )}
     </div>
   );

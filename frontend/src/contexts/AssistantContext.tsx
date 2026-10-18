@@ -154,6 +154,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [detail, setDetail] = useState<Message>();
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState("");
+  const [pendingText, setPendingText] = useState("");
+  const [stage, setStage] = useState<"loading" | "searching" | "analyzing" | "long">("searching");
+  const stopped = useRef(false);
   const [error, setError] = useState("");
   const [scope, setScope] = useState("current");
   const [client, setClient] = useState("");
@@ -372,6 +375,12 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     setBusy(kind);
     setError("");
     const text = question;
+    stopped.current = false;
+    // Envío optimista: el campo se vacía y el mensaje aparece al instante; si algo falla, el texto vuelve.
+    if (kind === "chat") {
+      setPendingText(text);
+      setQuestion("");
+    }
     try {
       await syncLive();
       const result = await invoke<{ messages: Message[]; partial: boolean }>(
@@ -396,13 +405,14 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       );
       if (request.current !== id || sessionRef.current !== activeSession)
         return;
-      if (kind === "chat") setQuestion("");
-      else lastCoach.current = key;
+      if (kind === "coach") lastCoach.current = key;
       setPartial(result.partial);
       await reload(activeSession);
     } catch (e) {
+      if (kind === "chat") setQuestion((current) => current || text);
       if (request.current === id) {
-        setError(String(e));
+        // Detener no es un error: se devuelve el texto al campo y se avisa en silencio.
+        if (!stopped.current) setError(String(e));
         await reload(activeSession).catch(() => {});
       }
     } finally {
@@ -410,6 +420,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         request.current = "";
         setBusy("");
       }
+      if (kind === "chat") setPendingText("");
     }
   }
   coachJob.current = () => {
@@ -534,6 +545,22 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         .filter((p): p is string => !!p),
     ),
   );
+  // Etapas de espera: dan señales de vida aunque el modelo tarde (sobre todo los locales).
+  useEffect(() => {
+    if (busy !== "chat") return;
+    setStage(isLocalProvider ? "loading" : "searching");
+    const first = setTimeout(() => setStage("analyzing"), isLocalProvider ? 4000 : 1500);
+    const long = setTimeout(() => setStage("long"), 12000);
+    return () => {
+      clearTimeout(first);
+      clearTimeout(long);
+    };
+  }, [busy, isLocalProvider]);
+  const pending = busy === "chat" ? { question: pendingText, stage } : undefined;
+  const stopChat = () => {
+    stopped.current = true;
+    if (request.current) void invoke("desktop_assistant_cancel", { requestId: request.current });
+  };
   const indexLabel = search?.ready
     ? search.indexing
       ? t("assistant.indexing")
@@ -572,17 +599,13 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           t={t}
           host={liveDockHost}
           messages={shown}
-          busy={busy === "chat"}
+          pending={pending}
           error={error}
           partial={partial}
           question={question}
           setQuestion={setQuestion}
           ask={() => ask("chat")}
-          cancel={() => {
-            if (request.current) void invoke("desktop_assistant_cancel", { requestId: request.current });
-            request.current = "";
-            setBusy("");
-          }}
+          cancel={stopChat}
           ready={!!session}
           clients={clients}
           projects={projects}
@@ -647,6 +670,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         setQuestion={setQuestion}
         isLocalProvider={isLocalProvider}
         requestId={request.current}
+        pending={pending}
+        stopChat={stopChat}
       />
       )}
     </Context.Provider>

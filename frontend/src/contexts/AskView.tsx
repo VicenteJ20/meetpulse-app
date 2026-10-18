@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Lock, Sparkles, Square } from "lucide-react";
-import { ChatThread } from "@/components/chat/ChatMessages";
+import { ChatDisclaimer, ChatThread, type PendingReply } from "@/components/chat/ChatMessages";
 import { AssistantModelSelect } from "@/components/AssistantModelSelect";
 import { Button } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/select-field";
@@ -16,7 +16,7 @@ type Props = {
   t: (key: TranslationKey) => string;
   host: HTMLDivElement;
   messages: Message[];
-  busy: boolean;
+  pending?: PendingReply;
   error: string;
   partial: boolean;
   question: string;
@@ -39,20 +39,16 @@ type Props = {
 // Chat general sobre todas las reuniones. Vacío: saludo y campo al centro; con mensajes: hilo arriba y campo abajo.
 export function AskView(props: Props) {
   const {
-    t, host, messages, busy, error, partial, question, setQuestion, ask, cancel, ready,
+    t, host, messages, pending, error, partial, question, setQuestion, ask, cancel, ready,
     clients, projects, client, project, setClient, setProject, sourceClick,
     provider, model, onModelChange,
   } = props;
-  const empty = messages.length === 0 && !busy;
+  const busy = !!pending;
+  const empty = messages.length === 0 && !pending;
   // Con mensajes, el alcance queda fijo: evita mezclar información de otros clientes en la misma conversación.
   const locked = messages.length > 0;
   const threadRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    const el = threadRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages.length, busy]);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -117,16 +113,17 @@ export function AskView(props: Props) {
           )}
           <AssistantModelSelect className="ml-auto" provider={provider} model={model} onChange={onModelChange} />
           {busy ? (
-            <Button type="button" size="icon" variant="outline" className="size-8 rounded-full" onClick={cancel} aria-label={t("assistant.cancel")}>
+            <Button key="stop" type="button" size="icon" variant="outline" className="animate-pop size-8 rounded-full" onClick={cancel} aria-label={t("chat.stop")} title={t("chat.stop")}>
               <Square className="size-3.5 fill-current" />
             </Button>
           ) : (
-            <Button type="submit" size="icon" className="size-8 rounded-full" aria-label={t("assistant.send")} disabled={!ready || !question.trim()}>
+            <Button key="send" type="submit" size="icon" className="animate-pop size-8 rounded-full transition-transform duration-150 active:scale-90" aria-label={t("assistant.send")} disabled={!ready || !question.trim()}>
               <ArrowUp />
             </Button>
           )}
         </div>
       </div>
+      <ChatDisclaimer className="mt-2" />
     </motion.form>
   );
 
@@ -149,19 +146,9 @@ export function AskView(props: Props) {
       </AnimatePresence>
 
       {!empty && (
-        <div ref={threadRef} className="custom-scrollbar min-h-0 w-full flex-1 overflow-y-auto px-6 pt-8" aria-live="polite">
+        <div ref={threadRef} data-chat-scroll className="custom-scrollbar min-h-0 w-full flex-1 overflow-y-auto px-6 pt-8" aria-live="polite">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-6">
-            <ChatThread messages={messages} sourceClick={sourceClick} large />
-            {busy && (
-              <div role="status" className="animate-enter flex items-center gap-3">
-                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent text-brand"><Sparkles className="size-4" /></span>
-                <span className="inline-flex gap-1" aria-label={t("assistant.generating")}>
-                  {[0, 1, 2].map((i) => (
-                    <span key={i} className="size-1.5 animate-blink rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 150}ms` }} />
-                  ))}
-                </span>
-              </div>
-            )}
+            <ChatThread messages={messages} sourceClick={sourceClick} large pending={pending} />
             {partial && !busy && <p className="text-xs text-muted-foreground">{t("assistant.partial")}</p>}
           </div>
         </div>
