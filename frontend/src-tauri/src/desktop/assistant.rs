@@ -85,6 +85,29 @@ pub async fn desktop_assistant_session(
     })
 }
 
+#[tauri::command]
+pub async fn desktop_assistant_recent_sessions(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<Value>, String> {
+    let pool = state.db_manager.pool();
+    let rows = sqlx::query(
+        "SELECT s.id,s.created_at,(SELECT m.text FROM assistant_messages m WHERE m.session_id=s.id AND m.role='user' AND m.kind='chat' ORDER BY m.rowid DESC LIMIT 1) AS last_question FROM assistant_sessions s WHERE s.meeting_id IS NULL AND s.id LIKE 'ask-%' AND EXISTS(SELECT 1 FROM assistant_messages m WHERE m.session_id=s.id AND m.kind='chat') ORDER BY s.created_at DESC LIMIT 20",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(rows
+        .iter()
+        .map(|row| {
+            json!({
+                "id": row.get::<String, _>("id"),
+                "createdAt": row.get::<String, _>("created_at"),
+                "title": row.get::<Option<String>, _>("last_question").unwrap_or_else(|| "Ask".into()),
+            })
+        })
+        .collect())
+}
+
 fn fit_context(
     packet: &mut Value,
     sources: &mut Vec<Source>,
@@ -359,6 +382,7 @@ pub struct Ask {
     pub question: String,
     pub client: Option<String>,
     pub project: Option<String>,
+    pub all_meetings: Option<bool>,
     pub from: Option<String>,
     pub to: Option<String>,
     pub locale: String,
@@ -486,8 +510,11 @@ async fn answer(
     let custom = SettingsRepository::get_custom_openai_config(pool)
         .await
         .map_err(|e| e.to_string())?;
-    let historical = r.kind == "chat" && r.client.as_ref().is_some_and(|v| !v.trim().is_empty());
-    let scope = if historical {
+    let all_meetings = r.kind == "chat" && r.all_meetings.unwrap_or(false);
+    let historical = r.kind == "chat" && (all_meetings || r.client.as_ref().is_some_and(|v| !v.trim().is_empty()));
+    let scope = if all_meetings {
+        "all meetings".to_string()
+    } else if historical {
         if r.project.as_ref().is_none_or(|s| s.trim().is_empty()) {
             return Err("Select a client and project".into());
         }
@@ -499,7 +526,9 @@ async fn answer(
     } else {
         "current".into()
     };
-    let (mut sources, partial) = if historical {
+    let (mut sources, partial) = if all_meetings {
+        super::search::retrieve_all(app, pool, &r.question).await?
+    } else if historical {
         super::search::retrieve(
             app,
             pool,

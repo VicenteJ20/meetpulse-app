@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { invoke } from '@tauri-apps/api/core';
 import { Cpu, FileText, Home, Library, Lightbulb, Mic, Moon, Settings, Sparkles, Waves } from 'lucide-react';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useAssistant } from '@/contexts/AssistantContext';
@@ -19,6 +20,15 @@ import {
 import { DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
+type SemanticSource = {
+  id: string;
+  meetingId?: string;
+  title: string;
+  text: string;
+  start: number;
+  end?: number;
+};
+
 // Paleta Ctrl+K: reuniones, ajustes, comandos y "Preguntar".
 export default function CommandPalette() {
   const router = useRouter();
@@ -28,6 +38,9 @@ export default function CommandPalette() {
   const assistant = useAssistant();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [semanticResults, setSemanticResults] = useState<SemanticSource[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [partialSearch, setPartialSearch] = useState(false);
 
   useEffect(() => {
     const show = () => {
@@ -53,9 +66,39 @@ export default function CommandPalette() {
   const trimmed = query.trim();
   const isQuestion = /\?$/.test(trimmed) || trimmed.split(/\s+/).filter(Boolean).length > 3;
 
+  useEffect(() => {
+    if (!open || trimmed.length < 3) {
+      setSemanticResults([]);
+      setSearching(false);
+      setPartialSearch(false);
+      return;
+    }
+    let stale = false;
+    setSemanticResults([]);
+    setSearching(true);
+    const timer = setTimeout(() => {
+      void invoke<{ sources: SemanticSource[]; partial: boolean }>('desktop_search_query', { query: trimmed })
+        .then((result) => {
+          if (stale) return;
+          setSemanticResults(result.sources ?? []);
+          setPartialSearch(result.partial);
+        })
+        .catch((error) => {
+          if (!stale) console.warn('Semantic palette search failed:', error);
+        })
+        .finally(() => {
+          if (!stale) setSearching(false);
+        });
+    }, 300);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [open, trimmed]);
+
   const askItem = trimmed.length > 2 && (
     <CommandGroup heading={t('palette.ask')} forceMount>
-      <CommandItem forceMount value={`ask ${trimmed}`} onSelect={() => run(assistant.toggle)}>
+      <CommandItem forceMount value={`ask ${trimmed}`} onSelect={() => run(() => router.push(`/ask?q=${encodeURIComponent(trimmed)}`))}>
         <Sparkles className="text-brand" />
         <span className="truncate">{t('palette.askItem').replace('{q}', trimmed)}</span>
       </CommandItem>
@@ -71,6 +114,37 @@ export default function CommandPalette() {
       <CommandList className="max-h-[22rem]">
         <CommandEmpty>{t('palette.empty')}</CommandEmpty>
         {isQuestion && askItem}
+        {trimmed.length > 2 && (
+          <CommandGroup heading={partialSearch ? t('palette.textResults') : t('palette.semanticResults')} forceMount>
+            {searching && (
+              <CommandItem disabled forceMount value="searching local index">
+                <Sparkles className="animate-pulse text-brand" />
+                <span>{t('palette.searching')}</span>
+              </CommandItem>
+            )}
+            {semanticResults.map((source) => (
+              <CommandItem
+                key={source.id}
+                forceMount
+                value={`${trimmed} ${source.title} ${source.text}`}
+                onSelect={() => run(() => {
+                  if (!source.meetingId) return;
+                  setCurrentMeeting({ id: source.meetingId, title: source.title });
+                  router.push(`/meeting-details?id=${encodeURIComponent(source.meetingId)}&sourceTime=${source.start}`);
+                })}
+              >
+                <FileText />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{source.title}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{source.text}</span>
+                </span>
+                <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                  {Math.floor(source.start / 60)}:{String(Math.floor(source.start % 60)).padStart(2, '0')}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
         <CommandGroup heading={trimmed ? t('palette.meetings') : t('palette.recent')}>
           {(trimmed ? meetings : recent).map((meeting) => (
             <CommandItem

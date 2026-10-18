@@ -537,6 +537,7 @@ pub fn run() {
             desktop::providers::desktop_list_models,
             desktop::providers::desktop_test_gemini_audio,
             desktop::assistant::desktop_assistant_session,
+            desktop::assistant::desktop_assistant_recent_sessions,
             desktop::assistant::desktop_assistant_sync,
             desktop::assistant::desktop_assistant_recording_state,
             desktop::assistant::desktop_assistant_preferences,
@@ -544,6 +545,7 @@ pub fn run() {
             desktop::assistant::desktop_assistant_ask,
             desktop::assistant::desktop_assistant_cancel,
             desktop::search::desktop_search_status,
+            desktop::search::desktop_search_query,
             desktop::search::desktop_search_download,
             desktop::search::desktop_search_index,
 

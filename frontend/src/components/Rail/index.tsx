@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { BookOpen, Library, Mic, Monitor, Moon, Search, Settings, Sparkles, Square, Sun, Home, Info as InfoIcon } from 'lucide-react';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
-import { useAssistant } from '@/contexts/AssistantContext';
 import { useTranslation, useUiPreferences, type ThemePreference } from '@/contexts/UiPreferencesContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -60,7 +59,6 @@ export default function Rail() {
   const { theme, setTheme } = useUiPreferences();
   const { handleRecordingToggle } = useSidebar();
   const { isRecording } = useRecordingState();
-  const assistant = useAssistant();
 
   // El tray de Rust llama a window.openSettings
   useEffect(() => {
@@ -70,7 +68,7 @@ export default function Rail() {
     };
   }, [router]);
 
-  // Ctrl+K abre la paleta y Ctrl+J el asistente
+  // Ctrl+K abre la paleta y Ctrl+J abre Preguntar
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey)) return;
@@ -80,12 +78,12 @@ export default function Rail() {
         window.dispatchEvent(new Event(OPEN_PALETTE_EVENT));
       } else if (key === 'j') {
         event.preventDefault();
-        assistant.toggle();
+        router.push('/ask');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [assistant]);
+  }, [router]);
 
   const themeCycle: Record<ThemePreference, ThemePreference> = { system: 'light', light: 'dark', dark: 'system' };
   const ThemeIcon = theme === 'system' ? Monitor : theme === 'light' ? Sun : Moon;
@@ -113,7 +111,7 @@ export default function Rail() {
 
         <RailButton label={t('nav.home')} icon={Home} active={pathname === '/'} onClick={() => router.push('/')} />
         <RailButton label={t('nav.library')} icon={Library} active={pathname === '/library' || pathname === '/meeting-details'} onClick={() => router.push('/library')} />
-        <RailButton label={t('nav.askShortcut')} icon={Sparkles} active={assistant.open} onClick={assistant.toggle} />
+        <RailButton label={t('nav.askShortcut')} icon={Sparkles} active={pathname === '/ask'} onClick={() => router.push('/ask')} />
         <RailButton label={t('nav.search')} icon={Search} onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))} />
         <RailButton
           label={isRecording ? t('home.ready') : t('nav.recordLive')}

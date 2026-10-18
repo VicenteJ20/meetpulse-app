@@ -381,6 +381,118 @@ pub async fn desktop_search_index(
     });
     Ok(())
 }
+
+#[tauri::command]
+pub async fn desktop_search_query(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, crate::state::AppState>,
+    query: String,
+) -> Result<Value, String> {
+    let query = query.trim().to_string();
+    if query.len() < 3 {
+        return Ok(json!({"sources": [], "partial": false}));
+    }
+    if query.len() > 500 {
+        return Err("Search query is too long".into());
+    }
+
+    let pool = state.db_manager.pool();
+    let (sources, partial) = retrieve_all(&app, pool, &query).await?;
+    Ok(json!({"sources": sources, "partial": partial}))
+}
+
+pub async fn retrieve_all(
+    app: &tauri::AppHandle,
+    pool: &SqlitePool,
+    query: &str,
+) -> Result<(Vec<Source>, bool), String> {
+    ensure_text_index(pool).await?;
+    let path = directory(app)?;
+    let available = ready(&path);
+    let query_vector = if available {
+        let text = query.to_string();
+        Some(
+            tauri::async_runtime::spawn_blocking(move || embed(&path, &text, true))
+                .await
+                .map_err(|e| e.to_string())??,
+        )
+    } else {
+        None
+    };
+
+    let rows = sqlx::query(
+        "SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id ORDER BY m.created_at DESC LIMIT 50000",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    let partial = !available
+        || rows
+            .iter()
+            .any(|row| row.get::<Option<Vec<u8>>, _>("embedding").is_none());
+    let keywords = query
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| word.chars().count() > 2)
+        .take(24)
+        .map(|word| format!("\"{}\"", word.replace('"', "")))
+        .collect::<Vec<_>>()
+        .join(" OR ");
+    let lexical = text_matches_all(pool, &keywords).await?;
+    let mut semantic: Vec<(String, f32)> = rows
+        .iter()
+        .filter_map(|row| {
+            Some((
+                row.get("id"),
+                cosine(
+                    &row.get::<Option<Vec<u8>>, _>("embedding")?,
+                    query_vector.as_ref()?,
+                ),
+            ))
+        })
+        .collect();
+    semantic.sort_by(|a, b| b.1.total_cmp(&a.1));
+
+    let mut scores = std::collections::HashMap::<String, f32>::new();
+    for (rank, id) in lexical.iter().enumerate() {
+        *scores.entry(id.clone()).or_default() += 1.0 / (60 + rank) as f32;
+    }
+    for (rank, (id, _)) in semantic.iter().take(60).enumerate() {
+        *scores.entry(id.clone()).or_default() += 1.0 / (60 + rank) as f32;
+    }
+    let mut ranked: Vec<_> = scores.into_iter().collect();
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let sources: Vec<Source> = ranked
+        .into_iter()
+        .take(8)
+        .filter_map(|(id, _)| {
+            let row = rows.iter().find(|row| row.get::<String, _>("id") == id)?;
+            Some(Source {
+                id,
+                meeting_id: Some(row.get("meeting_id")),
+                session_id: None,
+                title: row.get("title"),
+                text: row.get("text"),
+                start: row.get("start"),
+                end: row.get("end"),
+            })
+        })
+        .collect();
+    Ok((sources, partial))
+}
+
+async fn text_matches_all(pool: &SqlitePool, keywords: &str) -> Result<Vec<String>, String> {
+    if keywords.is_empty() {
+        return Ok(vec![]);
+    }
+    sqlx::query_scalar::<_, String>(
+        "SELECT c.id FROM assistant_fts f JOIN assistant_chunks c ON c.id=f.id WHERE assistant_fts MATCH ? ORDER BY bm25(assistant_fts) LIMIT 60",
+    )
+    .bind(keywords)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())
+}
+
 async fn index(app: &tauri::AppHandle, pool: &SqlitePool) -> Result<(), String> {
     while super::assistant::RECORDING.load(Ordering::Relaxed) {
         if INDEX_CANCEL.load(Ordering::Relaxed) {

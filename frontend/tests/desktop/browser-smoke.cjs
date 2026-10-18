@@ -52,10 +52,13 @@ const markdown = '# Acuerdos\n\nEl equipo confirmó la entrega del **portal** el
           if (cmd === 'api_get_summary') return { status: 'completed', meeting_id: 'demo', data: { markdown } };
           if (cmd === 'api_get_model_config') return { provider: 'gemini', model: 'configured-model', whisperModel: 'large-v3' };
           if (cmd === 'api_get_transcript_config') return { provider: 'gemini', model: 'configured-model' };
+          if (cmd === 'desktop_assistant_recent_sessions') return [];
           if (cmd === 'get_recording_preferences') return {};
           if (cmd === 'get_audio_devices' || cmd === 'get_transcript_history') return [];
           if (cmd === 'desktop_assistant_session') return { id: args.id, preferences: {}, messages: window.__messages };
           if (cmd === 'desktop_search_status') return { ready: false, indexed: 0, total: 130, totalBytes: 487351240, downloaded: 0 };
+          if (cmd === 'desktop_search_query') return { sources: [{ id: 'segment-120', meetingId: 'demo', title: metadata.title, text: transcript[120].text, start: 1440 }], partial: true };
+          if (cmd === 'desktop_search_index') return null;
           if (cmd === 'desktop_list_models') return { models: [{ id: 'configured-model', name: 'Configured model', text: true }], cached: false, stale: false };
           if (cmd === 'desktop_assistant_ask' && args.request.kind === 'coach') {
             const suggestion={id:'coach-'+window.__messages.length,role:'assistant',kind:'coach',text:JSON.stringify({title:'Confirmar responsable de la entrega',reason:'Hay una fecha propuesta y falta definir quién valida.',questions:['¿Quién valida la entrega?'],steps:['Asignar responsable y confirmar la fecha.']}),sources:[{id:'1',sessionId:args.request.sessionId,title:'Revisión del portal',text:'La entrega será el viernes.',start:0}],scope:'current',dismissed:false};
@@ -63,7 +66,8 @@ const markdown = '# Acuerdos\n\nEl equipo confirmó la entrega del **portal** el
           }
           if (cmd === 'desktop_assistant_ask') {
             const source = { id: 'segment-120', meetingId: 'demo', title: metadata.title, text: transcript[120].text, start: 1440 };
-            window.__messages.push({ id: 'user', role: 'user', kind: 'chat', text: args.request.question, sources: [], scope: 'current' }, { id: 'answer', role: 'assistant', kind: 'chat', text: 'La entrega se acordó para el viernes. [1]', sources: [source], scope: 'current' });
+            const scope = args.request.allMeetings ? 'all meetings' : 'current';
+            window.__messages.push({ id: 'user', role: 'user', kind: 'chat', text: args.request.question, sources: [], scope }, { id: 'answer', role: 'assistant', kind: 'chat', text: 'La entrega se acordó para el viernes. [1]', sources: [source], scope });
             return { messages: window.__messages, partial: false };
           }
           if (cmd === 'desktop_save_pdf') return window.__savePdf(args);
@@ -76,6 +80,19 @@ const markdown = '# Acuerdos\n\nEl equipo confirmó la entrega del **portal** el
     assert.equal(await page.getByText('Wiki de conocimiento').count(), 0);
     assert.equal(await page.getByText('Continuar con Google').count(), 0);
     await page.screenshot({ path: path.join(output, 'home-light.png') });
+    await page.goto(`${url}/ask`);
+    await page.getByRole('heading', { name: 'Recientes' }).waitFor();
+    await page.getByRole('textbox', { name: 'Pregunta a la transcripción' }).fill('¿Qué fecha se acordó para la entrega?');
+    await page.getByRole('button', { name: 'Enviar consulta' }).click();
+    await page.getByText('La entrega se acordó para el viernes.').waitFor();
+    assert.equal(await page.evaluate(() => window.__calls.some(c => c.cmd === 'desktop_assistant_ask' && c.args.request.allMeetings === true)), true, 'Ask page must search all meetings');
+    await page.screenshot({ path: path.join(output, 'ask-fullscreen.png') });
+    await page.keyboard.press('Control+k');
+    await page.getByPlaceholder('Busca reuniones o ajustes, o pregunta algo').fill('¿Qué fecha se acordó para la entrega?');
+    await page.getByText('Planificación de entrega', { exact: true }).last().waitFor();
+    await page.waitForFunction(() => window.__calls.some(c => c.cmd === 'desktop_search_query'));
+    assert.equal(await page.evaluate(() => window.__calls.some(c => c.cmd === 'desktop_search_query')), true, 'Ctrl+K must query the local semantic index');
+    await page.keyboard.press('Escape');
     await page.goto(`${url}/meeting-details?id=demo`);
     try { await page.getByRole('button', { name: 'Transcripción PDF' }).waitFor({ timeout: 30000 }); } catch(e) { console.log(await page.locator('body').innerText()); console.log(errors); console.log(await page.evaluate(()=>window.__calls)); await page.screenshot({path:path.join(output,'failure.png')}); throw e; }
     await page.getByRole('button', { name: 'Asistente', exact: true }).click();
