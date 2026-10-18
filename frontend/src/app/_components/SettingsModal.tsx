@@ -136,7 +136,7 @@ export function SettingsModals({
                       {models.map((model) => (
                         <div
                           key={model.id}
-                          className={`bg-card p-4 rounded-lg shadow cursor-pointer transition-colors ${modelConfig.model === model.name ? 'ring-2 ring-blue-500 bg-brand/10' : 'hover:bg-muted/50'
+                          className={`bg-card p-4 rounded-lg shadow cursor-pointer transition-colors ${modelConfig.model === model.name ? 'ring-2 ring-brand bg-brand/10' : 'hover:bg-muted/50'
                             }`}
                           onClick={() => setModelConfig((prev: ModelConfig) => ({ ...prev, model: model.name }))}
                         >
@@ -156,7 +156,7 @@ export function SettingsModals({
           <div className="border-t p-6 flex justify-end">
             <button
               onClick={() => onClose('modelSettings')}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-4 py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
             >
               Done
             </button>
@@ -197,7 +197,7 @@ export function SettingsModals({
                 });
                 onClose('deviceSettings');
               }}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-4 py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
             >
               Done
             </button>
@@ -232,7 +232,7 @@ export function SettingsModals({
           <div className="mt-6 flex justify-end">
             <button
               onClick={() => onClose('languageSettings')}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-4 py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
             >
               Done
             </button>
@@ -318,7 +318,7 @@ export function SettingsModals({
             {messages.chunkDropWarning}
             <button
               onClick={() => onClose('chunkDropWarning')}
-              className="ml-2 text-yellow-600 hover:text-warning underline"
+              className="ml-2 text-warning hover:text-warning underline"
             >
               Dismiss
             </button>

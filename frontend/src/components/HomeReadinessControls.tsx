@@ -182,7 +182,7 @@ function ReadinessSelect({
             <SelectValue className="block truncate text-sm font-medium" />
           </div>
         </div>
-        <div className={`mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${ready ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400' : 'bg-warning/12 text-amber-600 dark:text-amber-400'}`}>
+        <div className={`mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${ready ? 'bg-success/12 text-success dark:text-success' : 'bg-warning/12 text-warning dark:text-warning'}`}>
           <Check className="h-3.5 w-3.5" />
         </div>
       </SelectTrigger>

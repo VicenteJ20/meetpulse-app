@@ -20,7 +20,7 @@ export function PermissionRow({ icon, title, description, status, isPending = fa
       className={cn(
         'flex items-center justify-between rounded-2xl border px-6 py-5',
         'transition-all duration-200',
-        isAuthorized ? 'border-gray-900 bg-muted' : isDenied ? 'border-destructive/30 bg-destructive/10' : 'bg-card border-border'
+        isAuthorized ? 'border-foreground bg-muted' : isDenied ? 'border-destructive/30 bg-destructive/10' : 'bg-card border-border'
       )}
     >
       {/* Left side: Icon + Info */}
@@ -32,7 +32,7 @@ export function PermissionRow({ icon, title, description, status, isPending = fa
             isAuthorized ? 'bg-muted' : isDenied ? 'bg-destructive/15' : 'bg-muted/50'
           )}
         >
-          <div className={cn(isAuthorized ? 'text-foreground' : isDenied ? 'text-red-500' : 'text-muted-foreground')}>{icon}</div>
+          <div className={cn(isAuthorized ? 'text-foreground' : isDenied ? 'text-destructive' : 'text-muted-foreground')}>{icon}</div>
         </div>
 
         {/* Title + Description */}
@@ -45,7 +45,7 @@ export function PermissionRow({ icon, title, description, status, isPending = fa
                 Access Granted
               </span>
             ) : isDenied ? (
-              <span className="text-red-500 flex items-center gap-1">
+              <span className="text-destructive flex items-center gap-1">
                 <XCircle className="w-3.5 h-3.5" />
                 Access Denied - Please grant in System Settings
               </span>

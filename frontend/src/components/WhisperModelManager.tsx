@@ -534,7 +534,7 @@ function ModelCard({
       className={`
         relative rounded-lg border-2 transition-all cursor-pointer
         ${isSelected && isAvailable
-          ? 'border-blue-500 bg-brand/10'
+          ? 'border-brand bg-brand/10'
           : isAvailable
             ? 'border-border hover:border-border bg-card'
             : 'border-border bg-muted/50'
@@ -547,7 +547,7 @@ function ModelCard({
     >
       {/* Recommended Badge */}
       {isRecommended && (
-        <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+        <div className="absolute -top-2 -right-2 bg-brand text-brand-foreground text-xs px-2 py-0.5 rounded-full font-medium">
           Recommended
         </div>
       )}
@@ -565,7 +565,7 @@ function ModelCard({
                 <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1"
+                  className="bg-brand text-brand-foreground px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1"
                 >
                   ✓
                 </motion.span>
@@ -636,7 +636,7 @@ function ModelCard({
                   e.stopPropagation();
                   onDownload();
                 }}
-                className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                className="bg-brand text-brand-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-brand/90 transition-colors"
               >
                 Download
               </button>
@@ -648,7 +648,7 @@ function ModelCard({
                   e.stopPropagation();
                   onDownload();
                 }}
-                className="bg-red-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
+                className="bg-destructive text-destructive-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-destructive/90 transition-colors"
               >
                 Retry
               </button>
@@ -661,7 +661,7 @@ function ModelCard({
                     e.stopPropagation();
                     onDelete();
                   }}
-                  className="bg-orange-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-orange-700 transition-colors"
+                  className="bg-warning text-brand-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-warning/90 transition-colors"
                 >
                   Delete
                 </button>
@@ -670,7 +670,7 @@ function ModelCard({
                     e.stopPropagation();
                     onDownload();
                   }}
-                  className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                  className="bg-brand text-brand-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-brand/90 transition-colors"
                 >
                   Re-download
                 </button>
@@ -689,8 +689,8 @@ function ModelCard({
           >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-blue-600">Downloading...</span>
-                <span className="text-sm font-semibold text-blue-600">{Math.round(downloadProgress)}%</span>
+                <span className="text-sm font-medium text-brand">Downloading...</span>
+                <span className="text-sm font-semibold text-brand">{Math.round(downloadProgress)}%</span>
               </div>
               <button
                 onClick={(e) => {
@@ -705,7 +705,7 @@ function ModelCard({
             </div>
             <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full"
+                className="h-full bg-gradient-to-r from-brand to-brand rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${downloadProgress}%` }}
                 transition={{ duration: 0.3, ease: 'easeOut' }}

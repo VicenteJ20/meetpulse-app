@@ -189,7 +189,7 @@ export function UpdateDialog({ open, onOpenChange, updateInfo }: UpdateDialogPro
           <DialogTitle className="flex items-center gap-2">
             {isDownloading ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                <Loader2 className="h-5 w-5 animate-spin text-brand" />
                 Downloading Update
               </>
             ) : error ? (
@@ -199,7 +199,7 @@ export function UpdateDialog({ open, onOpenChange, updateInfo }: UpdateDialogPro
               </>
             ) : (
               <>
-                <Download className="h-5 w-5 text-blue-600" />
+                <Download className="h-5 w-5 text-brand" />
                 Update Available
               </>
             )}
@@ -223,7 +223,7 @@ export function UpdateDialog({ open, onOpenChange, updateInfo }: UpdateDialogPro
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">New Version:</span>
-                  <span className="font-medium text-blue-600">{updateInfo.version}</span>
+                  <span className="font-medium text-brand">{updateInfo.version}</span>
                 </div>
                 {updateInfo.date && (
                   <div className="flex justify-between text-sm">
@@ -248,7 +248,7 @@ export function UpdateDialog({ open, onOpenChange, updateInfo }: UpdateDialogPro
               <div className="relative">
                 <div className="w-full bg-muted rounded-full h-3">
                   <div
-                    className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                    className="bg-brand h-3 rounded-full transition-all duration-300 ease-out"
                     style={{ width: `${Math.min(progress.percentage, 100)}%` }}
                   />
                 </div>
@@ -280,7 +280,7 @@ export function UpdateDialog({ open, onOpenChange, updateInfo }: UpdateDialogPro
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Later
               </Button>
-              <Button onClick={handleDownloadAndInstall} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleDownloadAndInstall} className="bg-brand hover:bg-brand/90">
                 <Download className="h-4 w-4 mr-2" />
                 Download & Install
               </Button>

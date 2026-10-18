@@ -19,7 +19,7 @@ export default function AnalyticsDataModal({ isOpen, onClose, onConfirmDisable }
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <Shield className="w-6 h-6 text-blue-600" />
+            <Shield className="w-6 h-6 text-brand" />
             <h2 className="text-xl font-semibold text-foreground">What Analytics Collects</h2>
           </div>
           <button
@@ -149,7 +149,7 @@ export default function AnalyticsDataModal({ isOpen, onClose, onConfirmDisable }
           </button>
           <button
             onClick={onConfirmDisable}
-            className="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+            className="px-4 py-2 text-white bg-destructive rounded-md hover:bg-destructive/90 transition-colors"
           >
             Confirm: Disable Analytics
           </button>

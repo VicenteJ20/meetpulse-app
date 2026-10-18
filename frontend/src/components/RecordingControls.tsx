@@ -360,7 +360,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
         <div className="flex items-center space-x-2 rounded-xl bg-card px-3 py-2 text-foreground">
           {isProcessing && !isParentProcessing ? (
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground"></div>
               <span className="text-sm text-muted-foreground">Processing recording...</span>
             </div>
           ) : (
@@ -375,7 +375,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                 <>
                   <button
                     onClick={handleStartRecording}
-                    className="w-10 h-10 flex items-center justify-center bg-destructive rounded-full text-white hover:bg-red-600 transition-colors"
+                    className="w-10 h-10 flex items-center justify-center bg-destructive rounded-full text-white hover:bg-destructive/90 transition-colors"
                   >
                     <Mic size={16} />
                   </button>

@@ -233,7 +233,7 @@ function WikiPageContent() {
   const documentGroups = [
     { type: 'meeting', title: t('wiki.analyzedMeetings'), description: t('wiki.analyzedMeetingsDescription'), icon: CalendarDays, iconClass: 'bg-sky-500/10 text-sky-500' },
     { type: 'decision', title: t('wiki.decisions'), description: t('wiki.decisionsDescription'), icon: Gavel, iconClass: 'bg-violet-500/10 text-violet-500' },
-    { type: 'risk', title: t('wiki.risks'), description: t('wiki.risksDescription'), icon: ShieldAlert, iconClass: 'bg-amber-500/10 text-amber-500' },
+    { type: 'risk', title: t('wiki.risks'), description: t('wiki.risksDescription'), icon: ShieldAlert, iconClass: 'bg-warning/10 text-warning' },
   ].map(group => ({ ...group, documents: knowledgeDocuments.filter(document => document.type === group.type) }))
     .filter(group => group.documents.length > 0);
   const activeTenant = tenants.find(tenant => tenant.tenant_id === config.tenantId);
@@ -402,7 +402,7 @@ function WikiPageContent() {
                   <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {filteredProjects.map(project => (
                       <button key={project.project_id} onClick={() => selectProject(project.project_id)} className="group flex min-h-44 flex-col rounded-2xl border border-border bg-background p-5 text-left transition hover:-translate-y-0.5 hover:border-brand/35 hover:shadow-lg hover:shadow-brand/5">
-                        <div className="flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 text-amber-600"><FolderKanban /></span><ChevronRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1" /></div>
+                        <div className="flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 text-warning"><FolderKanban /></span><ChevronRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1" /></div>
                         <h3 className="mt-5 truncate text-lg font-semibold">{project.project_id}</h3>
                         <p className="mt-1 text-xs text-muted-foreground">{project.source_count} {t('wiki.publishedNotes').toLowerCase()} · {project.wiki_page_count} {t('wiki.knowledgePages').toLowerCase()}</p>
                         {project.last_activity_at && <p className="mt-auto flex items-center gap-1.5 pt-4 text-xs text-muted-foreground"><Clock3 className="h-3.5 w-3.5" />{formatDate(project.last_activity_at, { dateStyle: 'medium' })}</p>}

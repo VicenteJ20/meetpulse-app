@@ -323,7 +323,7 @@ export function BuiltInModelManager({
                     {isAvailable && (
                       <>
                         <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-success">
-                          <span className="h-2 w-2 rounded-full bg-green-600"></span>
+                          <span className="h-2 w-2 rounded-full bg-success"></span>
                           Ready
                         </span>
                         {selectedModel === model.name && (
@@ -477,7 +477,7 @@ export function BuiltInModelManager({
                   </div>
                   <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-gray-800 to-gray-900 rounded-full transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-gray-800 to-foreground rounded-full transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     />
                   </div>

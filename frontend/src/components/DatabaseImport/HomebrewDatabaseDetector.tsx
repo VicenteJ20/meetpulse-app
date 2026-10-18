@@ -92,10 +92,10 @@ export function HomebrewDatabaseDetector({ onImportSuccess, onDecline }: Homebre
   return (
     <div className="mb-4 p-4 bg-brand/10 border-2 border-brand/30 rounded-lg">
       <div className="flex items-start gap-3">
-        <Database className="h-6 w-6 text-blue-600 mt-0.5 flex-shrink-0" />
+        <Database className="h-6 w-6 text-brand mt-0.5 flex-shrink-0" />
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertCircle className="h-4 w-4 text-brand" />
             <h3 className="text-sm font-semibold text-brand">
               Previous installation detected
             </h3>
@@ -107,7 +107,7 @@ export function HomebrewDatabaseDetector({ onImportSuccess, onDecline }: Homebre
             <p className="text-xs text-brand font-mono break-all">
               {detectedPath}
             </p>
-            <p className="text-xs text-blue-600 mt-1">
+            <p className="text-xs text-brand mt-1">
               Size: {formatFileSize(dbSize)}
             </p>
           </div>
@@ -120,7 +120,7 @@ export function HomebrewDatabaseDetector({ onImportSuccess, onDecline }: Homebre
             <button
               onClick={handleYes}
               disabled={isImporting}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-success text-brand-foreground rounded-lg hover:bg-success/90 disabled:bg-muted-foreground/40 disabled:cursor-not-allowed transition-colors"
             >
               {isImporting ? (
                 <>
@@ -138,7 +138,7 @@ export function HomebrewDatabaseDetector({ onImportSuccess, onDecline }: Homebre
             <button
               onClick={handleNo}
               disabled={isImporting}
-              className="flex-1 px-4 py-2 border-2 border-blue-400 text-brand rounded-lg hover:bg-brand/15 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
+              className="flex-1 px-4 py-2 border-2 border-brand text-brand rounded-lg hover:bg-brand/15 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
             >
               No, Browse Manually
             </button>

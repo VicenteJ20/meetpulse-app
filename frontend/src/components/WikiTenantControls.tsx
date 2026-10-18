@@ -149,7 +149,7 @@ export function WikiTenantControls({ tenants, currentTenantId, onSelect, onChang
           <label htmlFor="wiki-workspace-name" className="text-sm font-medium">{t('wiki.workspaceName')}</label>
           <Input id="wiki-workspace-name" value={tenantName} onChange={event => setTenantName(event.target.value)} placeholder={t('wiki.workspaceNamePlaceholder')} maxLength={80} />
           {tenantName.trim() && (
-            <p className={`text-xs ${availability?.available ? 'text-emerald-600' : 'text-destructive'}`}>
+            <p className={`text-xs ${availability?.available ? 'text-success' : 'text-destructive'}`}>
               {checkingAvailability ? t('wiki.checkingAvailability') : availability?.available ? t('wiki.workspaceAvailable').replace('{id}', availability.tenant_id) : t('wiki.workspaceUnavailable')}
             </p>
           )}

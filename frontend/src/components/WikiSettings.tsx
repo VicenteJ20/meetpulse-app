@@ -101,7 +101,7 @@ export function WikiSettings() {
           {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           {t('settings.wikiTest')}
         </Button>
-        {connected === true && <span className="inline-flex items-center gap-1 text-sm text-emerald-700"><CheckCircle2 className="h-4 w-4" />{t('settings.wikiConnected')}</span>}
+        {connected === true && <span className="inline-flex items-center gap-1 text-sm text-success"><CheckCircle2 className="h-4 w-4" />{t('settings.wikiConnected')}</span>}
         {connected === false && <span className="text-sm text-destructive">{t('settings.wikiConnectionFailed')}</span>}
       </div>
     </section>
