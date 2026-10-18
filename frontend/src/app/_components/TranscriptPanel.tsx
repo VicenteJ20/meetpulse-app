@@ -167,7 +167,7 @@ export function TranscriptPanel({
                 <Lightbulb className="size-4" />
                 {t('live.coach')}
                 <span className={cn('relative h-[18px] w-[30px] rounded-full transition-colors duration-200', coach ? 'bg-brand' : 'bg-input')}>
-                  <span className={cn('absolute left-0.5 top-0.5 size-3.5 rounded-full bg-[#fff] shadow-[0_1px_3px_rgb(0_0_0/0.3)] transition-transform duration-[220ms] ease-[cubic-bezier(0.16,1,0.3,1)]', coach && 'translate-x-3')} />
+                  <span className={cn('absolute left-0.5 top-0.5 size-3.5 rounded-full bg-[#fff] shadow-[0_1px_3px_rgb(0_0_0/0.3)] transition-transform duration-200 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)]', coach && 'translate-x-3')} />
                 </span>
               </button>
             )}

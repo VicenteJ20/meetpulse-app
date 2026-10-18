@@ -249,6 +249,25 @@
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25 focus-visible:ring-offset-0;
   }
 
+  /* Selector de fecha nativo: icono sutil que sigue al tema */
+  input[type="date"],
+  input[type="time"] {
+    color-scheme: light;
+    font-variant-numeric: tabular-nums;
+  }
+  .dark input[type="date"],
+  .dark input[type="time"] {
+    color-scheme: dark;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 150ms;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+
   ::selection {
     background: hsl(var(--brand) / 0.22);
   }

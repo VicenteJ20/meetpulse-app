@@ -146,7 +146,7 @@ export default function LibraryPage() {
                 aria-pressed={client === chip.id}
                 onClick={() => setClient(chip.id)}
                 className={cn(
-                  'h-7 rounded-full border px-3 text-sm transition-colors',
+                  'h-[30px] rounded-full border px-3 text-sm transition-colors duration-150 active:scale-[0.97]',
                   client === chip.id
                     ? 'border-brand bg-accent text-accent-foreground'
                     : 'border-input bg-card text-muted-foreground hover:border-muted-foreground',
@@ -163,7 +163,7 @@ export default function LibraryPage() {
               onChange={(event) => setFromDate(event.target.value)}
               aria-label={t('library.fromDate')}
               title={t('library.fromDate')}
-              className="h-8 w-[9.5rem]"
+              className="w-[9.5rem]"
             />
             <span aria-hidden="true" className="text-xs text-muted-foreground">–</span>
             <Input
@@ -172,14 +172,14 @@ export default function LibraryPage() {
               onChange={(event) => setToDate(event.target.value)}
               aria-label={t('library.toDate')}
               title={t('library.toDate')}
-              className="h-8 w-[9.5rem]"
+              className="w-[9.5rem]"
             />
             <SelectField
               aria-label={t('library.allTags')}
               value={tag}
               onValueChange={setTag}
               placeholder={t('library.allTags')}
-              className="h-8 w-40"
+              className="w-40"
               options={[
                 { value: '', label: t('library.allTags') },
                 ...tags.map((value) => ({ value, label: value })),
@@ -189,7 +189,7 @@ export default function LibraryPage() {
         </div>
 
         {selected.size > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-accent px-3 py-2">
+          <div className="animate-enter flex flex-wrap items-center gap-2 rounded-lg bg-accent px-3 py-2">
             <span className="mr-2 text-sm font-semibold text-accent-foreground">
               {t('library.selected').replace('{n}', String(selected.size))}
             </span>
