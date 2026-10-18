@@ -542,6 +542,7 @@ pub fn run() {
             desktop::assistant::desktop_assistant_recording_state,
             desktop::assistant::desktop_assistant_preferences,
             desktop::assistant::desktop_assistant_dismiss,
+            desktop::assistant::desktop_assistant_new_chat,
             desktop::assistant::desktop_assistant_ask,
             desktop::assistant::desktop_assistant_cancel,
             desktop::search::desktop_search_status,

@@ -163,7 +163,6 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [project, setProject] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [settings, setSettings] = useState(false);
   const [autoIndex, setAutoIndex] = useState(true);
   const [search, setSearch] = useState<SearchStatus>();
   const [partial, setPartial] = useState(false);
@@ -557,17 +556,26 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     };
   }, [busy, isLocalProvider]);
   const pending = busy === "chat" ? { question: pendingText, stage } : undefined;
+  // Conversación nueva en esta reunión: lo anterior deja de mostrarse y de enviarse como contexto.
+  async function newChat() {
+    if (!session) return;
+    if (request.current) stopChat();
+    try {
+      await invoke("desktop_assistant_new_chat", { sessionId: session });
+      setDetail(undefined);
+      setError("");
+      setPartial(false);
+      setQuestion("");
+      await reload(session);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
   const stopChat = () => {
     stopped.current = true;
     if (request.current) void invoke("desktop_assistant_cancel", { requestId: request.current });
   };
-  const indexLabel = search?.ready
-    ? search.indexing
-      ? t("assistant.indexing")
-      : t("assistant.indexReady")
-          .replace("{indexed}", String(search.indexed))
-          .replace("{total}", String(search.total))
-    : t("assistant.indexOff");
+
 
   return (
     <Context.Provider
@@ -631,13 +639,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         setTab={setTab}
         coach={coach}
         setCoach={setCoach}
-        settings={settings}
-        setSettings={setSettings}
-        indexLabel={indexLabel}
+        onNewChat={() => void newChat()}
         search={search}
         provider={provider}
         model={model}
-        endpoint={provider === "ollama" ? modelConfig.ollamaEndpoint ?? undefined : undefined}
         prefs={prefs}
         savePrefs={savePrefs}
         defaultCadence={defaultCadence}

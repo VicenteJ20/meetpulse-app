@@ -645,12 +645,6 @@
 .chat-md li::marker { color: hsl(var(--muted-foreground)); }
 .chat-md li > p { margin: 0.2rem 0; }
 .chat-md li > ul, .chat-md li > ol { margin: 0.3rem 0; }
-/* Listas cuyos elementos abren con un término en negrita ("**Tema:** detalle"): se dibujan como tarjetas */
-.chat-md ul:has(> li > strong:first-child), .chat-md ul:has(> li > p:first-child > strong:first-child) { list-style: none; padding-left: 0; display: grid; gap: 0.5rem; margin: 0.7rem 0; }
-.chat-md ul > li:has(> strong:first-child), .chat-md ul > li:has(> p:first-child > strong:first-child) {
-  margin: 0; padding: 0.65rem 0.85rem; border: 1px solid hsl(var(--border)); border-radius: 0.75rem; background: hsl(var(--muted) / 0.3);
-}
-.chat-md ul > li > strong:first-child, .chat-md ul > li > p:first-child > strong:first-child { display: block; margin-bottom: 0.1rem; }
 .chat-md a:not([class]) { color: hsl(var(--brand)); text-underline-offset: 3px; }
 .chat-md a:not([class]):hover { text-decoration: underline; }
 .chat-md blockquote { margin: 0.8rem 0; padding: 0.15rem 0 0.15rem 0.9rem; border-left: 3px solid hsl(var(--brand) / 0.6); color: hsl(var(--muted-foreground)); }
