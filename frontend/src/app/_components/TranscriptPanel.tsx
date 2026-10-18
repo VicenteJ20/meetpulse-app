@@ -1,3 +1,4 @@
+import { SuggestInput } from '@/components/ui/suggest-input';
 import { useAssistant } from '@/contexts/AssistantContext';
 import { DataFlowChip } from '@/components/DataFlowChip';
 import { cn } from '@/lib/utils';
@@ -116,32 +117,24 @@ export function TranscriptPanel({
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               {isRecording ? (
                 <>
-                  <label className="sr-only" htmlFor="live-meeting-client">{t('home.fieldClient')}</label>
-                  <Input
-                    id="live-meeting-client"
+                  <SuggestInput
                     aria-label={t('home.fieldClient')}
-                    className="h-7 w-32 border-transparent bg-transparent px-1 text-xs shadow-none hover:border-input focus-visible:border-ring"
+                    wrapperClassName="w-32"
+                    className="h-7 border-transparent bg-transparent px-1 text-xs shadow-none hover:border-input focus-visible:border-ring"
                     value={meetingClient}
-                    onChange={(event) => setMeetingClient(event.target.value)}
+                    onValueChange={setMeetingClient}
                     placeholder={t('home.fieldClient')}
-                    list="live-meeting-clients"
+                    options={meetings.map((meeting) => meeting.client).filter((value): value is string => !!value)}
                   />
-                  <datalist id="live-meeting-clients">
-                    {Array.from(new Set(meetings.map((meeting) => meeting.client).filter((value): value is string => !!value))).map((value) => <option key={value} value={value} />)}
-                  </datalist>
-                  <label className="sr-only" htmlFor="live-meeting-project">{t('home.fieldProject')}</label>
-                  <Input
-                    id="live-meeting-project"
+                  <SuggestInput
                     aria-label={t('home.fieldProject')}
-                    className="h-7 w-32 border-transparent bg-transparent px-1 text-xs shadow-none hover:border-input focus-visible:border-ring"
+                    wrapperClassName="w-32"
+                    className="h-7 border-transparent bg-transparent px-1 text-xs shadow-none hover:border-input focus-visible:border-ring"
                     value={meetingProject}
-                    onChange={(event) => setMeetingProject(event.target.value)}
+                    onValueChange={setMeetingProject}
                     placeholder={t('home.fieldProject')}
-                    list="live-meeting-projects"
+                    options={meetings.filter((meeting) => !meetingClient || meeting.client === meetingClient).map((meeting) => meeting.project).filter((value): value is string => !!value)}
                   />
-                  <datalist id="live-meeting-projects">
-                    {Array.from(new Set(meetings.filter((meeting) => !meetingClient || meeting.client === meetingClient).map((meeting) => meeting.project).filter((value): value is string => !!value))).map((value) => <option key={value} value={value} />)}
-                  </datalist>
                 </>
               ) : destination ? (
                 <span className="truncate">{destination}</span>

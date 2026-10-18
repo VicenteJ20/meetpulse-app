@@ -1,4 +1,5 @@
 "use client";
+import { SuggestInput } from '@/components/ui/suggest-input';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Summary, SummaryResponse, Transcript } from '@/types';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
@@ -457,14 +458,12 @@ export default function PageContent({
           <div className="grid grid-cols-2 gap-2">
             <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
               {t('meeting.client')}
-              <Input list="wiki-destination-clients" value={client} onChange={event => setClient(event.target.value)} />
-              <datalist id="wiki-destination-clients">{wikiPublish.clients.map(item => <option key={item.client_id} value={item.client_id} />)}</datalist>
+              <SuggestInput value={client} onValueChange={setClient} options={wikiPublish.clients.map(item => item.client_id)} />
               <span className="block font-normal text-[11px]">{t('meeting.wikiSlugPreview').replace('{id}', slugifyWikiId(client) || '—')}</span>
             </label>
             <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
               {t('meeting.project')}
-              <Input list="wiki-destination-projects" value={project} onChange={event => setProject(event.target.value)} />
-              <datalist id="wiki-destination-projects">{wikiPublish.projects.map(item => <option key={item.project_id} value={item.project_id} />)}</datalist>
+              <SuggestInput value={project} onValueChange={setProject} options={wikiPublish.projects.map(item => item.project_id)} />
               <span className="block font-normal text-[11px]">{t('meeting.wikiSlugPreview').replace('{id}', slugifyWikiId(project) || '—')}</span>
             </label>
           </div>

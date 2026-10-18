@@ -1,5 +1,6 @@
 'use client';
 
+import { SuggestInput } from '@/components/ui/suggest-input';
 import { desktopCapabilities } from '@/config/capabilities';
 import { useEffect, useState } from 'react';
 import { useAssistant } from '@/contexts/AssistantContext';
@@ -105,25 +106,14 @@ export function HomeWorkspace({
               {fields.map(({ key, label }) => (
                 <label key={key} className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted-foreground">
                   {label}
-                  <Input
+                  <SuggestInput
                     value={draft[key]}
-                    onChange={(event) => updateDraft(key, event.target.value)}
-                    list={key === 'title' ? undefined : `prepare-${key}`}
+                    onValueChange={(value) => updateDraft(key, value)}
+                    options={key === 'title' ? [] : meetings
+                      .filter((m) => key === 'client' || m.client === draft.client)
+                      .map((m) => m[key])
+                      .filter((value): value is string => !!value)}
                   />
-                  {key !== 'title' && (
-                    <datalist id={`prepare-${key}`}>
-                      {Array.from(
-                        new Set(
-                          meetings
-                            .filter((m) => key === 'client' || m.client === draft.client)
-                            .map((m) => m[key])
-                            .filter(Boolean),
-                        ),
-                      ).map((value) => (
-                        <option key={value!} value={value!} />
-                      ))}
-                    </datalist>
-                  )}
                 </label>
               ))}
             </div>

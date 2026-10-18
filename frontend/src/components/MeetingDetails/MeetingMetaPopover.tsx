@@ -1,5 +1,6 @@
 "use client";
 
+import { SuggestInput } from '@/components/ui/suggest-input';
 import { Building2, FolderKanban, Plus } from "lucide-react";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -58,17 +59,11 @@ export function MeetingMetaPopover({
       <PopoverContent align="start" className="w-[22rem] space-y-3">
         <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><Building2 className="size-3.5" />{t("meeting.client")}</span>
-          <Input list="meeting-clients" value={client} onChange={(event) => onClientChange(event.target.value)} />
-          <datalist id="meeting-clients">
-            {clientOptions.map((option) => <option key={option} value={option} />)}
-          </datalist>
+          <SuggestInput value={client} onValueChange={onClientChange} options={clientOptions} />
         </label>
         <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><FolderKanban className="size-3.5" />{t("meeting.project")}</span>
-          <Input list="meeting-projects" value={project} onChange={(event) => onProjectChange(event.target.value)} />
-          <datalist id="meeting-projects">
-            {projectOptions.map((option) => <option key={option} value={option} />)}
-          </datalist>
+          <SuggestInput value={project} onValueChange={onProjectChange} options={projectOptions} />
         </label>
         <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
           {t("meeting.context")}

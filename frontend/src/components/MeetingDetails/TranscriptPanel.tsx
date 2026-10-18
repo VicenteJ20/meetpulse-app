@@ -1,5 +1,6 @@
 "use client";
 
+import { SuggestInput } from '@/components/ui/suggest-input';
 import { Transcript, TranscriptSegmentData } from '@/types';
 import { TranscriptView } from '@/components/TranscriptView';
 import { VirtualizedTranscriptView } from '@/components/VirtualizedTranscriptView';
@@ -164,17 +165,12 @@ function MeetingMetadataField({
   return (
     <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
       {label}
-      <input
-        type="text"
-        list={listId}
+      <SuggestInput
         placeholder={label}
-        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
         value={value}
-        onChange={event => onChange(event.target.value)}
+        onValueChange={onChange}
+        options={options}
       />
-      <datalist id={listId}>
-        {options.map(option => <option key={option} value={option} />)}
-      </datalist>
 
     </label>
   );
