@@ -15,6 +15,7 @@ const SUMMARY_MODEL_SIZES_MB: Record<string, number> = {
   'gemma4:e4b': 5088,
   'gemma4:12b': 7039,
   'qwen3.8:27b': 16032,
+  'bonsai:27b': 3627,
   'gemma3:1b': 1019,
   'gemma3:4b': 2374,
 };
