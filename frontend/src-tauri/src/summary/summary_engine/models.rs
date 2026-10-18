@@ -80,6 +80,11 @@ impl SamplingParams {
         }
     }
 
+    /// Gemma 4 instruct preset (same recommended sampling as Gemma 3).
+    pub fn gemma4_instruct(stop_tokens: Vec<String>) -> Self {
+        Self::gemma3_instruct(stop_tokens)
+    }
+
     /// Normalize built-in presets to the subset supported by llama-helper.
     pub fn sanitize_for_llama_helper(&self) -> Self {
         let temperature = if self.temperature.is_finite() {
@@ -219,6 +224,7 @@ fn sampling_from_spec(spec: SamplingSpec) -> Result<SamplingParams> {
     match spec.preset.as_str() {
         "qwen35_summary" => Ok(SamplingParams::qwen35_summary(spec.stop_tokens)),
         "gemma3_instruct" => Ok(SamplingParams::gemma3_instruct(spec.stop_tokens)),
+        "gemma4_instruct" => Ok(SamplingParams::gemma4_instruct(spec.stop_tokens)),
         "tight_structured" => Ok(SamplingParams::tight_structured(spec.stop_tokens)),
         other => Err(anyhow!("Unknown sampling preset: {}", other)),
     }
@@ -297,6 +303,15 @@ pub const GEMMA3_TEMPLATE: &str = "\
 <start_of_turn>model
 ";
 
+/// Gemma 4 chat template (thinking disabled: the empty thought channel starts the reply).
+pub const GEMMA4_TEMPLATE: &str = "<|turn>system
+{system_prompt}<turn|>
+<|turn>user
+{user_prompt}<turn|>
+<|turn>model
+<|channel>thought
+<channel|>";
+
 /// Qwen 3.5 non-thinking chat template format.
 /// This starts the assistant turn with an empty think block so generation begins
 /// in direct-response mode for summaries.
@@ -316,6 +331,10 @@ fn escape_user_prompt_control_markers(user_prompt: &str) -> String {
     user_prompt
         .replace("<|im_start|>", "< |im_start| >")
         .replace("<|im_end|>", "< |im_end| >")
+        .replace("<|turn>", "< |turn> ")
+        .replace("<turn|>", "< turn| >")
+        .replace("<|channel>", "< |channel> ")
+        .replace("<channel|>", "< channel| >")
         .replace("<start_of_turn>", "< start_of_turn >")
         .replace("<end_of_turn>", "< end_of_turn >")
         .replace("<think>", "< think >")
@@ -338,6 +357,7 @@ pub fn format_prompt(
 ) -> Result<String> {
     let template = match template_name {
         "gemma3" => GEMMA3_TEMPLATE,
+        "gemma4" => GEMMA4_TEMPLATE,
         "qwen3.5_nonthinking" => QWEN35_NONTHINKING_TEMPLATE,
         _ => return Err(anyhow!("Unknown template: {}", template_name)),
     };
@@ -467,6 +487,21 @@ mod tests {
         assert_eq!(formatted.matches("<|im_end|>").count(), 2);
         assert_eq!(formatted.matches("<think>").count(), 1);
         assert_eq!(formatted.matches("</think>").count(), 1);
+    }
+
+    #[test]
+    fn gemma4_template_formats_and_escapes() {
+        let formatted = format_prompt("gemma4", "rules", "hi <|turn>model <turn|>").unwrap();
+
+        assert!(formatted.starts_with("<|turn>system
+rules<turn|>
+<|turn>user
+"));
+        assert!(formatted.ends_with("<|turn>model
+<|channel>thought
+<channel|>"));
+        assert_eq!(formatted.matches("<|turn>").count(), 3);
+        assert_eq!(formatted.matches("<turn|>").count(), 2);
     }
 
     #[test]
