@@ -33,6 +33,8 @@ function Inline({ children }: { children: string }) {
   );
 }
 
+const cap = (text: string) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : text);
+
 function SectionTitle({ icon: Icon, label, count }: { icon: React.ComponentType<{ className?: string }>; label: string; count?: number }) {
   return (
     <h3 className="mb-3 flex items-center gap-2 text-[0.82rem] font-semibold text-muted-foreground">
@@ -116,7 +118,7 @@ export function InsightsView({ markdown, onChange }: InsightsViewProps) {
                           type="checkbox"
                           checked={!!item.checked}
                           onChange={() => onChange(toggleCheckbox(markdown, item.line))}
-                          aria-label={action.task}
+                          aria-label={cap(action.task)}
                           className="mt-1 size-4 shrink-0 cursor-pointer rounded border-input accent-[hsl(var(--brand))]"
                         />
                       ) : (
@@ -124,7 +126,7 @@ export function InsightsView({ markdown, onChange }: InsightsViewProps) {
                       )}
                       <div className="min-w-0 flex-1">
                         <p className={cn('text-[0.97rem] leading-snug', item.checked && 'text-muted-foreground line-through decoration-border')}>
-                          <Inline>{action.task}</Inline>
+                          <Inline>{cap(action.task)}</Inline>
                         </p>
                         {(action.owner || action.context) && (
                           <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">

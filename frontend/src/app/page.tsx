@@ -248,7 +248,7 @@ export default function Home() {
         {(hasMicrophone || isRecording) &&
           status !== RecordingStatus.PROCESSING_TRANSCRIPTS &&
           status !== RecordingStatus.SAVING && (
-            <div className="recording-dock fixed bottom-7 left-16 right-0 z-20">
+            <div className={`recording-dock fixed bottom-7 left-16 right-0 z-20 ${recordingState.isRecording ? "hidden" : ""}`}>
               <div className="flex justify-center px-6">
                 <div className="w-2/3 max-w-[750px] flex justify-center">
                   <div className="flex rounded-full border border-border bg-card/95 p-1.5 shadow-lg backdrop-blur">

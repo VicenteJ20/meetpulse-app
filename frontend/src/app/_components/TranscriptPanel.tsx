@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { VirtualizedTranscriptView } from '@/components/VirtualizedTranscriptView';
 import { PermissionWarning } from '@/components/PermissionWarning';
 import { Button } from '@/components/ui/button';
-import { Copy, GlobeIcon, Lightbulb, MessagesSquare, Radio } from 'lucide-react';
+import { Copy, GlobeIcon, Lightbulb, MessagesSquare, Pause, Play, Radio, Square } from 'lucide-react';
 import { useTranscripts } from '@/contexts/TranscriptContext';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
@@ -97,6 +97,18 @@ export function TranscriptPanel({
             </p>
           </div>
           <div className="flex items-center gap-1.5">
+            {isRecording && (
+              <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('meetpulse-toggle-pause'))}>
+                {isPaused ? <Play /> : <Pause />}
+                {isPaused ? t('live.resume') : t('live.pause')}
+              </Button>
+            )}
+            {isRecording && (
+              <Button variant="recording" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('meetpulse-stop-recording'))}>
+                <Square />
+                {t('live.stop')}
+              </Button>
+            )}
             {isRecording && (
               <button
                 type="button"

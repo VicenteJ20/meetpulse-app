@@ -9,6 +9,7 @@ import { listen } from '@tauri-apps/api/event';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Analytics from '@/lib/analytics';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
 import { TranscriptionLanguageControl } from '@/components/TranscriptionLanguageControl';
 
@@ -43,6 +44,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
   meetingName,
 }) => {
   // Use global recording state context for pause state (syncs with tray operations)
+  const { t } = useTranslation();
   const recordingState = useRecordingState();
   const isPaused = recordingState.isPaused;
 
@@ -238,11 +240,17 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
     }
   }, [isRecording, isPaused, isResuming]);
 
+  // La cabecera de la vista en vivo dispara estas acciones con eventos de ventana.
   useEffect(() => {
+    const onStop = () => void handleStopRecording();
+    const onTogglePause = () => void (isPaused ? handleResumeRecording() : handlePauseRecording());
+    window.addEventListener('meetpulse-stop-recording', onStop);
+    window.addEventListener('meetpulse-toggle-pause', onTogglePause);
     return () => {
-      // Cleanup on unmount if needed
+      window.removeEventListener('meetpulse-stop-recording', onStop);
+      window.removeEventListener('meetpulse-toggle-pause', onTogglePause);
     };
-  }, []);
+  }, [handleStopRecording, handlePauseRecording, handleResumeRecording, isPaused]);
 
   useEffect(() => {
     console.log('Setting up recording event listeners');
@@ -421,7 +429,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Start recording</p>
+                        <p>{t('recording.start')}</p>
                       </TooltipContent>
                     </Tooltip>
                   ) : (
@@ -448,13 +456,13 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                             {isPaused ? <Play size={16} /> : <Pause size={16} />}
                             {(isPausing || isResuming) && (
                               <div className="absolute -top-8 text-xs font-medium text-muted-foreground">
-                                {isPausing ? 'Pausing...' : 'Resuming...'}
+                                {isPausing ? t('rc.pausing') : t('rc.resuming')}
                               </div>
                             )}
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>{isPaused ? 'Resume recording' : 'Pause recording'}</p>
+                          <p>{isPaused ? t('recording.resume') : t('recording.pause')}</p>
                         </TooltipContent>
                       </Tooltip>
 
@@ -472,13 +480,13 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                             <Square size={16} />
                             {isStopping && (
                               <div className="absolute -top-8 text-xs font-medium text-muted-foreground">
-                                Stopping...
+                                {t('rc.stopping')}
                               </div>
                             )}
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Stop recording</p>
+                          <p>{t('recording.stop')}</p>
                         </TooltipContent>
                       </Tooltip>
                     </>
@@ -506,7 +514,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
         {/* Show validation status only */}
         {isValidatingModel && (
           <div className="mt-2 text-center text-xs text-muted-foreground">
-            Validating speech recognition...
+            {t('rc.validating')}
           </div>
         )}
 
