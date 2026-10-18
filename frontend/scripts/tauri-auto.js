@@ -47,6 +47,23 @@ if (platform === 'linux' && feature === 'cuda') {
   env.CMAKE_POSITION_INDEPENDENT_CODE = 'ON';
 }
 
+// El resumen con IA integrada corre en un proceso aparte (llama-helper). Si no se compila con el mismo
+// backend de GPU, el modelo se carga en RAM y CPU aunque la app esté compilada con CUDA o Vulkan.
+const helperFeature = { cuda: 'cuda', vulkan: 'vulkan', coreml: 'metal', metal: 'metal' }[feature];
+if (helperFeature) {
+  const profile = command === 'build' ? ' --release' : '';
+  console.log(`🧠 Building llama-helper with ${helperFeature} so built-in AI models use the GPU`);
+  try {
+    execSync(`cargo build -p llama-helper --features ${helperFeature}${profile}`, {
+      stdio: 'inherit',
+      env,
+      cwd: path.join(__dirname, '..', '..'),
+    });
+  } catch (err) {
+    console.error('⚠️  llama-helper could not be built with GPU support; built-in AI will run on CPU.');
+  }
+}
+
 // Build the tauri command
 let tauriCmd = `tauri ${command}`;
 if (feature && feature !== 'none') {
