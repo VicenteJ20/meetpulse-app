@@ -13,6 +13,8 @@ import { ModalType } from '@/hooks/useModalState';
 import { useIsLinux } from '@/hooks/usePlatform';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { Input } from '@/components/ui/input';
+import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 
 /**
  * TranscriptPanel Component
@@ -36,13 +38,24 @@ export function TranscriptPanel({
   homeStats
 }: TranscriptPanelProps) {
   // Contexts
-  const { transcripts, transcriptContainerRef, copyTranscript, meetingTitle } = useTranscripts();
+  const {
+    transcripts,
+    transcriptContainerRef,
+    copyTranscript,
+    meetingTitle,
+    setMeetingTitle,
+    meetingClient,
+    meetingProject,
+    setMeetingClient,
+    setMeetingProject,
+  } = useTranscripts();
   const { transcriptModelConfig } = useConfig();
   const { isRecording, isPaused } = useRecordingState();
   const { checkPermissions, isChecking, hasSystemAudio, hasMicrophone } = usePermissionCheck();
   const isLinux = useIsLinux();
   const { t } = useTranslation();
-  const destination = useMemo(() => { try { const value = JSON.parse(localStorage.getItem('meetpulse-recording-context') || '{}'); return [value.client,value.project].filter(Boolean).join(' / '); } catch { return ''; } }, [meetingTitle]);
+  const { meetings } = useSidebar();
+  const destination = [meetingClient, meetingProject].filter(Boolean).join(' / ');
   const transcriptionLocation = ['localWhisper','parakeet'].includes(transcriptModelConfig.provider) ? 'Local' : `API · ${transcriptModelConfig.provider}`;
 
   // Convert transcripts to segments for virtualized view
@@ -89,12 +102,53 @@ export function TranscriptPanel({
             <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground"><Radio className="size-4" /></span>
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-semibold tracking-tight">{meetingTitle || t('live.untitled')}</h1>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-              {destination && <span className="truncate">{destination}</span>}
+            {isRecording ? (
+              <Input
+                aria-label={t('home.fieldTitle')}
+                className="h-8 max-w-[28rem] border-transparent bg-transparent px-1 text-base font-semibold tracking-tight shadow-none hover:border-input focus-visible:border-ring"
+                value={meetingTitle}
+                onChange={(event) => setMeetingTitle(event.target.value)}
+                placeholder={t('live.untitled')}
+              />
+            ) : (
+              <h1 className="truncate text-base font-semibold tracking-tight">{meetingTitle || t('live.untitled')}</h1>
+            )}
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              {isRecording ? (
+                <>
+                  <label className="sr-only" htmlFor="live-meeting-client">{t('home.fieldClient')}</label>
+                  <Input
+                    id="live-meeting-client"
+                    aria-label={t('home.fieldClient')}
+                    className="h-7 w-32 border-transparent bg-transparent px-1 text-xs shadow-none hover:border-input focus-visible:border-ring"
+                    value={meetingClient}
+                    onChange={(event) => setMeetingClient(event.target.value)}
+                    placeholder={t('home.fieldClient')}
+                    list="live-meeting-clients"
+                  />
+                  <datalist id="live-meeting-clients">
+                    {Array.from(new Set(meetings.map((meeting) => meeting.client).filter((value): value is string => !!value))).map((value) => <option key={value} value={value} />)}
+                  </datalist>
+                  <label className="sr-only" htmlFor="live-meeting-project">{t('home.fieldProject')}</label>
+                  <Input
+                    id="live-meeting-project"
+                    aria-label={t('home.fieldProject')}
+                    className="h-7 w-32 border-transparent bg-transparent px-1 text-xs shadow-none hover:border-input focus-visible:border-ring"
+                    value={meetingProject}
+                    onChange={(event) => setMeetingProject(event.target.value)}
+                    placeholder={t('home.fieldProject')}
+                    list="live-meeting-projects"
+                  />
+                  <datalist id="live-meeting-projects">
+                    {Array.from(new Set(meetings.filter((meeting) => !meetingClient || meeting.client === meetingClient).map((meeting) => meeting.project).filter((value): value is string => !!value))).map((value) => <option key={value} value={value} />)}
+                  </datalist>
+                </>
+              ) : destination ? (
+                <span className="truncate">{destination}</span>
+              ) : null}
               <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 font-medium" title={t('live.engine')}>{transcriptionLocation}</span>
               <DataFlowChip />
-            </p>
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
             {isRecording && (

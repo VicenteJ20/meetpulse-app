@@ -270,7 +270,7 @@
     color: hsl(var(--brand-foreground));
   }
 
-  .app-shell { display: grid; grid-template-columns: 56px minmax(0, 1fr); height: 100dvh; }
+  .app-shell { display: grid; grid-template-columns: 56px minmax(0, 1fr); height: 100dvh; transition: padding-right 180ms ease; }
   .app-shell-content { min-width: 0; overflow: hidden; }
   .route-content > main, .route-content > .h-screen { height: 100%; }
   .meeting-workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; }
@@ -278,6 +278,7 @@
   .meeting-workspace[data-view="transcript"] > .meeting-analysis { display: none; }
   .meeting-transcript, .meeting-analysis { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; }
   .meeting-workspace[data-view="split"] > .meeting-transcript { flex: 0 0 40%; border-right: 1px solid hsl(var(--border)); }
+  .assistant-panel { transition: width 180ms ease; }
   @media (max-width: 999px) { .assistant-panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 45; box-shadow: -16px 0 48px #0003; max-width: calc(100vw - 64px); } }
   @media (max-width: 1199px) { .meeting-workspace[data-view="split"] > .meeting-transcript { flex: 1; } .meeting-workspace[data-view="split"] > .meeting-analysis { display: none; } }
   .transcript-source-highlight { outline: 2px solid hsl(var(--brand)); background: hsl(var(--brand) / .1); border-radius: 8px; }
@@ -483,8 +484,11 @@
 
 @media (min-width: 1000px) { .app-shell[data-assistant-open="true"] { padding-right: var(--assistant-width, 360px); } }
 
+@media (prefers-reduced-motion: reduce) { .app-shell, .assistant-panel { transition: none; } }
+
 .app-shell .recording-dock { left: 56px; }
 @media (min-width: 1000px) { .app-shell[data-assistant-open="true"] .recording-dock { right: var(--assistant-width, 360px); } }
+@media (min-width: 1000px) { .app-shell[data-assistant-open="true"] .recording-status-overlay { right: var(--assistant-width, 360px); } }
 
 @keyframes splash {
   0% { transform: translateX(-100%); }

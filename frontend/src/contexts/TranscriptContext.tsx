@@ -17,6 +17,10 @@ interface TranscriptContextType {
   transcriptContainerRef: React.RefObject<HTMLDivElement>;
   meetingTitle: string;
   setMeetingTitle: (title: string) => void;
+  meetingClient: string;
+  meetingProject: string;
+  setMeetingClient: (client: string) => void;
+  setMeetingProject: (project: string) => void;
   clearTranscripts: () => void;
   currentMeetingId: string | null;
   markMeetingAsSaved: () => Promise<void>;
@@ -27,6 +31,8 @@ const TranscriptContext = createContext<TranscriptContextType | undefined>(undef
 export function TranscriptProvider({ children }: { children: ReactNode }) {
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [meetingTitle, setMeetingTitle] = useState('+ New Call');
+  const [meetingClient, setMeetingClientState] = useState('');
+  const [meetingProject, setMeetingProjectState] = useState('');
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
 
   // Recording state context - provides backend-synced state
@@ -107,6 +113,12 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
 
             // Use a better fallback that matches the backend's naming pattern
             const effectiveTitle = meetingName || `Meeting ${new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-')}`;
+            let recordingContext: { client?: string; project?: string } = {};
+            try {
+              recordingContext = JSON.parse(localStorage.getItem('meetpulse-recording-context') || '{}');
+            } catch {
+              // Metadata is optional; keep recording startup resilient to an invalid draft.
+            }
 
             // Initialize meeting metadata in IndexedDB
             await indexedDBService.saveMeetingMetadata({
@@ -121,6 +133,8 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
 
             // Synchronize meeting title to state (fixes tray stop title issue)
             setMeetingTitle(effectiveTitle);
+            setMeetingClientState(recordingContext.client || '');
+            setMeetingProjectState(recordingContext.project || '');
 
             // Fetch folder path from backend and update metadata
             // This ensures folder path is persisted even if app crashes
@@ -176,6 +190,28 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
       }
     };
   }, [currentMeetingId]);
+
+  const persistMeetingField = useCallback((key: 'title' | 'client' | 'project', value: string) => {
+    try {
+      const draft = JSON.parse(localStorage.getItem('meetpulse-recording-context') || '{}');
+      localStorage.setItem('meetpulse-recording-context', JSON.stringify({ ...draft, [key]: value }));
+    } catch {
+      localStorage.setItem('meetpulse-recording-context', JSON.stringify({ [key]: value }));
+    }
+  }, []);
+
+  const updateMeetingTitle = useCallback((title: string) => {
+    setMeetingTitle(title);
+    persistMeetingField('title', title);
+  }, [persistMeetingField]);
+  const setMeetingClient = useCallback((client: string) => {
+    setMeetingClientState(client);
+    persistMeetingField('client', client);
+  }, [persistMeetingField]);
+  const setMeetingProject = useCallback((project: string) => {
+    setMeetingProjectState(project);
+    persistMeetingField('project', project);
+  }, [persistMeetingField]);
 
   // Main transcript buffering logic with sequence_id ordering
   useEffect(() => {
@@ -517,7 +553,11 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
     flushBuffer,
     transcriptContainerRef,
     meetingTitle,
-    setMeetingTitle,
+    setMeetingTitle: updateMeetingTitle,
+    meetingClient,
+    meetingProject,
+    setMeetingClient,
+    setMeetingProject,
     clearTranscripts,
     currentMeetingId,
     markMeetingAsSaved,

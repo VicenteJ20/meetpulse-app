@@ -39,7 +39,7 @@ export default function Home() {
 
   // Hooks
   const { hasMicrophone, hasSystemAudio } = usePermissionCheck();
-  const { setIsMeetingActive, isCollapsed: sidebarCollapsed, refetchMeetings } = useSidebar();
+  const { setIsMeetingActive, refetchMeetings } = useSidebar();
   const { modals, messages, showModal, hideModal } = useModalState(transcriptModelConfig);
   const { isRecordingDisabled, setIsRecordingDisabled } = useRecordingStateSync(isRecording, setIsRecordingState, setIsMeetingActive);
   const { handleRecordingStart } = useRecordingStart(isRecording, setIsRecordingState, showModal);
@@ -190,7 +190,7 @@ export default function Home() {
   // Computed values using global status
   const isProcessingStop = status === RecordingStatus.PROCESSING_TRANSCRIPTS || isProcessing;
 
-  if (!recordingState.isRecording && !isRecording && !isProcessingStop && status !== RecordingStatus.SAVING) {
+  if (!recordingState.isRecording && !isRecording && status !== RecordingStatus.STOPPING && !isProcessingStop && status !== RecordingStatus.SAVING) {
     return (
       <>
         <SettingsModals modals={modals} messages={messages} onClose={hideModal} />
@@ -275,9 +275,9 @@ export default function Home() {
 
         {/* Status Overlays - Processing and Saving */}
         <StatusOverlays
+          isStopping={status === RecordingStatus.STOPPING}
           isProcessing={status === RecordingStatus.PROCESSING_TRANSCRIPTS && !recordingState.isRecording}
           isSaving={status === RecordingStatus.SAVING}
-          sidebarCollapsed={sidebarCollapsed}
         />
       </div>
     </motion.div>
