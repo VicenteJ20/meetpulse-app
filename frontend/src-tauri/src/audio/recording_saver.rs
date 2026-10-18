@@ -22,6 +22,8 @@ pub struct TranscriptSegment {
     pub display_time: String,   // Formatted time for display like "[02:15]"
     pub confidence: f32,
     pub sequence_id: u64,
+    #[serde(default)]
+    pub speaker: Option<String>, // "me" (micrófono) o "team" (audio del sistema)
 }
 
 /// Meeting metadata structure

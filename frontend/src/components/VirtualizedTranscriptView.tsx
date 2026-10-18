@@ -43,13 +43,13 @@ const VIRTUALIZATION_THRESHOLD = 1;
 
 // Helper function to format seconds as recording-relative time [MM:SS]
 function formatRecordingTime(seconds: number | undefined): string {
-    if (seconds === undefined) return '[--:--]';
+    if (seconds === undefined) return '--:--';
 
     const totalSeconds = Math.floor(seconds);
     const minutes = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
 
-    return `[${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`;
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
 // Helper function to remove filler words and repetitions
@@ -73,6 +73,7 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence,
     isStreaming,
     showConfidence,
+    speakerLabel,
 }: {
     id: string;
     timestamp: number;
@@ -80,6 +81,7 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence?: number;
     isStreaming: boolean;
     showConfidence: boolean;
+    speakerLabel?: { text: string; me: boolean };
 }) {
     const displayText = cleanStopWords(text) || (text.trim() === '' ? '[Silence]' : text);
 
@@ -99,6 +101,9 @@ const TranscriptSegment = memo(function TranscriptSegment({
                     </TooltipContent>
                 </Tooltip>
                 <div className="min-w-0 flex-1">
+                    {speakerLabel && (
+                        <span className={`mb-0.5 ml-3 inline-block text-xs font-semibold ${speakerLabel.me ? 'text-brand' : 'text-muted-foreground'}`}>{speakerLabel.text}</span>
+                    )}
                     <div
                         className={`rounded-lg border px-3 py-2 transition-colors duration-300 ${
                             isStreaming
@@ -155,6 +160,11 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
     });
 
     const { t } = useTranslation();
+    // El rótulo solo se muestra cuando cambia quien habla
+    const labelFor = (segment: TranscriptSegmentData, previous?: TranscriptSegmentData) =>
+        segment.speaker && segment.speaker !== previous?.speaker
+            ? { text: t(segment.speaker === 'me' ? 'transcript.me' : 'transcript.team'), me: segment.speaker === 'me' }
+            : undefined;
     const [sourceTime, setSourceTime] = useState<number | null>(() => {
         if (typeof window === 'undefined') return null;
         const raw = new URLSearchParams(window.location.search).get('sourceTime');
@@ -307,6 +317,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        speakerLabel={labelFor(segment, segments[segments.indexOf(segment) - 1])}
                                     />
                                 </div>
                             );
@@ -363,6 +374,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        speakerLabel={labelFor(segment, segments[segments.indexOf(segment) - 1])}
                                     />
                                 </motion.div>
                             );

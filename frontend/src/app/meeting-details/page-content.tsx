@@ -64,7 +64,7 @@ function transcriptMarkdown(title: string, createdAt: string | undefined, transc
     return `[${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}]`;
   };
   const date = createdAt ? new Date(createdAt).toISOString() : new Date().toISOString();
-  const body = transcripts.map(transcript => `${formatTime(transcript)} ${transcript.text.trim()}`).join('\n');
+  const body = transcripts.map(transcript => `${formatTime(transcript)}${transcript.speaker === 'me' ? ' [Usuario]' : transcript.speaker === 'team' ? ' [Equipo]' : ''} ${transcript.text.trim()}`).join('\n');
   return `# Transcripción: ${title}\n\n## Fecha\n\n${date}\n\n## Contenido\n\n${body}\n`;
 }
 

@@ -1,58 +1,33 @@
 'use client';
 
 import { SuggestInput } from '@/components/ui/suggest-input';
-import { desktopCapabilities } from '@/config/capabilities';
 import { useEffect, useState } from 'react';
 import { useAssistant } from '@/contexts/AssistantContext';
-import Link from 'next/link';
-import { ArrowRight, ChevronDown, Cloud, Cpu, Import, LockKeyhole, Mic, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, Headphones, Import, Mic, Search, Sparkles, TriangleAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useImportDialog } from '@/contexts/ImportDialogContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
-import { useDataFlow } from '@/hooks/useDataFlow';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
-import { Switch } from '@/components/ui/switch';
-import { loadAssistantDefaults, saveAssistantDefaults, type AssistantDefaults } from '@/lib/assistantDefaults';
 import { EmptyState, PageHeader, Surface } from '@/components/ui/product';
-import { HomeWikiStats } from '@/components/HomeWikiStats';
-import { TranscriptionLanguageControl } from '@/components/TranscriptionLanguageControl';
-import { HomeReadinessControls } from '@/components/HomeReadinessControls';
 import { DataFlowChip } from '@/components/DataFlowChip';
+import { LanguageSelect, SummaryModelSelect, TranscriptionEngineSelect } from '@/components/home/EngineSelects';
 import { OPEN_PALETTE_EVENT } from '@/components/Rail';
+import { cn } from '@/lib/utils';
 
 const RECORDING_CONTEXT_KEY = 'meetpulse-recording-context';
 
-function EngineChip({ label, name, cloud }: { label: string; name: string; cloud: boolean }) {
-  const { t } = useTranslation();
+function Ready({ ok, label }: { ok: boolean; label: string }) {
+  const Icon = ok ? Check : TriangleAlert;
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <Link
-        href="/settings"
-        title={t('home.changeEngine')}
-        className="group inline-flex h-8 items-center gap-2 rounded-md border border-input bg-card px-2.5 text-sm transition-[border-color,background-color] duration-150 hover:border-muted-foreground hover:bg-muted/50"
-      >
-        {cloud ? <Cloud className="size-4 text-warning" /> : <Cpu className="size-4 text-success" />}
-        <span className="truncate font-medium">{name || '—'}</span>
-        <ChevronDown className="size-3.5 text-muted-foreground transition-transform duration-200 group-hover:translate-y-0.5" />
-      </Link>
-    </div>
-  );
-}
-
-function AssistantOption({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (value: boolean) => void }) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2.5">
-      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
-      <span className="grid text-sm leading-tight">
-        <b className="font-medium">{label}</b>
-        <em className="text-[0.84em] not-italic text-muted-foreground">{hint}</em>
+    <span className={cn('inline-flex items-center gap-1.5 text-xs', ok ? 'text-muted-foreground' : 'text-warning')}>
+      <span className={cn('grid size-4 place-items-center rounded-full', ok ? 'bg-success/15 text-success' : 'bg-warning/15')}>
+        <Icon className="size-2.5" strokeWidth={3} />
       </span>
-    </label>
+      {label}
+    </span>
   );
 }
 
@@ -75,13 +50,10 @@ export function HomeWorkspace({
   const { openImportDialog } = useImportDialog();
   const { t, formatDate } = useTranslation();
   const { setTarget } = useAssistant();
-  const flow = useDataFlow();
-  const [assistant, setAssistant] = useState<AssistantDefaults>({ coachOnStart: false, chatOnStart: false, cadence: 60 });
   const [draft, setDraft] = useState({ title: '', client: '', project: '', additionalContext: '' });
 
   useEffect(() => {
     setTarget(null);
-    setAssistant(loadAssistantDefaults());
     try {
       const stored = localStorage.getItem(RECORDING_CONTEXT_KEY);
       if (stored) setDraft(JSON.parse(stored));
@@ -90,38 +62,33 @@ export function HomeWorkspace({
     }
   }, [setTarget]);
 
-  const updateDraft = (key: string, value: string) => {
-    const next = { ...draft, [key]: value };
+  // El título se genera solo (fecha y hora); aquí únicamente se elige a qué cliente y proyecto pertenece.
+  const updateDraft = (key: 'client' | 'project', value: string) => {
+    const next = { ...draft, title: '', [key]: value, ...(key === 'client' ? { project: '' } : {}) };
     setDraft(next);
     localStorage.setItem(RECORDING_CONTEXT_KEY, JSON.stringify(next));
   };
 
-  const updateAssistant = (patch: Partial<AssistantDefaults>) => {
-    const next = { ...assistant, ...patch };
-    setAssistant(next);
-    saveAssistantDefaults(next);
-  };
+  const clients = Array.from(new Set(meetings.map((m) => m.client).filter((v): v is string => !!v)));
+  const projects = Array.from(new Set(
+    meetings.filter((m) => !draft.client || m.client === draft.client).map((m) => m.project).filter((v): v is string => !!v),
+  ));
 
-  const recent = meetings.slice(0, 6);
+  const recent = meetings.slice(0, 5);
   const openMeeting = (meeting: (typeof meetings)[number]) => {
     setCurrentMeeting(meeting);
     router.push(`/meeting-details?id=${encodeURIComponent(meeting.id)}`);
   };
-  const fields = [
-    { key: 'title', label: t('home.fieldTitle') },
-    { key: 'client', label: t('home.fieldClient') },
-    { key: 'project', label: t('home.fieldProject') },
-  ] as const;
 
   return (
     <main className="custom-scrollbar h-dvh overflow-y-auto">
-      <div className="mx-auto flex max-w-[1180px] flex-col gap-6 px-8 pb-16 pt-7">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="mx-auto flex max-w-[760px] flex-col gap-7 px-8 pb-16 pt-10">
+        <div className="animate-enter flex flex-col gap-4">
           <PageHeader title={t('recording.new')} description={t('home.sub')} />
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
-            className="flex h-10 w-full max-w-sm items-center gap-2.5 rounded-full border border-input bg-card px-3.5 text-sm text-muted-foreground transition-colors hover:border-brand hover:bg-accent/40"
+            className="flex h-10 w-full items-center gap-2.5 rounded-full border border-input bg-card px-3.5 text-sm text-muted-foreground transition-[border-color,box-shadow] duration-150 hover:border-brand hover:shadow-[0_0_0_3px_hsl(var(--brand)/0.12)]"
           >
             <Sparkles className="size-4 text-brand" />
             <span className="flex-1 text-left">{t('home.askBar')}</span>
@@ -129,77 +96,60 @@ export function HomeWorkspace({
           </button>
         </div>
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(16rem,0.9fr)]">
-          <Surface className="flex flex-col gap-5 p-6">
-            <div className="grid gap-3 sm:grid-cols-[1.4fr_1fr_1fr]">
-              {fields.map(({ key, label }) => (
-                <label key={key} className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted-foreground">
-                  {label}
-                  <SuggestInput
-                    value={draft[key]}
-                    onValueChange={(value) => updateDraft(key, value)}
-                    options={key === 'title' ? [] : meetings
-                      .filter((m) => key === 'client' || m.client === draft.client)
-                      .map((m) => m[key])
-                      .filter((value): value is string => !!value)}
-                  />
-                </label>
-              ))}
-            </div>
+        <Surface className="animate-enter flex flex-col gap-6 p-6" >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+              {t('home.fieldClient')}
+              <SuggestInput
+                value={draft.client}
+                onValueChange={(value) => updateDraft('client', value)}
+                placeholder={t('home.clientPlaceholder')}
+                options={clients}
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+              {t('home.fieldProject')}
+              <SuggestInput
+                value={draft.project}
+                onValueChange={(value) => updateDraft('project', value)}
+                placeholder={t('home.clientPlaceholder')}
+                options={projects}
+              />
+            </label>
+          </div>
 
-            <div className="flex flex-wrap items-end gap-3">
-              <Button size="lg" variant="recording" onClick={onStartRecording}>
-                <Mic /> {t('recording.start')}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button size="lg" variant="recording" onClick={onStartRecording}>
+              <Mic /> {t('recording.start')}
+            </Button>
+            {betaFeatures.importAndRetranscribe && (
+              <Button size="lg" variant="outline" onClick={() => openImportDialog()}>
+                <Import /> {t('home.importAudio')}
               </Button>
-              {betaFeatures.importAndRetranscribe && (
-                <Button size="lg" variant="outline" onClick={() => openImportDialog()}>
-                  <Import /> {t('home.importAudio')}
-                </Button>
-              )}
-              <TranscriptionLanguageControl />
-            </div>
-
-            <div className="flex flex-wrap items-end gap-x-5 gap-y-3 border-t border-border pt-4">
-              <EngineChip label={t('home.transcribeWith')} name={flow.transcriptionName} cloud={!!flow.audioTo} />
-              <EngineChip label={t('home.summarizeWith')} name={flow.analysisName} cloud={!!flow.textTo} />
-              <DataFlowChip className="ml-auto self-center" />
-            </div>
-
-            <div className="flex flex-wrap gap-x-7 gap-y-3 border-t border-border pt-4">
-              <AssistantOption label={t('home.coachOpt')} hint={t('home.coachOptDesc')} checked={assistant.coachOnStart} onChange={(v) => updateAssistant({ coachOnStart: v })} />
-              <AssistantOption label={t('home.chatOpt')} hint={t('home.chatOptDesc')} checked={assistant.chatOnStart} onChange={(v) => updateAssistant({ chatOnStart: v })} />
-            </div>
-
-            {recoverableCount > 0 && (
-              <button className="flex items-center gap-2 text-sm font-medium text-brand hover:underline" onClick={onOpenRecovery}>
-                {recoverableCount} {recoverableCount === 1 ? t('home.recoverableOne') : t('home.recoverableMany')}{' '}
-                <ArrowRight className="size-4" />
-              </button>
             )}
-          </Surface>
-
-          <Surface className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold">{t('home.ready')}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{t('home.localPrivacyDescription')}</p>
-              </div>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-success/10 text-success">
-                <LockKeyhole className="size-5" />
-              </div>
+            <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
+              <Ready ok={hasMicrophone} label={hasMicrophone ? t('home.mic') : t('home.noMic')} />
+              <Ready ok={hasSystemAudio} label={hasSystemAudio ? t('home.sys') : t('home.noSys')} />
             </div>
-            <HomeReadinessControls hasMicrophone={hasMicrophone} hasSystemAudio={hasSystemAudio} />
-          </Surface>
-        </section>
+          </div>
 
-        <Surface className="overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <div>
-              <h2 className="font-semibold">{t('home.recent')}</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {meetings.length} {meetings.length === 1 ? t('home.meetingCountOne') : t('home.meetingCountMany')}
-              </p>
-            </div>
+          {recoverableCount > 0 && (
+            <button className="flex items-center gap-2 text-sm font-medium text-brand hover:underline" onClick={onOpenRecovery}>
+              {recoverableCount} {recoverableCount === 1 ? t('home.recoverableOne') : t('home.recoverableMany')} <ArrowRight className="size-4" />
+            </button>
+          )}
+
+          <div className="grid gap-3 border-t border-border pt-5 sm:grid-cols-[1.4fr_0.8fr_1.4fr]">
+            <TranscriptionEngineSelect />
+            <LanguageSelect />
+            <SummaryModelSelect />
+          </div>
+          <DataFlowChip className="self-start" />
+        </Surface>
+
+        <section className="animate-enter flex flex-col gap-3" style={{ animationDelay: '80ms' }}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">{t('home.recent')}</h2>
             {meetings.length > 0 && (
               <Button variant="ghost" size="sm" onClick={() => router.push('/library')}>
                 {t('home.viewLibrary')} <ArrowRight />
@@ -207,18 +157,18 @@ export function HomeWorkspace({
             )}
           </div>
           {recent.length > 0 ? (
-            <div className="stagger divide-y divide-border">
+            <Surface className="stagger divide-y divide-border overflow-hidden">
               {recent.map((meeting, index) => (
                 <button
                   key={meeting.id}
                   style={{ '--i': index } as React.CSSProperties}
                   onClick={() => openMeeting(meeting)}
-                  className="group flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-muted/50"
+                  className="group flex w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-muted/50"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium group-hover:text-brand">{meeting.title}</p>
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {[meeting.client, meeting.project].filter(Boolean).join(' / ') || t('meeting.details')}
+                      {[meeting.client, meeting.project].filter(Boolean).join(' / ') || t('library.noClient')}
                     </p>
                   </div>
                   {meeting.created_at && (
@@ -228,18 +178,17 @@ export function HomeWorkspace({
                   )}
                 </button>
               ))}
-            </div>
+            </Surface>
           ) : (
-            <EmptyState
-              icon={<Search />}
-              title={t('home.noRecent')}
-              description={t('home.noRecentDescription')}
-              action={<Button variant="outline" onClick={onStartRecording}>{t('recording.start')}</Button>}
-            />
+            <Surface>
+              <EmptyState
+                icon={<Search />}
+                title={t('home.noRecent')}
+                description={t('home.noRecentDescription')}
+              />
+            </Surface>
           )}
-        </Surface>
-
-        {desktopCapabilities.wikiEnabled && <HomeWikiStats />}
+        </section>
       </div>
     </main>
   );

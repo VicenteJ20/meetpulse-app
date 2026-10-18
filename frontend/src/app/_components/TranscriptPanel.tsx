@@ -67,6 +67,7 @@ export function TranscriptPanel({
       endTime: t.audio_end_time,
       text: t.text,
       confidence: t.confidence,
+      speaker: t.speaker,
     })),
     [transcripts]
   );
@@ -198,7 +199,7 @@ export function TranscriptPanel({
       <div className="live-panes min-h-0 flex-1" data-dock={isRecording && open ? 'on' : 'off'}>
         <div
           ref={transcriptContainerRef}
-          className={cn('flex min-w-0 flex-col bg-background', isRecording ? 'live-main min-h-0 overflow-y-auto' : 'min-h-0 flex-1 overflow-y-auto')}
+          className={cn('flex min-w-0 flex-col bg-background', isRecording ? 'live-main min-h-0 overflow-hidden' : 'min-h-0 flex-1 overflow-y-auto')}
         >
           {/* Permission Warning - Not needed on Linux */}
           {!isRecording && !isChecking && !isLinux && (
@@ -217,7 +218,7 @@ export function TranscriptPanel({
           {/* Transcript content */}
           <div className={cn('pb-32', isRecording && 'flex min-h-0 flex-1 flex-col pb-4')}>
             <div className={cn('flex justify-center px-5', isRecording && 'min-h-0 flex-1')}>
-              <div className="w-full max-w-4xl min-h-0">
+              <div className={cn('w-full max-w-4xl min-h-0', isRecording && 'h-full')}>
                 <VirtualizedTranscriptView
                   segments={segments}
                   isRecording={isRecording}
