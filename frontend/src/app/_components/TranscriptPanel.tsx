@@ -1,5 +1,5 @@
 import { SuggestInput } from '@/components/ui/suggest-input';
-import { useAssistant } from '@/contexts/AssistantContext';
+import { LiveAssistantDockHost, useAssistant } from '@/contexts/AssistantContext';
 import { DataFlowChip } from '@/components/DataFlowChip';
 import { cn } from '@/lib/utils';
 import { VirtualizedTranscriptView } from '@/components/VirtualizedTranscriptView';
@@ -72,7 +72,7 @@ export function TranscriptPanel({
   );
 
   const { activeDuration } = useRecordingState();
-  const { coach, toggleCoach, toggle, open } = useAssistant();
+  const { coach, toggleCoach, toggleChat, activeTab, open } = useAssistant();
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!isRecording) { setElapsed(0); return; }
@@ -86,9 +86,9 @@ export function TranscriptPanel({
   const clock = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
 
   return (
-    <div ref={transcriptContainerRef} className="flex w-full flex-col overflow-y-auto bg-background">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
       <div className="sticky top-0 z-10 border-b border-border bg-background/90 px-6 py-3 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-5 gap-y-2">
+        <div className={cn('flex flex-wrap items-center gap-x-5 gap-y-2', isRecording ? 'w-full' : 'mx-auto max-w-4xl')}>
           {isRecording ? (
             <div className="flex items-center gap-2.5">
               <span className={cn('size-2.5 rounded-full', isPaused ? 'bg-warning' : 'animate-pulse bg-recording')} aria-hidden="true" />
@@ -173,10 +173,10 @@ export function TranscriptPanel({
             )}
             <button
               type="button"
-              aria-pressed={open}
+              aria-pressed={open && activeTab === 'chat'}
               title={t('live.chatTip')}
-              onClick={toggle}
-              className={cn('inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[0.8rem] font-medium transition-colors', open ? 'border-brand bg-accent text-accent-foreground' : 'border-border bg-card hover:bg-muted')}
+              onClick={toggleChat}
+              className={cn('inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[0.8rem] font-medium transition-colors', open && activeTab === 'chat' ? 'border-brand bg-accent text-accent-foreground' : 'border-border bg-card hover:bg-muted')}
             >
               <MessagesSquare className="size-4" />
               {t('live.chat')}
@@ -195,35 +195,43 @@ export function TranscriptPanel({
         </div>
       </div>
 
-      {/* Permission Warning - Not needed on Linux */}
-      {!isRecording && !isChecking && !isLinux && (
-        <div className="flex justify-center px-4 pt-4">
-          <PermissionWarning
-            hasMicrophone={hasMicrophone}
-            hasSystemAudio={hasSystemAudio}
-            onRecheck={checkPermissions}
-            isRechecking={isChecking}
-          />
-        </div>
-      )}
+      <div className="live-panes min-h-0 flex-1" data-dock={isRecording && open ? 'on' : 'off'}>
+        <div
+          ref={transcriptContainerRef}
+          className={cn('flex min-w-0 flex-col bg-background', isRecording ? 'live-main min-h-0 overflow-y-auto' : 'min-h-0 flex-1 overflow-y-auto')}
+        >
+          {/* Permission Warning - Not needed on Linux */}
+          {!isRecording && !isChecking && !isLinux && (
+            <div className="flex justify-center px-4 pt-4">
+              <PermissionWarning
+                hasMicrophone={hasMicrophone}
+                hasSystemAudio={hasSystemAudio}
+                onRecheck={checkPermissions}
+                isRechecking={isChecking}
+              />
+            </div>
+          )}
 
-      {homeStats}
+          {homeStats}
 
-      {/* Transcript content */}
-      <div className="pb-32">
-        <div className="flex justify-center px-5">
-          <div className="w-full max-w-4xl">
-            <VirtualizedTranscriptView
-              segments={segments}
-              isRecording={isRecording}
-              isPaused={isPaused}
-              isProcessing={isProcessingStop}
-              isStopping={isStopping}
-              enableStreaming={isRecording}
-              showConfidence={true}
-            />
+          {/* Transcript content */}
+          <div className={cn('pb-32', isRecording && 'flex min-h-0 flex-1 flex-col pb-4')}>
+            <div className={cn('flex justify-center px-5', isRecording && 'min-h-0 flex-1')}>
+              <div className="w-full max-w-4xl min-h-0">
+                <VirtualizedTranscriptView
+                  segments={segments}
+                  isRecording={isRecording}
+                  isPaused={isPaused}
+                  isProcessing={isProcessingStop}
+                  isStopping={isStopping}
+                  enableStreaming={isRecording}
+                  showConfidence={true}
+                />
+              </div>
+            </div>
           </div>
         </div>
+        {isRecording && <LiveAssistantDockHost isOpen={open} />}
       </div>
     </div>
   );
