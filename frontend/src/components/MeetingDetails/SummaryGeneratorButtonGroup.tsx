@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog"
 import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { Button } from '@/components/ui/button';
-import { ButtonGroup } from '@/components/ui/button-group';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,8 +59,7 @@ export function SummaryGeneratorButtonGroup({
   onOpenModelSettings,
   languageSlot
 }: SummaryGeneratorButtonGroupProps) {
-  const { locale } = useTranslation();
-  const es = locale === 'es';
+  const { t } = useTranslation();
   const [isCheckingModels, setIsCheckingModels] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
@@ -246,27 +244,27 @@ export function SummaryGeneratorButtonGroup({
   const isGenerating = summaryStatus === 'processing' || summaryStatus === 'summarizing' || summaryStatus === 'regenerating';
 
   return (
-    <ButtonGroup>
+    <div className="flex flex-nowrap items-center gap-1.5">
       {/* Generate Summary or Stop button */}
       {isGenerating ? (
         <Button
           variant="outline"
           size="sm"
-          className="border-destructive/25 bg-destructive/10 text-destructive hover:bg-destructive/15 xl:px-4"
+          className="border-destructive/25 bg-destructive/10 text-destructive hover:bg-destructive/15"
           onClick={() => {
             Analytics.trackButtonClick('stop_summary_generation', 'meeting_details');
             onStopGeneration();
           }}
           title="Stop summary generation"
         >
-          <Square className="xl:mr-2" size={18} fill="currentColor" />
-          <span className="hidden lg:inline xl:inline">{es ? 'Detener' : 'Stop'}</span>
+          <Square fill="currentColor" />
+          {t('meeting.stop')}
         </Button>
       ) : (
         <Button
           variant="outline"
           size="sm"
-          className="border-brand bg-brand text-brand-foreground shadow-sm hover:bg-brand/90 hover:text-brand-foreground xl:px-4"
+          className="border-brand bg-brand text-brand-foreground hover:bg-brand/90 hover:text-brand-foreground"
           onClick={() => {
             Analytics.trackButtonClick('generate_summary', 'meeting_details');
             checkOllamaModelsAndGenerate();
@@ -282,13 +280,13 @@ export function SummaryGeneratorButtonGroup({
         >
           {isCheckingModels || isModelConfigLoading ? (
             <>
-              <Loader2 className="animate-spin xl:mr-2" size={18} />
-              <span className="hidden xl:inline">{es ? 'Procesando…' : 'Processing…'}</span>
+              <Loader2 className="animate-spin" />
+              {t('meeting.processing')}
             </>
           ) : (
             <>
-              <Sparkles className="xl:mr-2" size={18} />
-              <span className="hidden lg:inline xl:inline">{hasSummary ? (es ? 'Regenerar análisis' : 'Regenerate analysis') : (es ? 'Generar análisis' : 'Generate analysis')}</span>
+              <Sparkles />
+              {hasSummary ? t('meeting.regenerate') : t('meeting.generate')}
             </>
           )}
         </Button>
@@ -300,14 +298,14 @@ export function SummaryGeneratorButtonGroup({
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
         <DialogTrigger asChild>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            title="Summary Settings"
+            title={t('meeting.model')}
+            aria-label={t('meeting.model')}
             className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
           >
             <Settings />
-            <span className="hidden lg:inline">{es ? 'Modelo IA' : 'AI model'}</span>
-          </Button>
+                      </Button>
         </DialogTrigger>
         <DialogContent
           aria-describedby={undefined}
@@ -333,14 +331,14 @@ export function SummaryGeneratorButtonGroup({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              title="Select summary template"
+              title={t('meeting.template')}
+              aria-label={t('meeting.template')}
               className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
             >
               <FileText />
-              <span className="hidden lg:inline">{es ? 'Plantilla' : 'Template'}</span>
-            </Button>
+                          </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {availableTemplates.map((template) => (
@@ -360,6 +358,6 @@ export function SummaryGeneratorButtonGroup({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-    </ButtonGroup>
+    </div>
   );
 }

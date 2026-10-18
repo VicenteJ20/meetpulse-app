@@ -1,9 +1,10 @@
 "use client";
 import { useRef, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { FileDown } from "lucide-react";
+import { ChevronDown, FileDown, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import type { ReportSnapshot } from "@/lib/pdf/branding";
 import type { Transcript } from "@/types";
@@ -11,6 +12,8 @@ import type { Transcript } from "@/types";
 export function PdfExports({
   meeting,
   getAnalysis,
+  onCopySummary,
+  onCopyTranscript,
 }: {
   meeting: {
     id: string;
@@ -20,8 +23,10 @@ export function PdfExports({
     project?: string;
   };
   getAnalysis: () => Promise<string>;
+  onCopySummary?: () => void;
+  onCopyTranscript?: () => void;
 }) {
-  const { locale, formatDate } = useTranslation();
+  const { locale, formatDate, t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const worker = useRef<Worker>();
   useEffect(() => () => worker.current?.terminate(), []);
@@ -45,11 +50,7 @@ export function PdfExports({
       if (kind === "analysis") {
         snapshot.markdown = await getAnalysis();
         if (!snapshot.markdown.trim())
-          throw new Error(
-            locale === "es"
-              ? "Genera o escribe un análisis primero."
-              : "Generate or write an analysis first.",
-          );
+          throw new Error(t("meeting.needAnalysis"));
       } else {
         const segments: Transcript[] = [];
         let offset = 0;
@@ -67,11 +68,7 @@ export function PdfExports({
           if (!page.has_more || !page.transcripts.length) break;
         }
         if (!segments.length)
-          throw new Error(
-            locale === "es"
-              ? "No hay transcripción."
-              : "No transcript available.",
-          );
+          throw new Error(t("meeting.noTranscript"));
         snapshot.segments = segments.map((s) => ({
           text: s.text,
           start: s.audio_start_time,
@@ -104,7 +101,7 @@ export function PdfExports({
         filename: `${(meeting.created_at || new Date().toISOString()).slice(0, 10)}_${title}_${kind === "analysis" ? "analisis" : "transcripcion"}.pdf`,
         bytes: Array.from(new Uint8Array(bytes)),
       });
-      if (saved) toast.success(locale === "es" ? "PDF guardado" : "PDF saved");
+      if (saved) toast.success(t("meeting.pdfSaved"));
     } catch (error) {
       toast.error(String(error));
     } finally {
@@ -112,25 +109,25 @@ export function PdfExports({
     }
   }
   return (
-    <div className="flex flex-wrap gap-2">
-      {(["transcript", "analysis"] as const).map((kind) => (
-        <Button
-          key={kind}
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={() => void exportPdf(kind)}
-        >
-          <FileDown size={15} />
-          {kind === "transcript"
-            ? locale === "es"
-              ? "Transcripción PDF"
-              : "Transcript PDF"
-            : locale === "es"
-              ? "Análisis PDF"
-              : "Analysis PDF"}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" disabled={busy}>
+          {busy ? <Loader2 className="animate-spin" /> : <Upload />}
+          {t("meeting.export")}
+          <ChevronDown className="text-muted-foreground" />
         </Button>
-      ))}
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuItem onSelect={() => void exportPdf("analysis")}>
+          <FileDown /> {t("meeting.exportAnalysisPdf")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void exportPdf("transcript")}>
+          <FileDown /> {t("meeting.exportTranscriptPdf")}
+        </DropdownMenuItem>
+        {(onCopySummary || onCopyTranscript) && <DropdownMenuSeparator />}
+        {onCopySummary && <DropdownMenuItem onSelect={onCopySummary}>{t("meeting.copySummary")}</DropdownMenuItem>}
+        {onCopyTranscript && <DropdownMenuItem onSelect={onCopyTranscript}>{t("meeting.copyTranscript")}</DropdownMenuItem>}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -251,7 +251,7 @@ export default function Home() {
             <div className="recording-dock fixed bottom-7 left-16 right-0 z-20">
               <div className="flex justify-center px-6">
                 <div className="w-2/3 max-w-[750px] flex justify-center">
-                  <div className="meetpulse-surface flex rounded-2xl bg-card/90 p-1 backdrop-blur">
+                  <div className="flex rounded-full border border-border bg-card/95 p-1.5 shadow-lg backdrop-blur">
                     <RecordingControls
                       isRecording={recordingState.isRecording}
                       onRecordingStop={(callApi = true) => handleRecordingStop(callApi)}

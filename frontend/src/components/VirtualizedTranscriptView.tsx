@@ -7,8 +7,7 @@ import { useAutoScroll } from "@/hooks/useAutoScroll";
 import { useTranscriptStreaming } from "@/hooks/useTranscriptStreaming";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { RecordingStatusBar } from "./RecordingStatusBar";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { TranscriptSegmentData } from "@/types";
 import { estimateTranscriptSegmentHeight } from "@/lib/transcriptLayout";
 
@@ -89,7 +88,7 @@ const TranscriptSegment = memo(function TranscriptSegment({
             <div className="flex items-start gap-2">
                 <Tooltip>
                     <TooltipTrigger>
-                        <span className="mt-1 min-w-[50px] flex-shrink-0 text-xs text-muted-foreground">
+                        <span className="mt-1.5 min-w-[50px] flex-shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
                             {formatRecordingTime(timestamp)}
                         </span>
                     </TooltipTrigger>
@@ -107,7 +106,7 @@ const TranscriptSegment = memo(function TranscriptSegment({
                                 : 'border-transparent bg-transparent'
                         }`}
                     >
-                        <p className="break-words text-base leading-relaxed text-foreground">{displayText}</p>
+                        <p className="break-words text-[0.95rem] leading-relaxed text-foreground">{displayText}</p>
                     </div>
                 </div>
             </div>
@@ -155,7 +154,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
         disableAutoScroll,
     });
 
-    const { locale } = useTranslation();
+    const { t } = useTranslation();
     const [sourceTime, setSourceTime] = useState<number | null>(() => {
         if (typeof window === 'undefined') return null;
         const raw = new URLSearchParams(window.location.search).get('sourceTime');
@@ -245,18 +244,9 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
 
     return (
         <div ref={scrollRef} className="flex flex-col h-full overflow-y-auto px-4 py-2">
-            {/* Recording Status Bar - Sticky at top, always visible when recording */}
-            <AnimatePresence>
-                {isRecording && (
-                    <div className="sticky top-0 z-10 bg-background pb-2">
-                        <RecordingStatusBar isPaused={isPaused} />
-                    </div>
-                )}
-            </AnimatePresence>
-
             {/* Content - add padding when recording to prevent overlap */}
             <div className={isRecording ? 'pt-2' : ''}>
-            {isRecording && !autoScroll && <button className="sticky top-2 z-10 mx-auto block rounded-full bg-brand px-4 py-2 text-sm text-brand-foreground shadow" onClick={scrollToBottom}>{locale === 'es' ? 'Volver al vivo' : 'Back to live'}</button>}
+            {isRecording && !autoScroll && <button className="sticky top-2 z-10 mx-auto block rounded-full bg-brand px-4 py-2 text-sm text-brand-foreground shadow" onClick={scrollToBottom}>{t('live.backLive')}</button>}
             {segments.length === 0 ? (
                 // Empty state
                 <motion.div
@@ -270,16 +260,15 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                 <div className={`w-3 h-3 rounded-full ${isPaused ? 'bg-warning' : 'bg-brand animate-pulse'}`}></div>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                                {isPaused ? 'Recording paused' : 'Listening for speech...'}
+                                {isPaused ? t('live.pausedTitle') : t('live.waiting')}
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                {isPaused ? 'Click resume to continue recording' : 'Speak to see live transcription'}
+                                {isPaused ? t('live.pausedText') : t('live.waitingText')}
                             </p>
                         </>
                     ) : (
                         <>
-                            <p className="text-lg font-semibold">Welcome to MeetPulse!</p>
-                            <p className="text-xs mt-1">Start recording to see live transcription</p>
+                            <p className="text-sm">{t('live.welcome')}</p>
                         </>
                     )}
                 </motion.div>

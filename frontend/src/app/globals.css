@@ -78,80 +78,84 @@
 
 @layer base {
   :root {
-    --background: 220 27% 97%;
-    --foreground: 222 35% 12%;
+    --font-geist-sans: 'Geist Variable';
+    --font-geist-mono: 'Geist Mono';
+    /* Quiet Studio v2: neutros fríos tipo Apple y un solo acento azul del sistema */
+    --background: 240 11% 96%;
+    --foreground: 240 3% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222 35% 12%;
+    --card-foreground: 240 3% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 35% 12%;
-    --primary: 222 38% 14%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 216 24% 94%;
-    --secondary-foreground: 222 35% 16%;
-    --muted: 216 24% 94%;
-    --muted-foreground: 217 13% 43%;
-    --accent: 213 70% 94%;
-    --accent-foreground: 215 70% 25%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 216 22% 87%;
-    --input: 216 22% 87%;
-    --ring: 215 90% 55%;
-    --brand: 215 90% 52%;
+    --popover-foreground: 240 3% 12%;
+    --primary: 240 3% 12%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 230 15% 92%;
+    --secondary-foreground: 240 3% 12%;
+    --muted: 230 15% 92%;
+    --muted-foreground: 240 4% 45%;
+    --accent: 211 84% 95%;
+    --accent-foreground: 210 100% 40%;
+    --destructive: 0 72% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 12% 90%;
+    --input: 227 10% 83%;
+    --ring: 210 100% 45%;
+    --brand: 210 100% 45%;
     --brand-foreground: 0 0% 100%;
-    --recording: 4 82% 57%;
+    --recording: 354 100% 42%;
     --recording-foreground: 0 0% 100%;
-    --success: 153 60% 38%;
-    --warning: 37 92% 48%;
+    --success: 137 66% 30%;
+    --warning: 29 100% 30%;
     --surface-raised: 0 0% 100%;
-    --surface-subtle: 218 30% 96%;
-    --sidebar: 222 32% 12%;
-    --sidebar-foreground: 215 22% 78%;
-    --sidebar-active: 215 88% 60%;
-    --radius: 0.875rem;
-    --chart-1: 217 91% 60%;
-    --chart-2: 189 94% 43%;
-    --chart-3: 222 47% 24%;
-    --chart-4: 262 83% 65%;
-    --chart-5: 24 94% 58%;
+    --surface-subtle: 225 22% 96%;
+    /* Barra lateral: se mantiene oscura hasta la Fase 1 (riel claro) */
+    --sidebar: 240 7% 9%;
+    --sidebar-foreground: 240 5% 78%;
+    --sidebar-active: 212 100% 62%;
+    --radius: 0.625rem;
+    --chart-1: 210 100% 45%;
+    --chart-2: 187 70% 42%;
+    --chart-3: 240 5% 40%;
+    --chart-4: 29 100% 40%;
+    --chart-5: 354 100% 45%;
   }
 
   .dark {
-    --background: 222 27% 8%;
-    --foreground: 214 30% 94%;
-    --card: 222 24% 11%;
-    --card-foreground: 214 30% 94%;
-    --popover: 222 24% 11%;
-    --popover-foreground: 214 30% 94%;
-    --primary: 214 30% 94%;
-    --primary-foreground: 222 27% 8%;
-    --secondary: 220 20% 16%;
-    --secondary-foreground: 214 25% 90%;
-    --muted: 220 20% 16%;
-    --muted-foreground: 216 14% 64%;
-    --accent: 215 35% 20%;
-    --accent-foreground: 211 75% 82%;
-    --destructive: 0 65% 48%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 220 18% 20%;
-    --input: 220 18% 22%;
-    --ring: 215 90% 62%;
-    --brand: 215 90% 62%;
-    --brand-foreground: 222 35% 10%;
-    --recording: 4 82% 62%;
+    --background: 240 7% 6%;
+    --foreground: 240 11% 96%;
+    --card: 240 3% 11%;
+    --card-foreground: 240 11% 96%;
+    --popover: 240 3% 11%;
+    --popover-foreground: 240 11% 96%;
+    --primary: 240 11% 96%;
+    --primary-foreground: 240 7% 6%;
+    --secondary: 240 4% 19%;
+    --secondary-foreground: 240 11% 96%;
+    --muted: 240 4% 19%;
+    --muted-foreground: 240 5% 64%;
+    --accent: 211 65% 17%;
+    --accent-foreground: 211 100% 71%;
+    --destructive: 0 70% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 4% 18%;
+    --input: 240 4% 28%;
+    --ring: 212 100% 59%;
+    --brand: 212 100% 59%;
+    --brand-foreground: 213 85% 8%;
+    --recording: 4 78% 53%;
     --recording-foreground: 0 0% 100%;
-    --success: 153 55% 48%;
-    --warning: 37 90% 58%;
-    --surface-raised: 222 24% 11%;
-    --surface-subtle: 222 22% 13%;
-    --sidebar: 224 30% 6%;
-    --sidebar-foreground: 216 18% 72%;
-    --sidebar-active: 215 90% 65%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --success: 142 69% 58%;
+    --warning: 36 100% 63%;
+    --surface-raised: 240 3% 11%;
+    --surface-subtle: 240 4% 15%;
+    --sidebar: 240 8% 5%;
+    --sidebar-foreground: 240 5% 70%;
+    --sidebar-active: 212 100% 62%;
+    --chart-1: 212 100% 59%;
+    --chart-2: 187 70% 50%;
+    --chart-3: 240 5% 64%;
+    --chart-4: 36 100% 63%;
+    --chart-5: 4 78% 58%;
   }
 }
 
@@ -163,9 +167,7 @@
   /* html, */
   body {
     @apply bg-background text-foreground;
-    background-image:
-      radial-gradient(circle at 100% 0%, hsl(var(--brand) / 0.09), transparent 28rem),
-      radial-gradient(circle at 0% 100%, hsl(188 75% 48% / 0.06), transparent 24rem);
+    font-feature-settings: "cv11", "ss01";
     overflow: hidden;
     height: 100%;
   }
@@ -250,14 +252,13 @@
     box-shadow: 0 18px 48px -32px hsl(222 40% 8% / 0.45);
   }
 
+  /* Superficies planas con línea fina; la elevación solo se usa en menús y diálogos */
   .product-surface {
-    @apply rounded-2xl border border-border/80 bg-card text-card-foreground;
-    box-shadow: 0 1px 2px hsl(222 40% 8% / 0.04), 0 18px 50px -36px hsl(222 40% 8% / 0.34);
+    @apply rounded-xl border border-border bg-card text-card-foreground;
   }
 
   .product-surface-interactive {
-    @apply transition duration-200 hover:-translate-y-0.5 hover:border-brand/30;
-    box-shadow: 0 1px 2px hsl(222 40% 8% / 0.04), 0 18px 50px -36px hsl(222 40% 8% / 0.34);
+    @apply transition-colors duration-200 hover:border-brand/40 hover:bg-accent/40;
   }
 
   .text-brand {
@@ -269,15 +270,13 @@
     color: hsl(var(--brand-foreground));
   }
 
-  .app-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100dvh; }
-  .app-shell:has(.desktop-sidebar[data-collapsed="true"]) { grid-template-columns: 64px minmax(0, 1fr); }
+  .app-shell { display: grid; grid-template-columns: 56px minmax(0, 1fr); height: 100dvh; }
   .app-shell-content { min-width: 0; overflow: hidden; }
   .route-content > main, .route-content > .h-screen { height: 100%; }
-  .desktop-sidebar { transition: width 180ms ease; }
   .meeting-workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; }
   .meeting-workspace[data-view="analysis"] > .meeting-transcript { display: none; }
   .meeting-workspace[data-view="transcript"] > .meeting-analysis { display: none; }
-  .meeting-transcript, .meeting-analysis { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+  .meeting-transcript, .meeting-analysis { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; }
   .meeting-workspace[data-view="split"] > .meeting-transcript { flex: 0 0 40%; border-right: 1px solid hsl(var(--border)); }
   @media (max-width: 999px) { .assistant-panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 45; box-shadow: -16px 0 48px #0003; max-width: calc(100vw - 64px); } }
   @media (max-width: 1199px) { .meeting-workspace[data-view="split"] > .meeting-transcript { flex: 1; } .meeting-workspace[data-view="split"] > .meeting-analysis { display: none; } }
@@ -287,7 +286,7 @@
     width: 100%;
     max-width: 880px;
     margin: 0 auto;
-    padding: clamp(1.5rem, 3vw, 2.75rem) clamp(0.75rem, 2.5vw, 2rem) 4rem;
+    padding: clamp(1rem, 2vw, 1.75rem) clamp(0.5rem, 2vw, 1.25rem) 4rem;
   }
 
   .meeting-summary-editor .bn-container {
@@ -319,15 +318,15 @@
   }
 
   .meeting-summary-editor .bn-editor {
-    padding: 0.5rem clamp(2.25rem, 5vw, 3.75rem) 3rem;
+    padding: 0.25rem clamp(2rem, 4vw, 2.75rem) 3rem;
     color: hsl(var(--foreground));
-    font-size: 0.975rem;
-    line-height: 1.75;
-    letter-spacing: -0.005em;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    letter-spacing: -0.003em;
   }
 
   .meeting-summary-editor .bn-block-content {
-    padding-block: 0.22rem;
+    padding-block: 0.1rem;
   }
 
   .meeting-summary-editor .bn-inline-content {
@@ -345,34 +344,43 @@
   }
 
   .meeting-summary-editor .bn-editor h1 {
-    margin: 0 0 2.25rem;
+    margin: 0 0 1.5rem;
     color: hsl(var(--foreground));
-    font-size: clamp(1.75rem, 3vw, 2.2rem);
-    font-weight: 720;
-    letter-spacing: -0.035em;
-    line-height: 1.15;
+    font-size: clamp(1.3rem, 2vw, 1.55rem);
+    font-weight: 620;
+    letter-spacing: -0.03em;
+    line-height: 1.25;
   }
 
   .meeting-summary-editor .bn-editor h2 {
-    margin: 2.4rem 0 0.8rem;
-    padding-left: 0.75rem;
-    border-left: 3px solid hsl(var(--brand) / 0.8);
-    color: hsl(var(--foreground));
-    font-size: 1.075rem;
-    font-weight: 720;
-    letter-spacing: -0.018em;
+    margin: 1.4rem 0 0.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    font-size: 0.82rem;
+    font-weight: 620;
+    letter-spacing: 0;
     line-height: 1.35;
   }
 
-  .meeting-summary-editor .bn-editor h2:first-of-type {
+  .meeting-summary-editor .bn-editor > .bn-block-group > .bn-block-outer:first-child h2 {
     margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .meeting-summary-editor .bn-editor blockquote {
+    margin: 0.9rem 0;
+    padding: 0.1rem 0 0.1rem 1rem;
+    border-left: 3px solid hsl(var(--brand) / 0.8);
+    color: hsl(var(--muted-foreground));
   }
 
   .meeting-summary-editor .bn-editor h3 {
-    margin: 1.65rem 0 0.45rem;
+    margin: 1.4rem 0 0.4rem;
     color: hsl(var(--foreground));
-    font-size: 0.98rem;
-    font-weight: 680;
+    font-size: 0.95rem;
+    font-weight: 620;
     letter-spacing: -0.01em;
   }
 
@@ -394,9 +402,9 @@
     margin: 0.9rem 0 1.8rem;
     padding: 0 !important;
     overflow: auto;
-    border: 1px solid hsl(var(--border) / 0.82);
-    border-radius: 0.75rem;
-    background: hsl(var(--muted) / 0.16);
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.625rem;
+    background: transparent;
   }
 
   .meeting-summary-editor .bn-editor [data-content-type="table"] table {
@@ -419,12 +427,12 @@
   }
 
   .meeting-summary-editor .bn-editor [data-content-type="table"] th {
-    background: hsl(var(--muted) / 0.72);
+    background: hsl(var(--muted) / 0.5);
     color: hsl(var(--muted-foreground));
-    font-size: 0.72rem;
-    font-weight: 720;
-    letter-spacing: 0.055em;
-    text-transform: uppercase;
+    font-size: 0.75rem;
+    font-weight: 620;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   .meeting-summary-editor .bn-editor [data-content-type="table"] :is(th, td):first-child {
@@ -475,5 +483,13 @@
 
 @media (min-width: 1000px) { .app-shell[data-assistant-open="true"] { padding-right: var(--assistant-width, 360px); } }
 
-.app-shell:has(.desktop-sidebar[data-collapsed="false"]) .recording-dock { left: 240px; }
+.app-shell .recording-dock { left: 56px; }
 @media (min-width: 1000px) { .app-shell[data-assistant-open="true"] .recording-dock { right: var(--assistant-width, 360px); } }
+
+@keyframes splash {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes splash { 0%, 100% { transform: none; } }
+}

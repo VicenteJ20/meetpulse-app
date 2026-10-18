@@ -1,67 +1,51 @@
 'use client';
 
 import { useState } from 'react';
-import { Globe, Pin } from 'lucide-react';
+import { Pin, Plus, X } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { LanguagePickerPopover } from '@/components/LanguagePickerPopover';
+import { SettingsSection } from '@/components/ui/settings';
 import { useRecentLanguages } from '@/hooks/useRecentLanguages';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { labelForCode } from '@/lib/summary-languages';
+import { cn } from '@/lib/utils';
 
 export function SummaryLanguageSettings() {
+  const { t } = useTranslation();
   const { recents, pinned, addRecent, removeRecent, setPinned } = useRecentLanguages();
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const togglePin = (code: string) => {
-    setPinned(pinned === code ? null : code);
-  };
-
   return (
-    <div className="bg-card rounded-lg border border-border p-6 shadow-sm relative">
-      <div className="flex items-center gap-2 mb-2">
-        <Globe size={18} className="text-muted-foreground" />
-        <h3 className="text-lg font-semibold text-foreground">Summary Language</h3>
-      </div>
-      <p className="text-sm text-muted-foreground mb-4">
-        Pin one language as the default for new meetings. Unpinned languages remain as
-        quick-switch options in the summary generator. Auto uses the dominant transcript language.
-      </p>
-
+    <SettingsSection title={t('sx.summaryLang')} description={t('sx.summaryLangDesc')}>
       <div className="flex flex-wrap items-center gap-2">
         {recents.map((code) => {
           const isPinned = pinned === code;
+          const lang = labelForCode(code);
           return (
             <span
               key={code}
-              className={`inline-flex items-center rounded-full border text-sm overflow-hidden ${
-                isPinned
-                  ? 'bg-brand/10 border-brand/25 text-brand'
-                  : 'bg-muted border-border text-foreground'
-              }`}
+              className={cn(
+                'inline-flex h-8 items-center overflow-hidden rounded-full border text-sm',
+                isPinned ? 'border-brand/40 bg-accent text-accent-foreground' : 'border-border bg-card text-foreground',
+              )}
             >
               <button
                 type="button"
-                aria-label={isPinned ? `Unpin ${labelForCode(code)} as default` : `Pin ${labelForCode(code)} as default`}
+                aria-label={(isPinned ? t('sx.unpin') : t('sx.pin')).replace('{lang}', lang)}
                 aria-pressed={isPinned}
-                title={isPinned ? 'Click to unset as default' : 'Click to set as default'}
-                onClick={() => togglePin(code)}
-                className={`flex items-center gap-1.5 pl-3 pr-2 py-1 hover:brightness-95 active:brightness-90 ${
-                  isPinned ? 'text-brand' : 'text-foreground'
-                }`}
+                onClick={() => setPinned(isPinned ? null : code)}
+                className="flex h-full items-center gap-1.5 pl-3 pr-2 transition-colors hover:bg-muted/60"
               >
-                <Pin
-                  size={14}
-                  className={isPinned ? 'text-blue-600' : 'text-muted-foreground'}
-                  fill={isPinned ? 'currentColor' : 'none'}
-                />
-                {labelForCode(code)}
+                <Pin className={cn('size-3.5', isPinned ? 'text-brand' : 'text-muted-foreground')} fill={isPinned ? 'currentColor' : 'none'} />
+                {lang}
               </button>
               <button
                 type="button"
-                aria-label={`Remove ${labelForCode(code)}`}
+                aria-label={t('sx.remove').replace('{lang}', lang)}
                 onClick={() => removeRecent(code)}
-                className={`pr-2.5 pl-0.5 py-1 leading-none ${isPinned ? 'text-blue-400 hover:text-brand' : 'text-muted-foreground hover:text-foreground'}`}
+                className="flex h-full items-center pl-0.5 pr-2.5 text-muted-foreground transition-colors hover:text-foreground"
               >
-                ×
+                <X className="size-3.5" />
               </button>
             </span>
           );
@@ -72,12 +56,13 @@ export function SummaryLanguageSettings() {
             <button
               type="button"
               disabled={recents.length >= 5}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1 text-sm text-muted-foreground hover:border-border hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-border px-3 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
-              ＋ Add language
+              <Plus className="size-3.5" />
+              {t('sx.addLanguage')}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-auto p-0 border-0 shadow-none bg-transparent">
+          <PopoverContent align="start" className="w-auto border-0 bg-transparent p-0 shadow-none">
             <LanguagePickerPopover
               mode="settings"
               value={null}
@@ -90,12 +75,9 @@ export function SummaryLanguageSettings() {
           </PopoverContent>
         </Popover>
       </div>
-
-      <p className="text-xs text-muted-foreground mt-3">
-        {pinned
-          ? `Default: ${labelForCode(pinned)} - click it again to unset. Max 5 quick-switch options.`
-          : 'Click any language to set it as your default. Max 5 quick-switch options.'}
+      <p className="mt-3 text-xs text-muted-foreground">
+        {pinned ? t('sx.langHintPinned').replace('{lang}', labelForCode(pinned)) : t('sx.langHint')}
       </p>
-    </div>
+    </SettingsSection>
   );
 }

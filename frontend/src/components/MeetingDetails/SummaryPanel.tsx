@@ -13,6 +13,10 @@ import { useEffect, useRef, useState, RefObject } from 'react';
 import { toast } from 'sonner';
 import { Languages, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Segmented } from '@/components/ui/segmented';
+import { InsightsView } from './InsightsView';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { LanguagePickerPopover } from '@/components/LanguagePickerPopover';
 import { useRecentLanguages } from '@/hooks/useRecentLanguages';
@@ -106,6 +110,8 @@ export function SummaryPanel({
   onRetryWiki,
   onOpenWiki
 }: SummaryPanelProps) {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<'insights' | 'document'>('insights');
   const [summaryLang, setSummaryLang] = useState<string | null>(null);
   const [detectedSummaryLang, setDetectedSummaryLang] = useState<string | null>(null);
   const [summaryLangStorage, setSummaryLangStorage] = useState<SummaryLanguageStorage>('metadata');
@@ -248,14 +254,14 @@ export function SummaryPanel({
     <Popover open={langPickerOpen} onOpenChange={setLangPickerOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           title={`Summary language: ${effectiveLangLabel}${isLocalFallbackLanguage ? ' (saved on this device)' : ''}`}
           aria-label="Set summary language"
           className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
         >
-          <Languages size={18} />
-          <span className="hidden lg:inline">{effectiveLangLabel}</span>
+          <Languages />
+          <span className="hidden xl:inline">{effectiveLangLabel}</span>
           <ChevronDown size={14} className="text-muted-foreground" />
         </Button>
       </PopoverTrigger>
@@ -288,97 +294,66 @@ export function SummaryPanel({
     />
   ) : null;
 
+  const summaryMarkdown = (aiSummary as unknown as { markdown?: string } | null)?.markdown ?? '';
+  const showInsights = mode === 'insights' && summaryMarkdown.trim().length > 0;
+
+  const generatorGroup = (
+    <SummaryGeneratorButtonGroup
+      modelConfig={modelConfig}
+      setModelConfig={setModelConfig}
+      onSaveModelConfig={onSaveModelConfig}
+      onGenerateSummary={onGenerateSummary}
+      onStopGeneration={onStopGeneration}
+      customPrompt={customPrompt}
+      summaryStatus={summaryStatus}
+      availableTemplates={availableTemplates}
+      selectedTemplate={selectedTemplate}
+      onTemplateSelect={onTemplateSelect}
+      hasTranscripts={transcripts.length > 0}
+      hasSummary={!!aiSummary}
+      isModelConfigLoading={isModelConfigLoading}
+      onOpenModelSettings={onOpenModelSettings}
+      languageSlot={transcripts.length > 0 ? languageSlot : undefined}
+    />
+  );
+
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-card">
-      {/* Title area */}
-      <div className="border-b border-border px-4 py-3">
-        {/* <EditableTitle
-          title={meetingTitle}
-          isEditing={isEditingTitle}
-          onStartEditing={onStartEditTitle}
-          onFinishEditing={onFinishEditTitle}
-          onChange={onTitleChange}
-        /> */}
-
-        {/* Button groups - only show when summary exists */}
-        {aiSummary && !isSummaryLoading && (
-          <div className="flex w-full items-center justify-end gap-2">
-            {/* Left-aligned: Summary Generator Button Group */}
-            <div className="flex-shrink-0">
-              <SummaryGeneratorButtonGroup
-                modelConfig={modelConfig}
-                setModelConfig={setModelConfig}
-                onSaveModelConfig={onSaveModelConfig}
-                onGenerateSummary={onGenerateSummary}
-                onStopGeneration={onStopGeneration}
-                customPrompt={customPrompt}
-                summaryStatus={summaryStatus}
-                availableTemplates={availableTemplates}
-                selectedTemplate={selectedTemplate}
-                onTemplateSelect={onTemplateSelect}
-                hasTranscripts={transcripts.length > 0}
-                hasSummary={!!aiSummary}
-                isModelConfigLoading={isModelConfigLoading}
-                onOpenModelSettings={onOpenModelSettings}
-                languageSlot={languageSlot}
-              />
-            </div>
-
-          </div>
+    <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
+      {/* Encabezado del panel: título a la izquierda, acciones a la derecha */}
+      <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-border px-4">
+        {summaryMarkdown.trim() && !isSummaryLoading ? (
+          <Segmented
+            aria-label={t('meeting.summary')}
+            value={mode}
+            onValueChange={setMode}
+            options={[
+              { value: 'insights', label: t('insights.tabInsights') },
+              { value: 'document', label: t('insights.tabDocument') },
+            ]}
+          />
+        ) : (
+          <h2 className="text-sm font-semibold tracking-tight">{t('meeting.summary')}</h2>
         )}
+        <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5">
+          {summaryActions}
+          {generatorGroup}
+        </div>
       </div>
 
       {isSummaryLoading ? (
-        <div className="flex flex-col h-full">
-          {/* Show button group during generation */}
-          <div className="flex items-center justify-center pt-8 pb-4">
-            <SummaryGeneratorButtonGroup
-              modelConfig={modelConfig}
-              setModelConfig={setModelConfig}
-              onSaveModelConfig={onSaveModelConfig}
-              onGenerateSummary={onGenerateSummary}
-              onStopGeneration={onStopGeneration}
-              customPrompt={customPrompt}
-              summaryStatus={summaryStatus}
-              availableTemplates={availableTemplates}
-              selectedTemplate={selectedTemplate}
-              onTemplateSelect={onTemplateSelect}
-              hasTranscripts={transcripts.length > 0}
-              isModelConfigLoading={isModelConfigLoading}
-              onOpenModelSettings={onOpenModelSettings}
-            />
-          </div>
-          {/* Loading spinner */}
-          <div className="flex items-center justify-center flex-1">
-            <div className="text-center">
-              <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-y-2 border-brand"></div>
-              <p className="text-muted-foreground">Generating AI Summary...</p>
-            </div>
-          </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-8 py-8" role="status" aria-live="polite">
+          <p className="mb-2 text-sm font-medium text-muted-foreground">{t('meeting.generating')}</p>
+          <Skeleton className="h-4 w-1/4" />
+          <Skeleton className="h-5 w-11/12" />
+          <Skeleton className="h-5 w-10/12" />
+          <Skeleton className="h-5 w-7/12" />
+          <Skeleton className="mt-6 h-4 w-1/5" />
+          <Skeleton className="h-4 w-9/12" />
+          <Skeleton className="h-4 w-8/12" />
+          <Skeleton className="h-4 w-10/12" />
         </div>
       ) : !aiSummary ? (
-        <div className="flex flex-col h-full">
-          {/* Centered Summary Generator Button Group when no summary */}
-          <div className="flex items-center justify-center gap-2 pt-8 pb-4">
-            <SummaryGeneratorButtonGroup
-              modelConfig={modelConfig}
-              setModelConfig={setModelConfig}
-              onSaveModelConfig={onSaveModelConfig}
-              onGenerateSummary={onGenerateSummary}
-              onStopGeneration={onStopGeneration}
-              customPrompt={customPrompt}
-              summaryStatus={summaryStatus}
-              availableTemplates={availableTemplates}
-              selectedTemplate={selectedTemplate}
-              onTemplateSelect={onTemplateSelect}
-              hasTranscripts={transcripts.length > 0}
-              hasSummary={false}
-              isModelConfigLoading={isModelConfigLoading}
-              onOpenModelSettings={onOpenModelSettings}
-              languageSlot={transcripts.length > 0 ? languageSlot : undefined}
-            />
-          </div>
-          {/* Empty state message */}
+        <div className="flex min-h-0 flex-1 flex-col">
           <EmptyStateSummary
             onGenerate={() => onGenerateSummary(customPrompt)}
             hasModel={modelConfig.provider !== null && modelConfig.model !== null}
@@ -386,43 +361,26 @@ export function SummaryPanel({
           />
         </div>
       ) : transcripts?.length > 0 && (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
           {summaryResponse && (
             <div className="fixed bottom-0 left-0 right-0 max-h-1/3 overflow-y-auto border-t border-border bg-card p-4 text-card-foreground shadow-lg">
               <h3 className="text-lg font-semibold mb-2">Meeting Summary</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg border border-border bg-muted/45 p-4 shadow-sm">
-                  <h4 className="font-medium mb-1">Key Points</h4>
-                  <ul className="list-disc pl-4">
-                    {summaryResponse.summary.key_points.blocks.map((block, i) => (
-                      <li key={i} className="text-sm">{block.content}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="mt-4 rounded-lg border border-border bg-muted/45 p-4 shadow-sm">
-                  <h4 className="font-medium mb-1">Action Items</h4>
-                  <ul className="list-disc pl-4">
-                    {summaryResponse.summary.action_items.blocks.map((block, i) => (
-                      <li key={i} className="text-sm">{block.content}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="mt-4 rounded-lg border border-border bg-muted/45 p-4 shadow-sm">
-                  <h4 className="font-medium mb-1">Decisions</h4>
-                  <ul className="list-disc pl-4">
-                    {summaryResponse.summary.decisions.blocks.map((block, i) => (
-                      <li key={i} className="text-sm">{block.content}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="mt-4 rounded-lg border border-border bg-muted/45 p-4 shadow-sm">
-                  <h4 className="font-medium mb-1">Main Topics</h4>
-                  <ul className="list-disc pl-4">
-                    {summaryResponse.summary.main_topics.blocks.map((block, i) => (
-                      <li key={i} className="text-sm">{block.content}</li>
-                    ))}
-                  </ul>
-                </div>
+                {([
+                  ['Key Points', summaryResponse.summary.key_points.blocks],
+                  ['Action Items', summaryResponse.summary.action_items.blocks],
+                  ['Decisions', summaryResponse.summary.decisions.blocks],
+                  ['Main Topics', summaryResponse.summary.main_topics.blocks],
+                ] as const).map(([heading, blocks]) => (
+                  <div key={heading} className="rounded-lg border border-border bg-muted/45 p-4">
+                    <h4 className="font-medium mb-1">{heading}</h4>
+                    <ul className="list-disc pl-4">
+                      {blocks.map((block, i) => (
+                        <li key={i} className="text-sm">{block.content}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
               {summaryResponse.raw_summary ? (
                 <div className="mt-4">
@@ -432,6 +390,15 @@ export function SummaryPanel({
               ) : null}
             </div>
           )}
+          {showInsights ? (
+            <InsightsView
+              markdown={summaryMarkdown}
+              onChange={(next) => {
+                onSummaryChange({ ...(aiSummary as object), markdown: next } as unknown as Summary);
+                void onSaveSummary({ markdown: next });
+              }}
+            />
+          ) : (
           <div className="meeting-summary-editor w-full">
             <SummaryEditorErrorBoundary
               fallbackMarkdown={(aiSummary as unknown as { markdown?: string }).markdown}
@@ -457,17 +424,14 @@ export function SummaryPanel({
               />
             </SummaryEditorErrorBoundary>
           </div>
-          {summaryStatus !== 'idle' && (
-            <div className={`mt-4 p-4 rounded-lg ${summaryStatus === 'error' ? 'bg-destructive/15 text-destructive' :
-              summaryStatus === 'completed' ? 'bg-success/15 text-success' :
-                'bg-brand/15 text-brand'
-              }`}>
+          )}
+          {summaryStatus === 'error' && (
+            <div className="mx-8 mb-6 rounded-lg bg-destructive/10 p-4 text-destructive">
               <p className="text-sm font-medium">{getSummaryStatusMessage(summaryStatus)}</p>
             </div>
           )}
         </div>
       )}
-      {summaryActions && <footer className="flex shrink-0 justify-end border-t border-border bg-card px-4 py-3">{summaryActions}</footer>}
     </div>
   );
 }

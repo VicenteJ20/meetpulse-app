@@ -1,8 +1,12 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { ChevronRight, Mic, RefreshCw } from "lucide-react";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { Input } from "@/components/ui/input";
 
 export interface ProviderModel {
   id: string;
@@ -18,6 +22,8 @@ type Catalog = {
   stale: boolean;
   error?: string;
 };
+
+// Selector de modelos de un proveedor: lista con búsqueda (desktop_list_models) integrada a la interfaz.
 export function ProviderModelPicker({
   provider,
   purpose = "analysis",
@@ -33,12 +39,12 @@ export function ProviderModelPicker({
   apiKey?: string | null;
   endpoint?: string | null;
 }) {
-  const { locale } = useTranslation();
-  const es = locale === "es";
+  const { t } = useTranslation();
   const [catalog, setCatalog] = useState<Catalog>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [audioResult, setAudioResult] = useState("");
+  const [manualOpen, setManualOpen] = useState(false);
   const version = useRef(0);
   useEffect(() => setAudioResult(""), [value]);
   async function load(refresh = false) {
@@ -73,66 +79,66 @@ export function ProviderModelPicker({
       clearTimeout(timer);
     };
   }, [provider, purpose, apiKey, endpoint]);
+
+  const items = useMemo<ComboboxItem[]>(() => {
+    const list: ComboboxItem[] = (catalog?.models ?? []).map((m) => ({
+      value: m.id,
+      label: m.name === m.id ? m.id : m.name,
+      description: m.name === m.id ? undefined : m.id,
+      trailing: purpose === "transcription" && m.audio ? <Badge variant="accent"><Mic />audio</Badge> : undefined,
+    }));
+    if (value && !list.some((item) => item.value === value)) {
+      list.unshift({ value, label: value, description: t("picker.saved") });
+    }
+    return list;
+  }, [catalog, value, purpose, t]);
+
   return (
     <div className="w-full min-w-0 space-y-2">
       <div className="flex gap-2">
-        <select
-          aria-label={es ? "Modelo disponible" : "Available model"}
-          className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+        <Combobox
+          className="min-w-0 flex-1"
+          aria-label={t("picker.available")}
+          items={items}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value="">{es ? "Seleccionar modelo" : "Select model"}</option>
-          {value && !catalog?.models.some((m) => m.id === value) && (
-            <option value={value}>
-              {value} ({es ? "selección guardada" : "saved selection"})
-            </option>
-          )}
-          {catalog?.models.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name === m.id ? m.id : `${m.name} · ${m.id}`}
-            </option>
-          ))}
-        </select>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={() => void load(true)}
-        >
-          {busy ? "…" : es ? "Actualizar" : "Refresh"}
+          onValueChange={onChange}
+          placeholder={t("picker.select")}
+          searchPlaceholder={t("picker.search")}
+          emptyText={t("picker.none")}
+          footer={
+            catalog
+              ? `${catalog.models.length} ${t("picker.models")} · ${catalog.cached ? (catalog.stale ? t("picker.cacheStale") : t("picker.cache")) : "API"}`
+              : undefined
+          }
+        />
+        <Button size="icon" variant="outline" aria-label={t("picker.refresh")} title={t("picker.refresh")} disabled={busy} onClick={() => void load(true)}>
+          <RefreshCw className={busy ? "animate-spin" : undefined} />
         </Button>
       </div>
-      {catalog && (
-        <p className="text-xs text-muted-foreground">
-          {catalog.models.length} {es ? "modelos" : "models"} ·{" "}
-          {catalog.cached
-            ? catalog.stale
-              ? es
-                ? "caché sin actualizar"
-                : "stale cache"
-              : "caché"
-            : "API"}
-        </p>
-      )}
       {error && (
         <p role="alert" className="break-words text-xs text-destructive">
           {error}
         </p>
       )}
-      <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer">
-          {es ? "Identificador manual (avanzado)" : "Manual ID (advanced)"}
-        </summary>
-        <input
-          aria-label={es ? "Identificador del modelo" : "Model ID"}
-          className="mt-2 w-full rounded border border-input bg-background p-2 text-foreground"
-          value={value}
-          onChange={(e) =>
-            onChange(e.target.value.trimStart().replace(/^models\//, ""))
-          }
-        />
-      </details>
+      <div className="text-xs text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => setManualOpen((open) => !open)}
+          aria-expanded={manualOpen}
+          className="inline-flex items-center gap-1 hover:text-foreground"
+        >
+          <ChevronRight className={manualOpen ? "size-3.5 rotate-90 transition-transform" : "size-3.5 transition-transform"} />
+          {t("picker.manual")}
+        </button>
+        {manualOpen && (
+          <Input
+            aria-label={t("picker.modelId")}
+            className="mt-2 font-mono text-xs"
+            value={value}
+            onChange={(e) => onChange(e.target.value.trimStart().replace(/^models\//, ""))}
+          />
+        )}
+      </div>
       {provider === "gemini" && purpose === "transcription" && (
         <div>
           <Button
@@ -147,11 +153,7 @@ export function ProviderModelPicker({
                   model: value,
                   apiKey: apiKey ?? null,
                 });
-                setAudioResult(
-                  es
-                    ? "Entrada de audio compatible."
-                    : "Audio input supported.",
-                );
+                setAudioResult(t("picker.audioOk"));
               } catch (e) {
                 setAudioResult(String(e));
               } finally {
@@ -159,13 +161,10 @@ export function ProviderModelPicker({
               }
             }}
           >
-            {es ? "Probar compatibilidad de audio" : "Test audio compatibility"}
+            {t("picker.testAudio")}
           </Button>
-          <p role="status" className="mt-1 text-xs">
-            {audioResult ||
-              (es
-                ? "La lista de modelos no garantiza soporte de audio."
-                : "The model list does not guarantee audio support.")}
+          <p role="status" className="mt-1 text-xs text-muted-foreground">
+            {audioResult || t("picker.audioNote")}
           </p>
         </div>
       )}

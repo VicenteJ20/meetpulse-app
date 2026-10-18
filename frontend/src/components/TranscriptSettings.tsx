@@ -1,11 +1,12 @@
 import { ProviderModelPicker } from '@/components/ProviderModelPicker';
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
-import { Eye, EyeOff, Lock, Unlock } from 'lucide-react';
+import { SettingsSection } from '@/components/ui/settings';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { cn } from '@/lib/utils';
+import { Cloud, Eye, EyeOff, Lock, ShieldCheck, Unlock } from 'lucide-react';
 import { ModelManager } from './WhisperModelManager';
 import { ParakeetModelManager } from './ParakeetModelManager';
 
@@ -23,6 +24,7 @@ export interface TranscriptSettingsProps {
 }
 
 export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelConfig, onModelSelect }: TranscriptSettingsProps) {
+    const { t } = useTranslation();
     const [apiKey, setApiKey] = useState<string | null>(transcriptModelConfig.apiKey || null);
     const [showApiKey, setShowApiKey] = useState<boolean>(false);
     const [isApiKeyLocked, setIsApiKeyLocked] = useState<boolean>(true);
@@ -109,152 +111,155 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
         }
     };
 
+    const engines: { value: 'parakeet' | 'localWhisper' | 'gemini'; label: string; desc: string; cloud: boolean }[] = [
+        { value: 'parakeet', label: t('sx.parakeet'), desc: t('sx.parakeetDesc'), cloud: false },
+        { value: 'localWhisper', label: t('sx.whisper'), desc: t('sx.whisperDesc'), cloud: false },
+        { value: 'gemini', label: t('sx.gemini'), desc: t('sx.geminiDesc'), cloud: true },
+    ];
+
+    const chooseEngine = (provider: TranscriptModelProps['provider']) => {
+        setUiProvider(provider);
+        if (provider !== 'localWhisper' && provider !== 'parakeet') {
+            fetchApiKey(provider);
+            const nextConfig: TranscriptModelProps = {
+                ...transcriptModelConfig,
+                provider,
+                model: provider === transcriptModelConfig.provider ? transcriptModelConfig.model : modelOptions[provider][0] || '',
+                apiKey: null,
+            };
+            setTranscriptModelConfig(nextConfig);
+            void persistTranscriptConfig(nextConfig);
+        }
+    };
+
     return (
         <div>
-            <div>
-                {/* <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">Transcript Settings</h3>
-                </div> */}
-                <div className="space-y-4 pb-6">
-                    <div>
-                        <Label className="block text-sm font-medium text-foreground mb-1">
-                            Transcript Model
-                        </Label>
-                        <div className="flex space-x-2 mx-1">
-                            <Select
-                                value={uiProvider}
-                                onValueChange={(value) => {
-                                    const provider = value as TranscriptModelProps['provider'];
-                                    setUiProvider(provider);
-                                    if (provider !== 'localWhisper' && provider !== 'parakeet') {
-                                        fetchApiKey(provider);
-                                        const nextConfig: TranscriptModelProps = {
-                                            ...transcriptModelConfig,
-                                            provider,
-                                            model: provider === transcriptModelConfig.provider ? transcriptModelConfig.model : modelOptions[provider][0] || '',
-                                            apiKey: null,
-                                        };
-                                        setTranscriptModelConfig(nextConfig);
-                                        void persistTranscriptConfig(nextConfig);
-                                    }
-                                }}
+            <SettingsSection title={t('sx.engine')} description={t('sx.engineHint')}>
+                <div role="radiogroup" aria-label={t('sx.engine')} className="grid gap-2.5 sm:grid-cols-3">
+                    {engines.map((engine) => {
+                        const active = uiProvider === engine.value;
+                        return (
+                            <button
+                                key={engine.value}
+                                type="button"
+                                role="radio"
+                                aria-checked={active}
+                                onClick={() => chooseEngine(engine.value)}
+                                className={cn(
+                                    'flex flex-col gap-1.5 rounded-xl border p-3.5 text-left transition-colors',
+                                    active ? 'border-brand bg-accent/60 ring-1 ring-brand' : 'border-border bg-card hover:border-muted-foreground/40',
+                                )}
                             >
-                                <SelectTrigger className='focus:ring-1 focus:ring-blue-500 focus:border-blue-500'>
-                                    <SelectValue placeholder="Select provider" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="parakeet">⚡ Parakeet (Recommended - Real-time / Accurate)</SelectItem>
-                                    <SelectItem value="localWhisper">🏠 Local Whisper (High Accuracy)</SelectItem>
-                                    {/* <SelectItem value="deepgram">☁️ Deepgram (Backup)</SelectItem>
-                                    <SelectItem value="elevenLabs">☁️ ElevenLabs</SelectItem>
-                                    <SelectItem value="groq">☁️ Groq</SelectItem>
-                                    <SelectItem value="openai">☁️ OpenAI</SelectItem> */}
-                                    <SelectItem value="gemini">Cloud Gemini (Near real-time)</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                <span className="flex items-center justify-between gap-2">
+                                    <span className="font-medium">{engine.label}</span>
+                                    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.7rem] font-semibold', engine.cloud ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success')}>
+                                        {engine.cloud ? <Cloud className="size-3" /> : <ShieldCheck className="size-3" />}
+                                        {engine.cloud ? t('sx.badgeCloud') : t('sx.badgeLocal')}
+                                    </span>
+                                </span>
+                                <span className="text-xs text-muted-foreground">{engine.desc}</span>
+                            </button>
+                        );
+                    })}
+                </div>
 
-                            {['gemini','openai','groq'].includes(uiProvider) ? <ProviderModelPicker provider={uiProvider} purpose="transcription" value={transcriptModelConfig.model} apiKey={apiKey} onChange={model => { const config = { ...transcriptModelConfig, provider: uiProvider, model }; setTranscriptModelConfig(config); void persistTranscriptConfig(config); }}/> : uiProvider !== 'localWhisper' && uiProvider !== 'parakeet' ? <Input aria-label="Model" value={transcriptModelConfig.model} onChange={e => setTranscriptModelConfig({...transcriptModelConfig,model:e.target.value})} onBlur={() => void persistTranscriptConfig(transcriptModelConfig)}/> : null}
+                {uiProvider === 'gemini' && (
+                    <p className="mt-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
+                        <Cloud className="mt-0.5 size-3.5 shrink-0" />
+                        {t('sx.geminiWarn')}
+                    </p>
+                )}
+            </SettingsSection>
 
+            {['gemini', 'openai', 'groq'].includes(uiProvider) && (
+                <SettingsSection title={t('sx.model')}>
+                    <ProviderModelPicker
+                        provider={uiProvider}
+                        purpose="transcription"
+                        value={transcriptModelConfig.model}
+                        apiKey={apiKey}
+                        onChange={(model) => {
+                            const config = { ...transcriptModelConfig, provider: uiProvider, model };
+                            setTranscriptModelConfig(config);
+                            void persistTranscriptConfig(config);
+                        }}
+                    />
+                </SettingsSection>
+            )}
+
+            {uiProvider === 'localWhisper' && (
+                <SettingsSection title={t('sx.model')}>
+                    <ModelManager
+                        selectedModel={transcriptModelConfig.provider === 'localWhisper' ? transcriptModelConfig.model : undefined}
+                        onModelSelect={handleWhisperModelSelect}
+                        autoSave={true}
+                    />
+                </SettingsSection>
+            )}
+
+            {uiProvider === 'parakeet' && (
+                <SettingsSection title={t('sx.model')}>
+                    <ParakeetModelManager
+                        selectedModel={transcriptModelConfig.provider === 'parakeet' ? transcriptModelConfig.model : undefined}
+                        onModelSelect={handleParakeetModelSelect}
+                        autoSave={true}
+                    />
+                </SettingsSection>
+            )}
+
+            {requiresApiKey && (
+                <SettingsSection title={t('sx.apiKey')}>
+                    <div className="relative max-w-xl">
+                        <Input
+                            type={showApiKey ? 'text' : 'password'}
+                            className="pr-20"
+                            value={apiKey || ''}
+                            onChange={(e) => {
+                                setApiKey(e.target.value);
+                                setTranscriptModelConfig({
+                                    ...transcriptModelConfig,
+                                    provider: uiProvider,
+                                    apiKey: e.target.value,
+                                });
+                            }}
+                            onBlur={() => {
+                                void persistTranscriptConfig({
+                                    ...transcriptModelConfig,
+                                    provider: uiProvider,
+                                    model: transcriptModelConfig.model,
+                                    apiKey: apiKey || null,
+                                });
+                            }}
+                            disabled={isApiKeyLocked}
+                            onClick={handleInputClick}
+                            placeholder={t('sx.apiKeyPlaceholder')}
+                        />
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-1">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setIsApiKeyLocked(!isApiKeyLocked)}
+                                className={isLockButtonVibrating ? 'animate-vibrate text-destructive' : ''}
+                                title={isApiKeyLocked ? t('sx.unlock') : t('sx.lock')}
+                                aria-label={isApiKeyLocked ? t('sx.unlock') : t('sx.lock')}
+                            >
+                                {isApiKeyLocked ? <Lock /> : <Unlock />}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setShowApiKey(!showApiKey)}
+                                title={showApiKey ? t('sx.hide') : t('sx.show')}
+                                aria-label={showApiKey ? t('sx.hide') : t('sx.show')}
+                            >
+                                {showApiKey ? <EyeOff /> : <Eye />}
+                            </Button>
                         </div>
                     </div>
-
-                    {uiProvider === 'localWhisper' && (
-                        <div className="mt-6">
-                            <ModelManager
-                                selectedModel={transcriptModelConfig.provider === 'localWhisper' ? transcriptModelConfig.model : undefined}
-                                onModelSelect={handleWhisperModelSelect}
-                                autoSave={true}
-                            />
-                        </div>
-                    )}
-
-                    {uiProvider === 'parakeet' && (
-                        <div className="mt-6">
-                            <ParakeetModelManager
-                                selectedModel={transcriptModelConfig.provider === 'parakeet' ? transcriptModelConfig.model : undefined}
-                                onModelSelect={handleParakeetModelSelect}
-                                autoSave={true}
-                            />
-                        </div>
-                    )}
-
-                    {uiProvider === 'gemini' && (
-                        <div className="mx-1 rounded-md border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
-                            Gemini is a cloud provider. Audio segments will be sent to Google for transcription. Whisper and Parakeet remain fully local.
-                        </div>
-                    )}
-
-                    {requiresApiKey && (
-                        <div>
-                            <Label className="block text-sm font-medium text-foreground mb-1">
-                                API Key
-                            </Label>
-                            <div className="relative mx-1">
-                                <Input
-                                    type={showApiKey ? "text" : "password"}
-                                    className={`pr-24 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${isApiKeyLocked ? 'bg-muted cursor-not-allowed' : ''
-                                        }`}
-                                    value={apiKey || ''}
-                                    onChange={(e) => {
-                                        setApiKey(e.target.value);
-                                        setTranscriptModelConfig({
-                                            ...transcriptModelConfig,
-                                            provider: uiProvider,
-                                            apiKey: e.target.value,
-                                        });
-                                    }}
-                                    onBlur={() => {
-                                        void persistTranscriptConfig({
-                                            ...transcriptModelConfig,
-                                            provider: uiProvider,
-                                            model: transcriptModelConfig.model,
-                                            apiKey: apiKey || null,
-                                        });
-                                    }}
-                                    disabled={isApiKeyLocked}
-                                    onClick={handleInputClick}
-                                    placeholder="Enter your API key"
-                                />
-                                {isApiKeyLocked && (
-                                    <div
-                                        onClick={handleInputClick}
-                                        className="absolute inset-0 flex items-center justify-center bg-muted bg-opacity-50 rounded-md cursor-not-allowed"
-                                    />
-                                )}
-                                <div className="absolute inset-y-0 right-0 pr-1 flex items-center">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => setIsApiKeyLocked(!isApiKeyLocked)}
-                                        className={`transition-colors duration-200 ${isLockButtonVibrating ? 'animate-vibrate text-red-500' : ''
-                                            }`}
-                                        title={isApiKeyLocked ? "Unlock to edit" : "Lock to prevent editing"}
-                                    >
-                                        {isApiKeyLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => setShowApiKey(!showApiKey)}
-                                    >
-                                        {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div >
-    )
+                </SettingsSection>
+            )}
+        </div>
+    );
 }
-
-
-
-
-
-
-
-

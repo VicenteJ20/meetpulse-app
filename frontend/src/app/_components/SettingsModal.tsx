@@ -4,6 +4,7 @@ import { DeviceSelection } from "@/components/DeviceSelection";
 import { LanguageSelection } from "@/components/LanguageSelection";
 import { TranscriptSettings } from "@/components/TranscriptSettings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { SelectField } from "@/components/ui/select-field";
 import { toast } from "sonner";
 import { useConfig } from "@/contexts/ConfigContext";
 import { useRecordingState } from "@/contexts/RecordingStateContext";
@@ -91,37 +92,35 @@ export function SettingsModals({
                     Summarization Model
                   </label>
                   <div className="flex space-x-2">
-                    <select
-                      className="px-3 py-2 text-sm bg-card border border-border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    <SelectField
+                      aria-label="Provider"
+                      className="w-44"
                       value={modelConfig.provider}
-                      onChange={(e) => {
-                        const provider = e.target.value as ModelConfig['provider'];
+                      onValueChange={(value) => {
+                        const provider = value as ModelConfig['provider'];
                         setModelConfig({
                           ...modelConfig,
                           provider,
                           model: modelOptions[provider][0]
                         });
                       }}
-                    >
-                      <option value="builtin-ai">Built-in AI</option>
-                      <option value="claude">Claude</option>
-                      <option value="groq">Groq</option>
-                      <option value="ollama">Ollama</option>
-                      <option value="openrouter">OpenRouter</option>
-                      <option value="openai">OpenAI</option>
-                    </select>
+                      options={[
+                        { value: 'builtin-ai', label: 'Built-in AI' },
+                        { value: 'claude', label: 'Claude' },
+                        { value: 'groq', label: 'Groq' },
+                        { value: 'ollama', label: 'Ollama' },
+                        { value: 'openrouter', label: 'OpenRouter' },
+                        { value: 'openai', label: 'OpenAI' },
+                      ]}
+                    />
 
-                    <select
-                      className="flex-1 px-3 py-2 text-sm bg-card border border-border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    <SelectField
+                      aria-label="Model"
+                      className="flex-1"
                       value={modelConfig.model}
-                      onChange={(e) => setModelConfig((prev: ModelConfig) => ({ ...prev, model: e.target.value }))}
-                    >
-                      {modelOptions[modelConfig.provider].map((model: string) => (
-                        <option key={model} value={model}>
-                          {model}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(value) => setModelConfig((prev: ModelConfig) => ({ ...prev, model: value }))}
+                      options={modelOptions[modelConfig.provider].map((model: string) => ({ value: model, label: model }))}
+                    />
                   </div>
                 </div>
                 {modelConfig.provider === 'ollama' && (

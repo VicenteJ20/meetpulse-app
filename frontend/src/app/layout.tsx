@@ -1,9 +1,13 @@
 'use client'
 
 import './globals.css'
+// Fuentes autoalojadas: la app funciona sin conexión (no usar next/font/google)
+import '@fontsource-variable/geist'
+import '@fontsource/geist-mono/400.css'
+import '@fontsource/geist-mono/500.css'
 import { AssistantProvider } from '@/contexts/AssistantContext'
-import { Source_Sans_3 } from 'next/font/google'
-import Sidebar from '@/components/Sidebar'
+import Rail from '@/components/Rail'
+import CommandPalette from '@/components/CommandPalette'
 import { SidebarProvider } from '@/components/Sidebar/SidebarProvider'
 import MainContent from '@/components/MainContent'
 import AnalyticsProvider from '@/components/AnalyticsProvider'
@@ -29,14 +33,9 @@ import { isAudioExtension, getAudioFormatsDisplayList } from '@/constants/audioF
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AuthGate } from '@/components/AuthGate'
 import { UiPreferencesProvider } from '@/contexts/UiPreferencesContext'
+import { AppSplash } from '@/components/AppSplash'
 import { ThemedToaster } from '@/components/ThemedToaster'
 
-
-const sourceSans3 = Source_Sans_3({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-source-sans-3',
-})
 
 // Module-level component — stable reference across RootLayout re-renders.
 // Defined here (not inside RootLayout) so React never sees a new function type
@@ -74,6 +73,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [onboardingCompleted, setOnboardingCompleted] = useState(false)
 
   // Import audio state
@@ -101,6 +101,7 @@ export default function RootLayout({
         setShowOnboarding(true)
         setOnboardingCompleted(false)
       })
+      .finally(() => setChecking(false))
   }, [])
 
   // Disable context menu in production
@@ -242,7 +243,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="theme-color" content="#0b5fa5" />
       </head>
-      <body className={`${sourceSans3.variable} font-sans antialiased`}>
+      <body className="font-sans antialiased">
         <UiPreferencesProvider><ThemedToaster /><AuthProvider><AuthGate><AnalyticsProvider>
           <RecordingStateProvider>
             <TranscriptProvider>
@@ -258,11 +259,14 @@ export default function RootLayout({
                               <DownloadProgressToastProvider />
 
                               {/* Show onboarding or main app */}
-                              {showOnboarding ? (
+                              {checking ? (
+                                <AppSplash />
+                              ) : showOnboarding ? (
                                 <OnboardingFlow onComplete={handleOnboardingComplete} />
                               ) : (
                                 <div className="app-shell">
-                                  <Sidebar />
+                                  <Rail />
+                                  <CommandPalette />
                                   <MainContent>{children}</MainContent>
                                 </div>
                               )}

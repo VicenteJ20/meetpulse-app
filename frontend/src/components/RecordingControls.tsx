@@ -411,7 +411,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                           }}
                           disabled={isStarting || isProcessing || isRecordingDisabled || isValidatingModel}
                           className={`relative flex h-12 w-12 items-center justify-center ${isStarting || isProcessing || isValidatingModel ? 'bg-muted text-muted-foreground' : 'bg-recording text-recording-foreground hover:brightness-105'
-                            } rounded-xl transition-colors`}
+                            } rounded-full transition-colors`}
                         >
                           {isValidatingModel ? (
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -443,7 +443,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                             className={`w-10 h-10 flex items-center justify-center ${isPausing || isResuming || isStopping
                               ? 'bg-muted text-muted-foreground'
                               : 'border border-border bg-card text-foreground hover:bg-muted'
-                              } relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors`}
+                              } relative flex h-10 w-10 items-center justify-center rounded-full transition-colors`}
                           >
                             {isPaused ? <Play size={16} /> : <Pause size={16} />}
                             {(isPausing || isResuming) && (
@@ -467,7 +467,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                             }}
                             disabled={isStopping || isPausing || isResuming}
                             className={`relative flex h-10 w-10 items-center justify-center ${isStopping || isPausing || isResuming ? 'bg-muted text-muted-foreground' : 'bg-recording text-recording-foreground hover:brightness-105'
-                              } rounded-xl transition-colors`}
+                              } rounded-full transition-colors`}
                           >
                             <Square size={16} />
                             {isStopping && (

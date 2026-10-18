@@ -152,7 +152,7 @@ export function PreferenceSettings() {
   return (
     <div className="divide-y divide-border/70">
       <section className="py-7 first:pt-5">
-        <h2 className="text-lg font-semibold">{t('settings.appearance')}</h2>
+        <h2 className="text-[0.95rem] font-semibold tracking-tight">{t('settings.appearance')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t('settings.appearanceDescription')}</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           {([
@@ -178,7 +178,7 @@ export function PreferenceSettings() {
       <section className="flex items-center justify-between gap-6 py-7">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold">{t('settings.notifications')}</h3>
+            <h3 className="text-[0.95rem] font-semibold tracking-tight">{t('settings.notifications')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{t('settings.notificationsDescription')}</p>
           </div>
         </div>
@@ -187,7 +187,7 @@ export function PreferenceSettings() {
 
       {/* Data Storage Locations Section */}
       <section className="py-7">
-        <h3 className="text-lg font-semibold">{t('settings.recordingsLocation')}</h3>
+        <h3 className="text-[0.95rem] font-semibold tracking-tight">{t('settings.recordingsLocation')}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{t('settings.storageDescription')}</p>
 
         <div className="space-y-4">
@@ -225,7 +225,7 @@ export function PreferenceSettings() {
           <div className="mt-5 rounded-xl border border-border bg-muted/35 p-4">
             <div className="text-sm font-medium">{t('settings.recordingsLocation')}</div>
             <div className="mb-3 mt-2 break-all font-mono text-xs text-muted-foreground">
-              {storageLocations?.recordings || 'Loading...'}
+              {storageLocations?.recordings || t('common.loading')}
             </div>
             <button
               onClick={() => handleOpenFolder('recordings')}

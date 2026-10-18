@@ -7,6 +7,7 @@ import { useOllamaDownload } from '@/contexts/OllamaDownloadContext';
 import { BuiltInModelManager } from '@/components/BuiltInModelManager';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { useConfig } from '@/contexts/ConfigContext';
 import {
   Select,
@@ -93,6 +94,7 @@ export function ModelSettingsModal({
   skipInitialFetch = false,
   layout = 'inline',
 }: ModelSettingsModalProps) {
+  const { t } = useTranslation();
   // Use ConfigContext if available, fallback to props for backward compatibility
   const configContext = useConfig();
   const modelConfig = configContext?.modelConfig || propsModelConfig;
@@ -745,13 +747,9 @@ export function ModelSettingsModal({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Model Settings</h3>
-      </div>
-
       <div className="space-y-4">
         <div>
-          <Label>Summarization Model</Label>
+          <Label>{t('sx.provider')}</Label>
           <div className="flex space-x-2 mt-1">
             <Select
               value={modelConfig.provider}
@@ -811,7 +809,7 @@ export function ModelSettingsModal({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select provider" />
+                <SelectValue placeholder={t('sx.selectProvider')} />
               </SelectTrigger>
               <SelectContent className="max-h-64 overflow-y-auto">
                 <SelectItem value="builtin-ai">Built-in AI (Offline, No API needed)</SelectItem>
@@ -915,7 +913,7 @@ export function ModelSettingsModal({
             </div>
 
             <div>
-              <Label htmlFor="custom-api-key">API Key (optional)</Label>
+              <Label htmlFor="custom-api-key">{t('sx.apiKeyOptional')}</Label>
               <Input
                 id="custom-api-key"
                 type="password"
@@ -1011,14 +1009,14 @@ export function ModelSettingsModal({
 
         {requiresApiKey && (
           <div>
-            <Label>API Key</Label>
+            <Label>{t('sx.apiKey')}</Label>
             <div className="relative mt-1">
               <Input
                 type={showApiKey ? 'text' : 'password'}
                 value={apiKey || ''}
                 onChange={(e) => setApiKey(e.target.value)}
                 disabled={isApiKeyLocked}
-                placeholder="Enter your API key"
+                placeholder={t('sx.apiKeyPlaceholder')}
                 className="pr-24"
               />
               {isApiKeyLocked && apiKey?.trim() && (
@@ -1331,15 +1329,8 @@ export function ModelSettingsModal({
       </div> */}
 
       <div className="mt-6 flex justify-end">
-        <Button
-          className={cn(
-            'px-4 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500',
-            isDoneDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-          )}
-          onClick={handleSave}
-          disabled={isDoneDisabled}
-        >
-          Save
+        <Button onClick={handleSave} disabled={isDoneDisabled}>
+          {t('common.save')}
         </Button>
       </div>
     </div>

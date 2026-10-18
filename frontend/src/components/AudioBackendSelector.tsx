@@ -34,7 +34,7 @@ export function AudioBackendSelector({
 
         // Get backend info (includes name and description)
         const backendInfo = await invoke<BackendInfo[]>('get_audio_backend_info');
-        setBackends(backendInfo);
+        setBackends(Array.isArray(backendInfo) ? backendInfo : []);
 
         // Get current backend if not provided via props
         if (!propBackend) {

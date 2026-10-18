@@ -1,19 +1,34 @@
 {
   "name": "Standard Meeting Notes",
-  "description": "Acta estructurada de proposito, contexto, temas, decisiones y compromisos.",
+  "description": "Resumen, decisiones, acciones con responsable, temas y preguntas abiertas.",
   "sections": [
     {
-      "title": "Metadatos",
-      "instruction": "Presentalos como una tabla Markdown compacta de dos columnas: Campo y Valor. Incluye exactamente Tipo de reunion, Fecha y Asistentes; usa [Por confirmar] o Pendiente cuando corresponda",
-      "format": "list",
-      "item_format": "| Campo | Valor |\n| --- | --- |\n| Tipo de reunion | ... |\n| Fecha | ... |\n| Asistentes | ... |"
+      "title": "Resumen",
+      "instruction": "Escribe un solo parrafo de 2 a 3 oraciones con lo mas importante de la reunion: que se avanzo, que se bloqueo y que se acordo. No repitas el titulo de la reunion ni incluyas tablas de metadatos",
+      "format": "paragraph"
     },
-    { "title": "Objetivo de la Sesion", "instruction": "Describe en una o dos oraciones el proposito central y que se esperaba resolver o avanzar", "format": "paragraph" },
-    { "title": "Contexto y Estado Actual", "instruction": "Resume avances, bloqueos y antecedentes relevantes que dan sentido a la discusion", "format": "paragraph" },
-    { "title": "Temas Discutidos", "instruction": "Organiza por temas, no cronologicamente; usa subsecciones ### con hallazgos, problemas, opiniones, datos y herramientas involucradas", "format": "paragraph" },
-    { "title": "Decisiones Tomadas", "instruction": "Lista decisiones concretas; si no hubo decisiones formales, indicalo explicitamente", "format": "list" },
-    { "title": "Compromisos y Proximos Pasos", "instruction": "Usa listas de verificacion de Notion con responsable, tarea clara y el contexto del acuerdo", "format": "list", "item_format": "- [ ] @Responsable - Descripcion clara de la tarea. _(Contexto: por que se acordo)_" },
-    { "title": "Riesgos, Bloqueos o Pendientes", "instruction": "Incluye solo riesgos o bloqueos mencionados y su impacto o urgencia si se indico; omite esta seccion si no aplica", "format": "list" },
-    { "title": "Puntos sin Resolver", "instruction": "Lista asuntos abiertos, sin decision o que requieren seguimiento; marca incertidumbres como [Por confirmar]", "format": "list" }
+    {
+      "title": "Decisiones",
+      "instruction": "Lista numerada de decisiones concretas, una por linea y en una sola oracion. Si no hubo decisiones formales, escribe una unica linea que lo indique",
+      "format": "list",
+      "item_format": "1. Decision concreta."
+    },
+    {
+      "title": "Acciones",
+      "instruction": "Lista de verificacion con una accion por linea. Comienza con el responsable en negrita seguido de dos puntos y la tarea clara; agrega la fecha limite solo si se menciono. Usa Equipo si no hay una persona asignada",
+      "format": "list",
+      "item_format": "- [ ] **Responsable:** tarea clara. Fecha: dia o fecha si se menciono."
+    },
+    {
+      "title": "Temas",
+      "instruction": "Lista de los temas discutidos, no cronologica. Cada tema en una linea: nombre breve en negrita seguido de dos puntos y una o dos oraciones con hallazgos, datos o herramientas",
+      "format": "list",
+      "item_format": "- **Tema:** descripcion breve."
+    },
+    {
+      "title": "Preguntas abiertas y riesgos",
+      "instruction": "Lista de asuntos sin resolver, preguntas pendientes y riesgos o bloqueos mencionados. Escribe las preguntas con signos de interrogacion y comienza los riesgos con la palabra Riesgo: y los bloqueos con Bloqueo:. Marca las incertidumbres como [Por confirmar]. Omite la seccion si no aplica",
+      "format": "list"
+    }
   ]
 }

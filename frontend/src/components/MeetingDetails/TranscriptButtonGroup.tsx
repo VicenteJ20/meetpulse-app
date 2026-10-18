@@ -2,12 +2,12 @@
 
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { ButtonGroup } from '@/components/ui/button-group';
 import { Copy, FolderOpen, RefreshCw } from 'lucide-react';
 import Analytics from '@/lib/analytics';
 import { RetranscribeDialog } from './RetranscribeDialog';
 import { useConfig } from '@/contexts/ConfigContext';
-
+import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TranscriptButtonGroupProps {
   transcriptCount: number;
@@ -18,7 +18,6 @@ interface TranscriptButtonGroupProps {
   onRefetchTranscripts?: () => Promise<void>;
 }
 
-
 export function TranscriptButtonGroup({
   transcriptCount,
   onCopyTranscript,
@@ -28,62 +27,58 @@ export function TranscriptButtonGroup({
   onRefetchTranscripts,
 }: TranscriptButtonGroupProps) {
   const { betaFeatures } = useConfig();
+  const { t } = useTranslation();
   const [showRetranscribeDialog, setShowRetranscribeDialog] = useState(false);
 
   const handleRetranscribeComplete = useCallback(async () => {
-    // Refetch transcripts to show the updated data
     if (onRefetchTranscripts) {
       await onRefetchTranscripts();
     }
   }, [onRefetchTranscripts]);
 
+  const iconButton = (label: string, icon: React.ReactNode, onClick: () => void, disabled = false) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button size="icon" variant="ghost" aria-label={label} disabled={disabled} onClick={onClick}>
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+
   return (
-    <div className="flex items-center justify-center w-full gap-2">
-      <ButtonGroup>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
+    <TooltipProvider>
+      <div className="flex items-center gap-0.5">
+        {iconButton(
+          t('meeting.copyTranscript'),
+          <Copy />,
+          () => {
             Analytics.trackButtonClick('copy_transcript', 'meeting_details');
             onCopyTranscript();
-          }}
-          disabled={transcriptCount === 0}
-          title={transcriptCount === 0 ? 'No transcript available' : 'Copy Transcript'}
-        >
-          <Copy />
-          <span className="hidden lg:inline">Copy</span>
-        </Button>
-
-        <Button
-          size="sm"
-          variant="outline"
-          className="xl:px-4"
-          onClick={() => {
+          },
+          transcriptCount === 0,
+        )}
+        {iconButton(
+          t('meeting.openFolder'),
+          <FolderOpen />,
+          () => {
             Analytics.trackButtonClick('open_recording_folder', 'meeting_details');
             onOpenMeetingFolder();
-          }}
-          title="Open Recording Folder"
-        >
-          <FolderOpen className="xl:mr-2" size={18} />
-          <span className="hidden lg:inline">Recording</span>
-        </Button>
-
-        {betaFeatures.importAndRetranscribe && meetingId && meetingFolderPath && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-border bg-muted/55 text-foreground hover:bg-muted xl:px-4"
-            onClick={() => {
+          },
+        )}
+        {betaFeatures.importAndRetranscribe &&
+          meetingId &&
+          meetingFolderPath &&
+          iconButton(
+            'Retranscribe',
+            <RefreshCw />,
+            () => {
               Analytics.trackButtonClick('enhance_transcript', 'meeting_details');
               setShowRetranscribeDialog(true);
-            }}
-            title="Retranscribe to enhance your recorded audio"
-          >
-            <RefreshCw className="xl:mr-2" size={18} />
-            <span className="hidden lg:inline">Enhance</span>
-          </Button>
-        )}
-      </ButtonGroup>
+            },
+          )}
+      </div>
 
       {betaFeatures.importAndRetranscribe && meetingId && meetingFolderPath && (
         <RetranscribeDialog
@@ -94,6 +89,6 @@ export function TranscriptButtonGroup({
           onComplete={handleRetranscribeComplete}
         />
       )}
-    </div>
+    </TooltipProvider>
   );
 }

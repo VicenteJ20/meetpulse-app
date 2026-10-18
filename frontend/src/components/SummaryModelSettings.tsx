@@ -7,6 +7,8 @@ import { ModelConfig, ModelSettingsModal } from '@/components/ModelSettingsModal
 import { SummaryLanguageSettings } from '@/components/SummaryLanguageSettings';
 import { Switch } from './ui/switch';
 import { useConfig } from '@/contexts/ConfigContext';
+import { SettingsSection } from '@/components/ui/settings';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 interface SummaryModelSettingsProps {
   refetchTrigger?: number; // Change this to trigger refetch
@@ -21,6 +23,7 @@ export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsPro
     ollamaEndpoint: null
   });
 
+  const { t } = useTranslation();
   const { isAutoSummary, toggleIsAutoSummary } = useConfig();
 
   // Reusable fetch function
@@ -62,7 +65,7 @@ export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsPro
       }
     } catch (error) {
       console.error('Failed to fetch model config:', error);
-      toast.error('Failed to load model settings');
+      toast.error(t('sx.loadFailed'));
     }
   }, []);
 
@@ -115,40 +118,25 @@ export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsPro
       const { emit } = await import('@tauri-apps/api/event');
       await emit('model-config-updated', config);
 
-      toast.success('Model settings saved successfully');
+      toast.success(t('sx.saved'));
     } catch (error) {
       console.error('Error saving model config:', error);
-      toast.error('Failed to save model settings');
+      toast.error(t('sx.saveFailed'));
     }
   };
 
   return (
-    <div className='flex flex-col gap-4'>
-      <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Auto Summary</h3>
-            <p className="text-sm text-muted-foreground">Auto Generating summary after meeting completion(Stopping)</p>
-          </div>
-          <Switch checked={isAutoSummary} onCheckedChange={toggleIsAutoSummary} />
-        </div>
-      </div>
-
+    <div>
+      <SettingsSection title={t('sx.autoSummary')} description={t('sx.autoSummaryDesc')} action={<Switch checked={isAutoSummary} onCheckedChange={toggleIsAutoSummary} aria-label={t('sx.autoSummary')} />} />
       <SummaryLanguageSettings />
-
-      <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">Summary Model Configuration</h3>
-        <p className="text-sm text-muted-foreground mb-6">
-          Configure the AI model used for generating meeting summaries.
-        </p>
-
+      <SettingsSection title={t('sx.analysisModel')} description={t('sx.analysisModelDesc')}>
         <ModelSettingsModal
           modelConfig={modelConfig}
           setModelConfig={setModelConfig}
           onSave={handleSaveModelConfig}
           skipInitialFetch={true}
         />
-      </div>
+      </SettingsSection>
     </div>
   );
 }

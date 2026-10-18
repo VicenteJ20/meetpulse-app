@@ -13,13 +13,18 @@ import { useRouter } from "next/navigation";
 import {
   MessageSquare,
   X,
-  Send,
   Pause,
-  Play,
   ArrowLeft,
+  ArrowUp,
   Copy,
   Trash2,
   Settings2,
+  Lightbulb,
+  Sparkles,
+  Quote,
+  Loader2,
+  ShieldCheck,
+  Cloud,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useTranscripts } from "@/contexts/TranscriptContext";
@@ -28,6 +33,9 @@ import { useConfig } from "@/contexts/ConfigContext";
 import { useSidebar } from "@/components/Sidebar/SidebarProvider";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
+import { SelectField } from "@/components/ui/select-field";
 import { ProviderModelPicker } from "@/components/ProviderModelPicker";
 
 type Target = {
@@ -73,6 +81,7 @@ const Context = createContext<{
   open: boolean;
   toggle: () => void;
   coach: boolean;
+  toggleCoach: () => void;
 } | null>(null);
 export function useAssistant() {
   const value = useContext(Context);
@@ -94,7 +103,7 @@ export function useAssistantTarget(target: Target) {
 }
 export function AssistantButton() {
   const { open, toggle, coach } = useAssistant();
-  const { locale } = useTranslation();
+  const { t } = useTranslation();
   return (
     <Button
       size="sm"
@@ -104,18 +113,18 @@ export function AssistantButton() {
       aria-controls="meeting-assistant"
     >
       <MessageSquare size={16} />
-      {locale === "es" ? "Asistente" : "Assistant"}
+      {t("assistant.title")}
       {coach && (
         <span
           aria-label="Coach active"
-          className="h-2 w-2 rounded-full bg-emerald-500"
+          className="h-2 w-2 rounded-full bg-success"
         />
       )}
     </Button>
   );
 }
 export function AssistantProvider({ children }: { children: ReactNode }) {
-  const { locale } = useTranslation();
+  const { locale, t } = useTranslation();
   const es = locale === "es";
   const router = useRouter();
   const { transcripts, currentMeetingId, meetingTitle } = useTranscripts();
@@ -444,23 +453,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         new CustomEvent("meetpulse-source", { detail: source }),
       );
   }
-  function references(message: Message) {
-    return (
-      <div className="mt-2 space-y-1">
-        {message.sources.map((source, i) => (
-          <button
-            key={`${source.id}-${i}`}
-            onClick={() => sourceClick(source)}
-            className="block w-full truncate rounded border border-border px-2 py-1 text-left text-xs text-brand hover:bg-muted"
-            title={source.text}
-          >
-            [{i + 1}] {source.title} · {Math.floor(source.start / 60)}:
-            {String(Math.floor(source.start % 60)).padStart(2, "0")}
-          </button>
-        ))}
-      </div>
-    );
-  }
+  const hasMeeting = !!target;
   const selectedScope =
     scope === "current" ? "current" : `${client} / ${project}`;
   const shown = messages.filter(
@@ -469,27 +462,122 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       !m.dismissed &&
       (tab === "coach" || m.scope === selectedScope),
   );
+  const isLocalProvider =
+    provider === "builtin-ai" ||
+    (provider === "ollama" &&
+      /localhost|127\.0\.0\.1/.test(modelConfig.ollamaEndpoint || "localhost"));
+  const clients = Array.from(
+    new Set(meetings.map((m) => m.client).filter((c): c is string => !!c)),
+  );
+  const projects = Array.from(
+    new Set(
+      meetings
+        .filter((m) => m.client === client)
+        .map((m) => m.project)
+        .filter((p): p is string => !!p),
+    ),
+  );
+  const mmss = (seconds: number) =>
+    `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+  const indexLabel = search?.ready
+    ? search.indexing
+      ? t("assistant.indexing")
+      : t("assistant.indexReady")
+          .replace("{indexed}", String(search.indexed))
+          .replace("{total}", String(search.total))
+    : t("assistant.indexOff");
+
+  const sourceCards = (message: Message) =>
+    message.sources.length > 0 && (
+      <div className="mt-3 space-y-1.5">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+          <Quote className="size-3.5" />
+          {t("assistant.sources")}
+        </p>
+        {message.sources.map((source, i) => (
+          <button
+            key={`${source.id}-${i}`}
+            type="button"
+            onClick={() => sourceClick(source)}
+            className="flex w-full gap-2.5 rounded-lg border border-border bg-card p-2.5 text-left transition-colors hover:border-brand hover:bg-accent/50"
+            title={source.text}
+          >
+            <span className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded bg-muted font-mono text-[0.68rem] text-muted-foreground">
+              {i + 1}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2 text-[0.82rem] font-medium">
+                <span className="truncate">{source.title}</span>
+                <span className="ml-auto shrink-0 font-mono text-[0.7rem] tabular-nums text-muted-foreground">
+                  {mmss(source.start)}
+                </span>
+              </span>
+              <span className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                {source.text}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    );
+
+  const coachCards = shown.map((m) => {
+    let parsed: { title?: string; reason?: string } = {};
+    try {
+      parsed = JSON.parse(m.text);
+    } catch {
+      parsed = { title: m.text };
+    }
+    return (
+      <button
+        key={m.id}
+        type="button"
+        onClick={() => setDetail(m)}
+        className="flex w-full flex-col gap-1 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-brand"
+      >
+        <span className="flex items-center gap-2 text-xs font-semibold text-brand">
+          <Lightbulb className="size-3.5" />
+          {t("assistant.tabCoach")}
+        </span>
+        <span className="text-sm font-medium leading-snug">{parsed.title}</span>
+        {parsed.reason && (
+          <span className="line-clamp-2 text-xs text-muted-foreground">{parsed.reason}</span>
+        )}
+      </button>
+    );
+  });
+
   return (
     <Context.Provider
-      value={{ setTarget, open, toggle: () => setOpen((v) => !v), coach }}
+      value={{
+        setTarget,
+        open,
+        toggle: () => setOpen((v) => !v),
+        coach,
+        toggleCoach: () => {
+          setTab("coach");
+          setOpen(true);
+          setCoach((v) => !v);
+        },
+      }}
     >
       {children}
       {open && target && (
         <aside
           id="meeting-assistant"
-          aria-label={es ? "Asistente de reunión" : "Meeting assistant"}
-          className="assistant-panel fixed bottom-0 right-0 top-0 z-40 flex flex-col border-l border-border bg-card"
+          aria-label={t("assistant.title")}
+          className="assistant-panel fixed bottom-0 right-0 top-0 z-40 flex flex-col border-l border-border bg-card shadow-lg"
           style={{ width }}
         >
           <div
             role="separator"
-            aria-label={es ? "Ancho del asistente" : "Assistant width"}
+            aria-label={t("assistant.width")}
             aria-orientation="vertical"
             aria-valuenow={width}
             aria-valuemin={320}
             aria-valuemax={560}
             tabIndex={0}
-            className="absolute bottom-0 left-0 top-0 w-1 cursor-col-resize focus:bg-brand"
+            className="absolute bottom-0 left-0 top-0 z-10 w-1 cursor-col-resize transition-colors hover:bg-brand/40 focus:bg-brand"
             onKeyDown={(e) => {
               if (e.key === "ArrowLeft") setWidth((w) => Math.min(560, w + 20));
               if (e.key === "ArrowRight")
@@ -505,75 +593,69 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
                 );
             }}
           />
-          <header className="shrink-0 border-b border-border p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">
-                {es ? "Asistente" : "Assistant"}
-              </h2>
-              <div className="flex">
+
+          <header className="shrink-0 px-4 pb-3 pt-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="font-semibold tracking-tight">{t("assistant.title")}</h2>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className={`size-1.5 rounded-full ${search?.ready ? "bg-success" : "bg-muted-foreground/50"}`} />
+                  <span className="truncate">{indexLabel}</span>
+                </p>
+              </div>
+              <div className="flex shrink-0">
                 <Button
                   size="icon"
                   variant="ghost"
-                  aria-label={
-                    es ? "Configurar asistente" : "Assistant settings"
-                  }
+                  aria-label={t("assistant.settings")}
+                  aria-pressed={settings}
                   onClick={() => setSettings((v) => !v)}
                 >
-                  <Settings2 size={16} />
+                  <Settings2 />
                 </Button>
                 <Button
                   size="icon"
                   variant="ghost"
-                  aria-label={es ? "Cerrar asistente" : "Close assistant"}
+                  aria-label={t("assistant.close")}
                   onClick={() => setOpen(false)}
                 >
-                  <X size={18} />
+                  <X />
                 </Button>
               </div>
             </div>
-            <p className="truncate text-xs text-muted-foreground">
-              {provider === "builtin-ai" ||
-              (provider === "ollama" &&
-                /localhost|127\.0\.0\.1/.test(
-                  modelConfig.ollamaEndpoint || "localhost",
-                ))
-                ? "Local"
-                : `API · ${provider}`}{" "}
-              · {model}
-            </p>
-            <div role="tablist" className="mt-3 flex gap-2">
-              {(["coach", "chat"] as const).map((name) => (
-                <button
-                  key={name}
-                  role="tab"
-                  aria-selected={tab === name}
-                  className={`flex-1 rounded-lg px-3 py-2 text-sm ${tab === name ? "bg-brand/10 font-medium text-brand" : "hover:bg-muted"}`}
-                  onClick={() => {
-                    setTab(name);
-                    setDetail(undefined);
-                  }}
-                >
-                  {name === "coach" ? "Coach" : "Chat"}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              aria-label={t("assistant.title")}
+              className="mt-3 flex w-full [&>button]:flex-1 [&>button]:justify-center"
+              value={tab}
+              onValueChange={(next) => {
+                setTab(next);
+                setDetail(undefined);
+              }}
+              options={[
+                { value: "chat", label: t("assistant.tabChat"), icon: <MessageSquare /> },
+                {
+                  value: "coach",
+                  label: (
+                    <span className="inline-flex items-center gap-1.5">
+                      {t("assistant.tabCoach")}
+                      {coach && <span className="size-1.5 rounded-full bg-brand" />}
+                    </span>
+                  ),
+                  icon: <Lightbulb />,
+                },
+              ]}
+            />
           </header>
+
           {settings && (
-            <div className="max-h-[45vh] shrink-0 space-y-2 overflow-y-auto border-b border-border p-3 text-xs">
-              <label>
-                {es ? "Modelo del asistente" : "Assistant model"}
-                <select
-                  className="mt-1 w-full rounded border bg-background p-2"
+            <div className="custom-scrollbar max-h-[45vh] shrink-0 space-y-3 overflow-y-auto border-y border-border bg-muted/30 p-4 text-sm">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">{t("assistant.modelLabel")}</label>
+                <SelectField
+                  aria-label={t("assistant.modelLabel")}
                   value={provider}
-                  onChange={(e) =>
-                    void savePrefs({
-                      ...prefs,
-                      provider: e.target.value,
-                      model: "",
-                    })
-                  }
-                >
-                  {[
+                  onValueChange={(next) => void savePrefs({ ...prefs, provider: next, model: "" })}
+                  options={[
                     "builtin-ai",
                     "ollama",
                     "gemini",
@@ -582,138 +664,77 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
                     "groq",
                     "openrouter",
                     "custom-openai",
-                  ].map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </label>
+                  ].map((p) => ({ value: p, label: p }))}
+                />
+              </div>
               <ProviderModelPicker
                 provider={provider}
                 value={model}
-                endpoint={
-                  provider === "ollama" ? modelConfig.ollamaEndpoint : undefined
-                }
-                onChange={(id) =>
-                  void savePrefs({ ...prefs, provider, model: id })
-                }
+                endpoint={provider === "ollama" ? modelConfig.ollamaEndpoint : undefined}
+                onChange={(id) => void savePrefs({ ...prefs, provider, model: id })}
               />
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => void savePrefs({ cadence: prefs.cadence })}
-              >
-                {es ? "Usar modelo del análisis" : "Use analysis model"}
+              <Button size="sm" variant="ghost" onClick={() => void savePrefs({ cadence: prefs.cadence })}>
+                {t("assistant.useAnalysis")}
               </Button>
-              <p>
-                {es
-                  ? "Las API reciben los fragmentos necesarios para responder."
-                  : "API providers receive the excerpts needed to answer."}
-              </p>
-              <p>
-                {search?.ready
-                  ? `${es ? "Índice local" : "Local index"}: ${search.indexed}/${search.total}`
-                  : es
-                    ? "Búsqueda semántica: descarga inicial de 487 MB."
-                    : "Semantic search: initial 487 MB download."}
-              </p>
-              <p>
-                {search
-                  ? `${Math.round((search.downloaded / search.totalBytes) * 100)}%`
-                  : ""}{" "}
-                {search?.indexing ? (es ? "Indexando…" : "Indexing…") : ""}
-              </p>
-              <div className="flex flex-wrap gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={search?.downloading}
-                  onClick={async () => {
-                    await searchAction("desktop_search_download", {
-                      action: "start",
-                    });
-                  }}
-                >
-                  {es ? "Descargar / reanudar" : "Download / resume"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    void searchAction("desktop_search_download", {
-                      action: "pause",
-                    })
-                  }
-                >
-                  {es ? "Pausar" : "Pause"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    void searchAction("desktop_search_download", {
-                      action: "cancel",
-                    })
-                  }
-                >
-                  {es ? "Cancelar" : "Cancel"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    void searchAction("desktop_search_index", { cancel: false })
-                  }
-                >
-                  {es ? "Actualizar índice" : "Update index"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    void searchAction("desktop_search_index", { cancel: true })
-                  }
-                >
-                  {es ? "Detener índice" : "Stop indexing"}
-                </Button>
-              </div>
-              {search?.error && (
-                <p role="alert" className="text-destructive">
-                  {search.error}
+              <p className="text-xs text-muted-foreground">{t("assistant.apiNote")}</p>
+              <div className="space-y-2 border-t border-border pt-3">
+                <p className="text-xs text-muted-foreground">
+                  {search?.ready
+                    ? indexLabel
+                    : t("assistant.indexInitial")}
+                  {search && search.totalBytes > 0 && !search.ready
+                    ? ` ${Math.round((search.downloaded / search.totalBytes) * 100)}%`
+                    : ""}
                 </p>
-              )}
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={search?.downloading}
+                    onClick={async () => {
+                      await searchAction("desktop_search_download", { action: "start" });
+                    }}
+                  >
+                    {t("assistant.downloadIndex")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => void searchAction("desktop_search_download", { action: "pause" })}>
+                    {t("assistant.pause")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => void searchAction("desktop_search_download", { action: "cancel" })}>
+                    {t("assistant.cancel")}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => void searchAction("desktop_search_index", { cancel: false })}>
+                    {t("assistant.updateIndex")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => void searchAction("desktop_search_index", { cancel: true })}>
+                    {t("assistant.stopIndex")}
+                  </Button>
+                </div>
+                {search?.error && (
+                  <p role="alert" className="text-xs text-destructive">{search.error}</p>
+                )}
+              </div>
             </div>
           )}
+
           {tab === "coach" ? (
-            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b p-3">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 pb-3">
               <Button
                 size="sm"
-                variant={coach ? "default" : "outline"}
+                variant={coach ? "outline" : "default"}
                 disabled={!isRecording || !session}
                 onClick={() => setCoach((v) => !v)}
               >
-                {coach ? <Pause size={14} /> : <Play size={14} />}{" "}
-                {coach
-                  ? es
-                    ? "Pausar Coach"
-                    : "Pause Coach"
-                  : es
-                    ? "Activar Coach"
-                    : "Enable Coach"}
+                {coach ? <Pause /> : <Lightbulb />}
+                {coach ? t("assistant.coachPause") : t("assistant.coachOn")}
               </Button>
-              <select
-                aria-label={es ? "Intervalo Coach" : "Coach interval"}
-                value={prefs.cadence || 60}
-                onChange={(e) =>
-                  void savePrefs({ ...prefs, cadence: Number(e.target.value) })
-                }
-                className="rounded border bg-background p-1 text-xs"
-              >
-                {[30, 60, 120].map((n) => (
-                  <option key={n} value={n}>
-                    {n}s
-                  </option>
-                ))}
-              </select>
+              <SelectField
+                aria-label={t("assistant.interval")}
+                className="h-7 w-20 text-xs"
+                value={String(prefs.cadence || 60)}
+                onValueChange={(next) => void savePrefs({ ...prefs, cadence: Number(next) })}
+                options={[30, 60, 120].map((n) => ({ value: String(n), label: `${n}s` }))}
+              />
               <Button
                 size="sm"
                 variant="ghost"
@@ -723,107 +744,63 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
                   void ask("coach");
                 }}
               >
-                {es ? "Actualizar ahora" : "Update now"}
+                {t("assistant.updateNow")}
               </Button>
             </div>
           ) : (
-            <div className="shrink-0 space-y-2 border-b p-3 text-xs">
-              <select
-                aria-label={es ? "Alcance de consulta" : "Query scope"}
-                value={scope}
-                onChange={(e) => setScope(e.target.value)}
-                className="w-full rounded border bg-background p-2"
-              >
-                <option value="current">
-                  {es ? "Esta reunión" : "This meeting"}
-                </option>
-                <option value="history">
-                  {es
-                    ? "Historial por cliente/proyecto"
-                    : "Client/project history"}
-                </option>
-              </select>
+            <div className="shrink-0 space-y-2 border-b border-border px-4 pb-3">
+              {hasMeeting ? (
+                <SelectField
+                  aria-label={t("assistant.scope")}
+                  value={scope}
+                  onValueChange={setScope}
+                  options={[
+                    { value: "current", label: t("assistant.scopeCurrent") },
+                    { value: "history", label: t("assistant.scopeHistory") },
+                  ]}
+                />
+              ) : null}
               {scope === "history" && (
                 <>
                   <div className="grid grid-cols-2 gap-2">
-                    <select
-                      aria-label={es ? "Cliente" : "Client"}
+                    <SelectField
+                      aria-label={t("assistant.client")}
+                      placeholder={t("assistant.client")}
                       value={client}
-                      onChange={(e) => {
-                        setClient(e.target.value);
+                      onValueChange={(next) => {
+                        setClient(next);
                         setProject("");
                       }}
-                      className="min-w-0 rounded border bg-background p-2"
-                    >
-                      <option value="">{es ? "Cliente" : "Client"}</option>
-                      {Array.from(
-                        new Set(meetings.map((m) => m.client).filter(Boolean)),
-                      ).map((c) => (
-                        <option key={c!}>{c}</option>
-                      ))}
-                    </select>
-                    <select
-                      aria-label={es ? "Proyecto" : "Project"}
+                      options={clients.map((c) => ({ value: c, label: c }))}
+                    />
+                    <SelectField
+                      aria-label={t("assistant.project")}
+                      placeholder={t("assistant.project")}
                       value={project}
-                      onChange={(e) => setProject(e.target.value)}
-                      className="min-w-0 rounded border bg-background p-2"
-                    >
-                      <option value="">{es ? "Proyecto" : "Project"}</option>
-                      {Array.from(
-                        new Set(
-                          meetings
-                            .filter((m) => m.client === client)
-                            .map((m) => m.project)
-                            .filter(Boolean),
-                        ),
-                      ).map((p) => (
-                        <option key={p!}>{p}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      aria-label={es ? "Desde" : "From"}
-                      className="min-w-0 w-1/2 rounded border bg-background p-1"
-                      value={from}
-                      onChange={(e) => setFrom(e.target.value)}
-                    />
-                    <input
-                      type="date"
-                      aria-label={es ? "Hasta" : "To"}
-                      className="min-w-0 w-1/2 rounded border bg-background p-1"
-                      value={to}
-                      onChange={(e) => setTo(e.target.value)}
+                      onValueChange={setProject}
+                      options={projects.map((p) => ({ value: p, label: p }))}
                     />
                   </div>
-                  <button
-                    className="text-brand underline"
-                    onClick={() => setSettings(true)}
-                  >
-                    {search?.ready
-                      ? `${es ? "Índice" : "Index"}: ${search.indexed}/${search.total}`
-                      : es
-                        ? "Activar búsqueda semántica local"
-                        : "Enable local semantic search"}
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input type="date" aria-label={t("assistant.from")} value={from} onChange={(e) => setFrom(e.target.value)} />
+                    <Input type="date" aria-label={t("assistant.to")} value={to} onChange={(e) => setTo(e.target.value)} />
+                  </div>
+                  {!search?.ready && (
+                    <button type="button" className="text-xs text-brand hover:underline" onClick={() => setSettings(true)}>
+                      {t("assistant.enableSearch")}
+                    </button>
+                  )}
                 </>
               )}
             </div>
           )}
-          <div
-            className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-4"
-            aria-live="polite"
-          >
+
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4" aria-live="polite">
             {detail ? (
               <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setDetail(undefined)}
-                >
-                  <ArrowLeft size={14} />
-                  {es ? "Volver" : "Back"}
+                <Button size="sm" variant="ghost" onClick={() => setDetail(undefined)}>
+                  <ArrowLeft />
+                  {t("assistant.back")}
                 </Button>
                 {(() => {
                   let d: {
@@ -837,69 +814,50 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
                   } catch {}
                   return (
                     <article className="mt-3 space-y-3 text-sm">
-                      <h3 className="font-semibold">{d.title}</h3>
-                      <p>{d.reason}</p>
-                      <h4 className="font-medium">
-                        {es ? "Preguntas propuestas" : "Suggested questions"}
-                      </h4>
+                      <h3 className="text-base font-semibold leading-snug">{d.title}</h3>
+                      <p className="text-muted-foreground">{d.reason}</p>
+                      <h4 className="text-xs font-semibold text-muted-foreground">{t("assistant.suggestedQuestions")}</h4>
                       <ul className="list-disc space-y-1 pl-4">
-                        {d.questions?.map((q, i) => (
-                          <li key={i}>{q}</li>
-                        ))}
+                        {d.questions?.map((q, i) => (<li key={i}>{q}</li>))}
                       </ul>
-                      <h4 className="font-medium">
-                        {es ? "Próximos pasos" : "Next steps"}
-                      </h4>
+                      <h4 className="text-xs font-semibold text-muted-foreground">{t("assistant.nextSteps")}</h4>
                       <ul className="list-disc space-y-1 pl-4">
-                        {d.steps?.map((s, i) => (
-                          <li key={i}>{s}</li>
-                        ))}
+                        {d.steps?.map((s, i) => (<li key={i}>{s}</li>))}
                       </ul>
-                      <h4 className="font-medium">
-                        {es ? "Evidencia" : "Evidence"}
-                      </h4>
+                      <h4 className="text-xs font-semibold text-muted-foreground">{t("assistant.evidence")}</h4>
                       {detail.sources.slice(0, 3).map((source) => (
                         <blockquote
                           key={source.id}
-                          className="border-l-2 border-brand/40 pl-3 text-xs leading-5 text-muted-foreground"
+                          className="border-l-[3px] border-brand/60 pl-3 text-xs leading-5 text-muted-foreground"
                         >
-                          {source.text.length > 600
-                            ? `${source.text.slice(0, 600)}…`
-                            : source.text}
+                          {source.text.length > 600 ? `${source.text.slice(0, 600)}…` : source.text}
                         </blockquote>
                       ))}
-                      {references(detail)}
-                      <div className="flex gap-2">
+                      {sourceCards(detail)}
+                      <div className="flex gap-2 pt-1">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() =>
                             void navigator.clipboard.writeText(
-                              [
-                                d.title,
-                                d.reason,
-                                ...(d.questions || []),
-                                ...(d.steps || []),
-                              ].join("\n"),
+                              [d.title, d.reason, ...(d.questions || []), ...(d.steps || [])].join("\n"),
                             )
                           }
                         >
-                          <Copy size={14} />
-                          {es ? "Copiar" : "Copy"}
+                          <Copy />
+                          {t("assistant.copy")}
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={async () => {
-                            await invoke("desktop_assistant_dismiss", {
-                              messageId: detail.id,
-                            });
+                            await invoke("desktop_assistant_dismiss", { messageId: detail.id });
                             setDetail(undefined);
                             await reload(session);
                           }}
                         >
-                          <Trash2 size={14} />
-                          {es ? "Descartar" : "Dismiss"}
+                          <Trash2 />
+                          {t("assistant.dismiss")}
                         </Button>
                       </div>
                     </article>
@@ -907,117 +865,121 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
                 })()}
               </>
             ) : shown.length ? (
-              <div className="space-y-4">
-                {shown.map((m) =>
-                  m.kind === "coach" ? (
-                    <button
-                      key={m.id}
-                      onClick={() => setDetail(m)}
-                      className="w-full rounded-lg border border-border p-3 text-left text-sm hover:border-brand"
-                    >
-                      {(() => {
-                        try {
-                          return JSON.parse(m.text).title;
-                        } catch {
-                          return m.text;
-                        }
-                      })()}
-                    </button>
-                  ) : (
-                    <article
-                      key={m.id}
-                      className={`rounded-lg p-3 text-sm ${m.role === "user" ? "bg-muted" : ""}`}
-                    >
-                      <p className="mb-1 text-xs font-medium text-muted-foreground">
-                        {m.role === "user" ? (es ? "Tú" : "You") : "MeetPulse"}
-                      </p>
-                      <div className="prose prose-sm max-w-none break-words dark:prose-invert">
-                        <ReactMarkdown>{m.text}</ReactMarkdown>
+              tab === "coach" ? (
+                <div className="space-y-2.5">{coachCards}</div>
+              ) : (
+                <div className="space-y-5">
+                  {shown.map((m) =>
+                    m.role === "user" ? (
+                      <div key={m.id} className="flex justify-end">
+                        <p className="max-w-[88%] whitespace-pre-wrap break-words rounded-xl bg-muted px-3 py-2 text-sm">{m.text}</p>
                       </div>
-                      {references(m)}
-                    </article>
-                  ),
+                    ) : (
+                      <article key={m.id} className="flex gap-2.5">
+                        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                          <Sparkles className="size-3.5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="prose prose-sm max-w-none break-words text-foreground prose-p:my-1.5 prose-headings:text-foreground prose-strong:text-foreground dark:prose-invert">
+                            <ReactMarkdown>{m.text}</ReactMarkdown>
+                          </div>
+                          {sourceCards(m)}
+                        </div>
+                      </article>
+                    ),
+                  )}
+                </div>
+              )
+            ) : tab === "coach" ? (
+              <div className="mx-auto flex max-w-[18rem] flex-col items-center gap-2.5 py-8 text-center">
+                <Lightbulb className="size-8 text-brand" />
+                <h3 className="font-semibold">{coach ? t("assistant.tabCoach") : t("assistant.coachOffTitle")}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {coach
+                    ? t("assistant.coachListening")
+                    : isRecording
+                      ? t("assistant.coachOffText")
+                      : t("assistant.coachNeedsRecording")}
+                </p>
+                {!coach && isRecording && (
+                  <>
+                    <Button onClick={() => setCoach(true)}>{t("assistant.coachOn")}</Button>
+                    <p className="text-xs text-muted-foreground">{t("assistant.coachOptional")}</p>
+                  </>
                 )}
               </div>
             ) : (
-              <p className="text-sm leading-6 text-muted-foreground">
-                {tab === "coach"
-                  ? es
-                    ? "Activa Coach para recibir preguntas y próximos pasos basados en la conversación. No se generarán sugerencias si no hay contenido nuevo."
-                    : "Enable Coach for questions and next steps grounded in the conversation. No new content means no new suggestions."
-                  : es
-                    ? "Consulta la reunión actual o elige un cliente y proyecto para buscar antecedentes."
-                    : "Ask about this meeting or select a client and project to find earlier discussions."}
-              </p>
+              <div className="mx-auto flex max-w-[18rem] flex-col items-center gap-2.5 py-8 text-center">
+                <Sparkles className="size-8 text-brand" />
+                <p className="text-sm text-muted-foreground">
+                  {hasMeeting ? t("assistant.emptyChat") : t("assistant.emptyChatGlobal")}
+                </p>
+              </div>
             )}
           </div>
+
           {partial && (
-            <p className="px-4 py-1 text-xs text-muted-foreground">
-              {es
-                ? "Cobertura parcial: búsqueda textual o índice semántico incompleto."
-                : "Partial coverage: text search or incomplete semantic index."}
-            </p>
+            <p className="px-4 py-1 text-xs text-muted-foreground">{t("assistant.partial")}</p>
           )}
           {error && (
-            <p
-              role="alert"
-              className="max-h-28 overflow-auto break-words px-4 py-2 text-xs text-destructive"
-            >
+            <p role="alert" className="max-h-28 overflow-auto break-words px-4 py-2 text-xs text-destructive">
               {error}
             </p>
           )}
           {busy && (
-            <div
-              role="status"
-              className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground"
-            >
-              {es ? "Generando…" : "Generating…"}
+            <div role="status" className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-2"><Loader2 className="size-3.5 animate-spin" />{t("assistant.generating")}</span>
               <button
-                className="text-brand"
-                onClick={() =>
-                  void invoke("desktop_assistant_cancel", {
-                    requestId: request.current,
-                  })
-                }
+                className="text-brand hover:underline"
+                onClick={() => void invoke("desktop_assistant_cancel", { requestId: request.current })}
               >
-                {es ? "Cancelar" : "Cancel"}
+                {t("assistant.cancel")}
               </button>
             </div>
           )}
+
           {tab === "chat" && (
             <form
-              className="flex shrink-0 gap-2 border-t p-3"
+              className="shrink-0 px-3 pb-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 void ask("chat");
               }}
             >
-              <textarea
-                aria-label={
-                  es ? "Pregunta a la transcripción" : "Ask the transcript"
-                }
-                placeholder={
-                  es ? "Pregunta sobre la reunión…" : "Ask about the meeting…"
-                }
-                className="min-h-20 min-w-0 flex-1 resize-none rounded-lg border bg-background p-2 text-sm"
-                value={question}
-                maxLength={3000}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void ask("chat");
-                  }
-                }}
-              />
-              <Button
-                type="submit"
-                size="icon"
-                aria-label={es ? "Enviar consulta" : "Send question"}
-                disabled={busy === "chat" || !session || !question.trim()}
-              >
-                <Send size={16} />
-              </Button>
+              <div className="rounded-xl border border-input bg-card p-2.5 transition-[border-color,box-shadow] focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+                <textarea
+                  aria-label={t("assistant.askLabel")}
+                  placeholder={hasMeeting ? t("assistant.placeholder") : t("assistant.placeholderGlobal")}
+                  className="max-h-40 min-h-[2.75rem] w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  value={question}
+                  maxLength={3000}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void ask("chat");
+                    }
+                  }}
+                />
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    {isLocalProvider ? <ShieldCheck className="size-3.5 shrink-0 text-success" /> : <Cloud className="size-3.5 shrink-0 text-warning" />}
+                    <span className="truncate">
+                      {isLocalProvider ? t("assistant.privacyLocal") : t("assistant.privacyCloud").replace("{provider}", provider)}
+                      {model ? ` · ${model}` : ""}
+                    </span>
+                  </span>
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="ml-auto size-7 shrink-0"
+                    aria-label={t("assistant.send")}
+                    disabled={busy === "chat" || !session || !question.trim()}
+                  >
+                    <ArrowUp />
+                  </Button>
+                </div>
+              </div>
             </form>
           )}
         </aside>
