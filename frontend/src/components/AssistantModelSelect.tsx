@@ -4,13 +4,12 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Cloud, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import catalog from '@/config/models.json';
+import { useCloudModels } from '@/hooks/useCloudModels';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { cn } from '@/lib/utils';
 
 type Entry = { provider: string; id: string; label: string };
-const CLOUD = catalog.analysis as Entry[];
 const isCloud = (provider: string) => provider !== 'ollama' && provider !== 'builtin-ai';
 
 // Selector compacto del modelo con el que conversa el chat. Usa el mismo catálogo que el análisis.
@@ -28,6 +27,7 @@ export function AssistantModelSelect({
   const { t } = useTranslation();
   const { providerApiKeys, modelConfig } = useConfig();
   const [local, setLocal] = useState<Entry[]>([]);
+  const cloudModels = useCloudModels('analysis');
 
   useEffect(() => {
     let active = true;
@@ -45,10 +45,10 @@ export function AssistantModelSelect({
 
   const hasKey = (p: string) => !isCloud(p) || !!(providerApiKeys as Record<string, string | null>)[p];
   const current = `${provider}:${model}`;
-  const cloud = [...CLOUD];
+  const cloud = [...cloudModels];
   const localList = [...local];
-  if (isCloud(provider) && !cloud.some((m) => m.provider === provider && m.id === model)) cloud.unshift({ provider, id: model, label: model });
-  if (!isCloud(provider) && !localList.some((m) => m.provider === provider && m.id === model)) localList.unshift({ provider, id: model, label: model });
+  if (model && isCloud(provider) && !cloud.some((m) => m.provider === provider && m.id === model)) cloud.unshift({ provider, id: model, label: model });
+  if (model && !isCloud(provider) && !localList.some((m) => m.provider === provider && m.id === model)) localList.unshift({ provider, id: model, label: model });
 
   return (
     <Select

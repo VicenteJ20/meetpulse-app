@@ -115,7 +115,7 @@ export function AssistantButton() {
   );
 }
 
-export function LiveAssistantDockHost({ isOpen }: { isOpen: boolean }) {
+export function LiveAssistantDockHost({ isOpen, className }: { isOpen: boolean; className?: string }) {
   const { setLiveDockHost } = useAssistant();
   const hostRef = useRef<HTMLDivElement>(null);
 
@@ -127,7 +127,7 @@ export function LiveAssistantDockHost({ isOpen }: { isOpen: boolean }) {
   return (
     <div
       ref={hostRef}
-      className="live-dock-host"
+      className={className ? `live-dock-host ${className}` : "live-dock-host"}
       data-dock={isOpen ? "on" : "off"}
       aria-label={isOpen ? "Assistant dock" : undefined}
     />
@@ -209,8 +209,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     }, 50);
     return () => clearTimeout(timer);
   }, [isRecording, currentMeetingId]);
-  const provider = prefs.provider || modelConfig.provider;
-  const model = prefs.model ?? modelConfig.model;
+  // Un valor guardado a medias (proveedor sin modelo) se ignora: se usa el modelo de análisis configurado.
+  const hasPrefModel = !!prefs.provider && !!prefs.model;
+  const provider = hasPrefModel ? prefs.provider! : modelConfig.provider;
+  const model = hasPrefModel ? prefs.model! : modelConfig.model;
   useEffect(() => {
     const shell = document.querySelector<HTMLElement>(".app-shell");
     if (shell) {

@@ -150,7 +150,7 @@ export default function AskPage() {
         </section>
       </aside>
       <section aria-label={t('ask.conversation')} className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-card">
-        <LiveAssistantDockHost isOpen />
+        <LiveAssistantDockHost isOpen className="flex-1" />
       </section>
     </main>
   );

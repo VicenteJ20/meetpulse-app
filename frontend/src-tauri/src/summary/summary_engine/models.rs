@@ -123,6 +123,19 @@ impl SamplingParams {
     }
 }
 
+/// Ciclo de vida de un modelo: permite jubilar modelos sin dejar de servir a quien ya los usa.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Lifecycle {
+    /// Vigente.
+    #[default]
+    Current,
+    /// Sigue funcionando, pero existe un sucesor más nuevo.
+    Legacy,
+    /// Tiene fecha de retiro (`retire_after`).
+    Retiring,
+}
+
 /// Definition of a built-in AI model with all metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelDef {
@@ -157,65 +170,89 @@ pub struct ModelDef {
 
     /// Short description for UI
     pub description: String,
+
+    /// Vigente, anterior o con fecha de retiro
+    pub lifecycle: Lifecycle,
+
+    /// Modelo que lo reemplaza (nombre "familia:variante")
+    pub successor: Option<String>,
+
+    /// Fecha tentativa de retiro "YYYY-MM-DD"
+    pub retire_after: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct SamplingSpec {
+    preset: String,
+    stop_tokens: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct ManifestEntry {
+    name: String,
+    display_name: String,
+    gguf_file: String,
+    template: String,
+    download_url: String,
+    size_mb: u64,
+    context_size: u32,
+    layer_count: u32,
+    sampling: SamplingSpec,
+    description: String,
+    #[serde(default)]
+    lifecycle: Lifecycle,
+    #[serde(default)]
+    successor: Option<String>,
+    #[serde(default)]
+    retire_after: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Manifest {
+    models: Vec<ManifestEntry>,
+}
+
+/// El catálogo vive en `models/builtin_models.json` y se incrusta al compilar.
+const MANIFEST: &str = include_str!("../../../models/builtin_models.json");
+
+fn sampling_from_spec(spec: SamplingSpec) -> Result<SamplingParams> {
+    match spec.preset.as_str() {
+        "qwen35_summary" => Ok(SamplingParams::qwen35_summary(spec.stop_tokens)),
+        "gemma3_instruct" => Ok(SamplingParams::gemma3_instruct(spec.stop_tokens)),
+        "tight_structured" => Ok(SamplingParams::tight_structured(spec.stop_tokens)),
+        other => Err(anyhow!("Unknown sampling preset: {}", other)),
+    }
+}
+
+fn parse_manifest(json: &str) -> Result<Vec<ModelDef>> {
+    let manifest: Manifest = serde_json::from_str(json)?;
+    manifest
+        .models
+        .into_iter()
+        .map(|entry| {
+            Ok(ModelDef {
+                name: entry.name,
+                display_name: entry.display_name,
+                gguf_file: entry.gguf_file,
+                template: entry.template,
+                download_url: entry.download_url,
+                size_mb: entry.size_mb,
+                context_size: entry.context_size,
+                layer_count: entry.layer_count,
+                sampling: sampling_from_spec(entry.sampling)?,
+                description: entry.description,
+                lifecycle: entry.lifecycle,
+                successor: entry.successor,
+                retire_after: entry.retire_after,
+            })
+        })
+        .collect()
 }
 
 /// Get all available built-in AI models
-/// Add new models here - the system will automatically detect and manage them
+/// Edit `models/builtin_models.json` to add, retire or replace models.
 pub fn get_available_models() -> Vec<ModelDef> {
-    vec![
-        // Qwen 3.5 2B - Balanced tier
-        ModelDef {
-            name: "qwen3.5:2b".to_string(),
-            display_name: "Qwen 3.5 2B (Balanced)".to_string(),
-            gguf_file: "Qwen3.5-2B-Q4_K_M.gguf".to_string(),
-            template: "qwen3.5_nonthinking".to_string(),
-            download_url: "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf".to_string(),
-            size_mb: 1221,
-            context_size: 32768,
-            layer_count: 24,
-            sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
-            description: "Balanced Qwen 3.5 model for built-in summaries. Higher quality with modest local requirements.".to_string(),
-        },
-        // Qwen 3.5 4B - High quality tier
-        ModelDef {
-            name: "qwen3.5:4b".to_string(),
-            display_name: "Qwen 3.5 4B (High Quality)".to_string(),
-            gguf_file: "Qwen3.5-4B-Q4_K_M.gguf".to_string(),
-            template: "qwen3.5_nonthinking".to_string(),
-            download_url: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf".to_string(),
-            size_mb: 2614,
-            context_size: 32768,
-            layer_count: 32,
-            sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
-            description: "High-quality Qwen 3.5 model for built-in summaries. Best local Qwen option in the current lineup.".to_string(),
-        },
-        // Gemma 3 4B - Legacy alternative retained for users who prefer Gemma output.
-        ModelDef {
-            name: "gemma3:4b".to_string(),
-            display_name: "Gemma 3 4B (Balanced)".to_string(),
-            gguf_file: "gemma-3-4b-it-Q4_K_M.gguf".to_string(),
-            template: "gemma3".to_string(),
-            download_url: "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf".to_string(),
-            size_mb: 2374,
-            context_size: 32768,
-            layer_count: 35,
-            sampling: SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]),
-            description: "Balanced model. Great quality/speed trade-off. Requires ~3.5GB RAM.".to_string(),
-        },
-        // Gemma 3 1B - Visible legacy tier retained for already-shipped users.
-        ModelDef {
-            name: "gemma3:1b".to_string(),
-            display_name: "Gemma 3 1B (Fast)".to_string(),
-            gguf_file: "gemma-3-1b-it-Q8_0.gguf".to_string(),
-            template: "gemma3".to_string(),
-            download_url: "https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q8_0.gguf".to_string(),
-            size_mb: 1019,
-            context_size: 32768,
-            layer_count: 26,
-            sampling: SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]),
-            description: "Fastest model. Runs on any hardware with ~1GB RAM. Good for quick summaries.".to_string(),
-        },
-    ]
+    parse_manifest(MANIFEST).expect("models/builtin_models.json is invalid")
 }
 
 /// Get a specific model by name
@@ -330,6 +367,19 @@ pub const GENERATION_TIMEOUT_SECS: u64 = 900; // 15 minutes
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn manifest_parses_and_successors_exist() {
+        let models = parse_manifest(MANIFEST).expect("manifest must parse");
+        assert!(!models.is_empty());
+        for model in &models {
+            if let Some(successor) = &model.successor {
+                assert!(models.iter().any(|m| &m.name == successor), "successor {} of {} is not in the catalog", successor, model.name);
+            }
+            assert!(format_prompt(&model.template, "s", "u").is_ok(), "unknown template for {}", model.name);
+        }
+        assert_eq!(get_default_model().lifecycle, Lifecycle::Current);
+    }
 
     #[test]
     fn qwen35_models_are_registered_with_expected_metadata() {

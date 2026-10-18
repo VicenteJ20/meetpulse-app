@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import catalog from '@/config/models.json';
+import { useCloudModels } from '@/hooks/useCloudModels';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { useTranscriptionModels } from '@/hooks/useTranscriptionModels';
@@ -24,10 +24,7 @@ function Labeled({ label, hint, children }: { label: string; hint?: string; chil
   );
 }
 
-// Los modelos en la nube salen de src/config/models.json: ahí se agregan o quitan sin tocar código.
-type CatalogEntry = { provider: string; id: string; label: string };
-const CLOUD_TRANSCRIPTION = catalog.transcription as CatalogEntry[];
-const CLOUD_ANALYSIS = catalog.analysis as CatalogEntry[];
+// Los modelos en la nube salen en vivo del proveedor, filtrados por las reglas de src/config/models.json.
 
 const PROVIDER_LABEL: Record<string, string> = { whisper: 'Whisper', parakeet: 'Parakeet', gemini: 'Gemini' };
 const PROVIDER_NAME: Record<string, string> = { ollama: 'Ollama', 'builtin-ai': 'MeetPulse' };
@@ -38,6 +35,7 @@ export function TranscriptionEngineSelect() {
   const { t } = useTranslation();
   const { transcriptModelConfig, setTranscriptModelConfig, providerApiKeys } = useConfig();
   const { availableModels, loadingModels, fetchModels } = useTranscriptionModels(transcriptModelConfig);
+  const cloudModels = useCloudModels('transcription');
 
   useEffect(() => { void fetchModels(); }, [fetchModels]);
 
@@ -67,7 +65,7 @@ export function TranscriptionEngineSelect() {
     }
   };
 
-  const cloud = [...CLOUD_TRANSCRIPTION];
+  const cloud = [...cloudModels];
   if (transcriptModelConfig.provider === 'gemini' && !cloud.some((m) => m.id === transcriptModelConfig.model)) {
     cloud.unshift({ provider: 'gemini', id: transcriptModelConfig.model, label: transcriptModelConfig.model });
   }
@@ -133,6 +131,7 @@ export function SummaryModelSelect() {
   const { t } = useTranslation();
   const { modelConfig, setModelConfig, providerApiKeys } = useConfig();
   const [local, setLocal] = useState<LocalModel[]>([]);
+  const cloudModels = useCloudModels('analysis');
 
   // Locales: los que expone Ollama y los integrados. Los de nube salen del catálogo editable.
   useEffect(() => {
@@ -179,7 +178,7 @@ export function SummaryModelSelect() {
   };
 
   const current = `${modelConfig.provider}:${modelConfig.model}`;
-  const cloud = [...CLOUD_ANALYSIS];
+  const cloud = [...cloudModels];
   const localList = [...local];
   if (isCloudProvider(modelConfig.provider) && !cloud.some((m) => m.provider === modelConfig.provider && m.id === modelConfig.model)) {
     cloud.unshift({ provider: modelConfig.provider, id: modelConfig.model, label: modelConfig.model });

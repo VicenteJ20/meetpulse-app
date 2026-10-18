@@ -101,6 +101,15 @@ pub struct ModelInfo {
 
     /// GGUF filename on disk
     pub gguf_file: String,
+
+    /// "current", "legacy" o "retiring"
+    pub lifecycle: String,
+
+    /// Modelo sucesor, si lo hay
+    pub successor: Option<String>,
+
+    /// Fecha tentativa de retiro (YYYY-MM-DD)
+    pub retire_after: Option<String>,
 }
 
 // ============================================================================
@@ -278,6 +287,9 @@ impl ModelManager {
                 context_size: model_def.context_size,
                 description: model_def.description.clone(),
                 gguf_file: model_def.gguf_file.clone(),
+                lifecycle: format!("{:?}", model_def.lifecycle).to_lowercase(),
+                successor: model_def.successor.clone(),
+                retire_after: model_def.retire_after.clone(),
             };
 
             models_map.insert(model_def.name.clone(), model_info);
