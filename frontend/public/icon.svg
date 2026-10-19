@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>MeetPulse</title>
+  <path d="M112 0 H330 L512 182 V400 A112 112 0 0 1 400 512 H112 A112 112 0 0 1 0 400 V112 A112 112 0 0 1 112 0 Z" fill="#0B6BE0"/>
+  <path d="M330 0 L512 182 H330 Z" fill="#5BA6FF"/>
+  <rect x="198" y="104" width="116" height="210" rx="58" fill="#FFFFFF"/>
+  <path d="M150 270 A106 106 0 0 0 362 270" fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round"/>
+  <path d="M256 376 V420" fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round"/>
+</svg>

@@ -4,7 +4,7 @@
   "description": "Privacy-first AI meeting assistant",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0b5fa5",
+  "theme_color": "#0b6be0",
   "icons": [
     {
       "src": "/pwa/icon_128x128.png",
