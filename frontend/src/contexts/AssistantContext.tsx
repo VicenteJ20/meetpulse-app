@@ -91,6 +91,8 @@ export function useAssistantTarget(target: Target) {
     target.initialQuestion,
     setTarget,
   ]);
+  // Al salir de la pantalla (Preguntar o una reunión) el chat no debe quedar abierto en otras vistas.
+  useEffect(() => () => setTarget(null), [setTarget]);
 }
 export function AssistantButton() {
   const { open, toggle, coach } = useAssistant();
@@ -195,6 +197,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       setOpen(true);
     }
   }, [target?.id, target?.allMeetings, target?.initialQuestion]);
+  useEffect(() => {
+    if (!target) setOpen(false);
+  }, [!!target]);
   const startedFor = useRef("");
   useEffect(() => {
     if (!isRecording || !currentMeetingId || startedFor.current === currentMeetingId) return;

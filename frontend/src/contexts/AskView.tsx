@@ -128,7 +128,7 @@ export function AskView(props: Props) {
   );
 
   const content = (
-    <div className={cn("flex h-full min-h-0 w-full flex-col items-center", empty && "justify-center")}>
+    <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col items-center self-stretch overflow-hidden", empty && "justify-center")}>
       <AnimatePresence initial={false}>
         {empty && (
           <motion.div
@@ -155,7 +155,7 @@ export function AskView(props: Props) {
       )}
 
       {error && <p role="alert" className="mb-2 max-h-24 w-full max-w-3xl overflow-auto break-words px-6 text-xs text-destructive">{error}</p>}
-      <div className={cn("flex w-full justify-center px-6", empty ? "pb-0" : "pb-5")}>{composer}</div>
+      <div className={cn("flex w-full shrink-0 justify-center px-6", empty ? "pb-0" : "pb-5")}>{composer}</div>
     </div>
   );
 
