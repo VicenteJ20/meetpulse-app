@@ -9,9 +9,15 @@ pub(crate) async fn test_pool() -> sqlx::SqlitePool {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    sqlx::raw_sql("CREATE TABLE meetings(id TEXT PRIMARY KEY,title TEXT,client TEXT,project TEXT,created_at TEXT,updated_at TEXT,folder_path TEXT,additional_context TEXT); CREATE TABLE transcripts(id TEXT PRIMARY KEY,meeting_id TEXT,transcript TEXT,timestamp TEXT,audio_start_time REAL,audio_end_time REAL,duration REAL,speaker TEXT);").execute(&pool).await.unwrap();
+    sqlx::raw_sql("CREATE TABLE meetings(id TEXT PRIMARY KEY,title TEXT,client TEXT,project TEXT,created_at TEXT,updated_at TEXT,folder_path TEXT,additional_context TEXT); CREATE TABLE transcripts(id TEXT PRIMARY KEY,meeting_id TEXT,transcript TEXT,timestamp TEXT,audio_start_time REAL,audio_end_time REAL,duration REAL,speaker TEXT); CREATE TABLE summary_processes(meeting_id TEXT PRIMARY KEY,status TEXT,result TEXT);").execute(&pool).await.unwrap();
     sqlx::raw_sql(include_str!(
         "../../migrations/20261017000000_desktop_assistant.sql"
+    ))
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::raw_sql(include_str!(
+        "../../migrations/20261019000000_assistant_summary_chunks.sql"
     ))
     .execute(&pool)
     .await

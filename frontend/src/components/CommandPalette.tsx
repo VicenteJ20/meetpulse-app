@@ -130,7 +130,8 @@ export default function CommandPalette() {
                 onSelect={() => run(() => {
                   if (!source.meetingId) return;
                   setCurrentMeeting({ id: source.meetingId, title: source.title });
-                  router.push(`/meeting-details?id=${encodeURIComponent(source.meetingId)}&sourceTime=${source.start}`);
+                  const fromSummary = /:s\d+$/.test(source.id);
+                  router.push(`/meeting-details?id=${encodeURIComponent(source.meetingId)}${fromSummary ? '' : `&sourceTime=${source.start}`}`);
                 })}
               >
                 <FileText />
@@ -139,7 +140,9 @@ export default function CommandPalette() {
                   <span className="block truncate text-xs text-muted-foreground">{source.text}</span>
                 </span>
                 <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                  {Math.floor(source.start / 60)}:{String(Math.floor(source.start % 60)).padStart(2, '0')}
+                  {/:s\d+$/.test(source.id)
+                    ? t('library.fromSummary')
+                    : `${Math.floor(source.start / 60)}:${String(Math.floor(source.start % 60)).padStart(2, '0')}`}
                 </span>
               </CommandItem>
             ))}

@@ -117,19 +117,70 @@ fn cosine(blob: &[u8], query: &[f32]) -> f32 {
         .map(|(b, q)| f32::from_le_bytes([b[0], b[1], b[2], b[3]]) * q)
         .sum()
 }
-fn text_windows(text: &str) -> Vec<String> {
+/// True for passages that come from a meeting's summary rather than from its transcript.
+pub fn is_summary_chunk(id: &str) -> bool {
+    id.rsplit(':')
+        .next()
+        .is_some_and(|tail| tail.len() > 1 && tail.starts_with('s') && tail[1..].chars().all(|c| c.is_ascii_digit()))
+}
+/// Plain text lines of a stored summary: its markdown, or the English cache when only that is present.
+fn summary_lines(result: &str) -> Vec<String> {
+    let Ok(value) = serde_json::from_str::<Value>(result) else {
+        return vec![];
+    };
+    let markdown = value
+        .get("markdown")
+        .and_then(Value::as_str)
+        .or_else(|| value.pointer("/english_cache/markdown").and_then(Value::as_str))
+        .unwrap_or_default();
+    markdown
+        .lines()
+        .map(|line| {
+            line.replace(['#', '*', '`', '>', '|'], " ")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .trim_matches(|c: char| c.is_whitespace() || c == '-')
+                .to_string()
+        })
+        .filter(|line| !line.is_empty())
+        .collect()
+}
+const WINDOW_CHARS: usize = 800;
+const WINDOW_OVERLAP: usize = 150;
+/// Transcript segments are a few words each, too short to embed meaningfully. Merge consecutive segments into
+/// passages of about 800 characters (150 of overlap) and keep the time of the segment each passage starts at.
+fn merged_windows(rows: &[(String, f64, Option<f64>)]) -> Vec<(String, f64, Option<f64>)> {
+    let mut text = String::new();
+    let mut spans: Vec<(usize, f64, Option<f64>)> = Vec::new();
+    let mut len = 0usize;
+    for (segment, start, end) in rows {
+        let segment = segment.trim();
+        if segment.is_empty() {
+            continue;
+        }
+        if len > 0 {
+            text.push(' ');
+            len += 1;
+        }
+        spans.push((len, *start, *end));
+        text.push_str(segment);
+        len += segment.chars().count();
+    }
     let chars: Vec<char> = text.chars().collect();
-    let mut result = Vec::new();
+    let mut out = Vec::new();
     let mut start = 0;
     while start < chars.len() {
-        let end = (start + 900).min(chars.len());
-        result.push(chars[start..end].iter().collect());
+        let end = (start + WINDOW_CHARS).min(chars.len());
+        let first = spans.iter().rev().find(|(offset, ..)| *offset <= start).unwrap_or(&spans[0]);
+        let last = spans.iter().rev().find(|(offset, ..)| *offset < end).unwrap_or(&spans[0]);
+        out.push((chars[start..end].iter().collect(), first.1, last.2));
         if end == chars.len() {
             break;
         }
-        start = end.saturating_sub(150);
+        start = end.saturating_sub(WINDOW_OVERLAP);
     }
-    result
+    out
 }
 pub async fn ensure_text_index(pool: &SqlitePool) -> Result<(), String> {
     ensure_scoped_text_index(pool, None, None).await
@@ -139,15 +190,36 @@ async fn ensure_scoped_text_index(
     client: Option<&str>,
     project: Option<&str>,
 ) -> Result<(), String> {
-    let meetings=sqlx::query_scalar::<_,String>("SELECT id FROM meetings WHERE (? IS NULL OR client=?) AND (? IS NULL OR project=?) AND EXISTS(SELECT 1 FROM transcripts WHERE meeting_id=meetings.id) AND NOT EXISTS(SELECT 1 FROM assistant_chunks WHERE meeting_id=meetings.id)").bind(client).bind(client).bind(project).bind(project).fetch_all(pool).await.map_err(|e|e.to_string())?;
+    // Earlier versions indexed every transcript segment on its own; drop those so they are rebuilt as passages.
+    sqlx::query("DELETE FROM assistant_chunks WHERE id NOT GLOB '*:w[0-9]*' AND id NOT GLOB '*:s[0-9]*'")
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    let meetings=sqlx::query_scalar::<_,String>("SELECT id FROM meetings WHERE (? IS NULL OR client=?) AND (? IS NULL OR project=?) AND EXISTS(SELECT 1 FROM transcripts WHERE meeting_id=meetings.id) AND NOT EXISTS(SELECT 1 FROM assistant_chunks WHERE meeting_id=meetings.id AND id GLOB '*:w[0-9]*')").bind(client).bind(client).bind(project).bind(project).fetch_all(pool).await.map_err(|e|e.to_string())?;
     for meeting in meetings {
         let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
         let rows=sqlx::query("SELECT transcript,COALESCE(audio_start_time,0) AS start,audio_end_time AS end FROM transcripts WHERE meeting_id=? ORDER BY COALESCE(audio_start_time,0),rowid").bind(&meeting).fetch_all(&mut *tx).await.map_err(|e|e.to_string())?;
-        for (i, row) in rows.iter().enumerate() {
-            let text: String = row.get("transcript");
-            for (j, text) in text_windows(&text).into_iter().enumerate() {
-                sqlx::query("INSERT OR IGNORE INTO assistant_chunks(id,meeting_id,text,start,end) VALUES(?,?,?,?,?)").bind(format!("{}:{}:{}",meeting,i,j)).bind(&meeting).bind(text).bind(row.get::<f64,_>("start")).bind(row.get::<Option<f64>,_>("end")).execute(&mut *tx).await.map_err(|e|e.to_string())?;
-            }
+        let segments: Vec<(String, f64, Option<f64>)> = rows
+            .iter()
+            .map(|row| (row.get("transcript"), row.get("start"), row.get("end")))
+            .collect();
+        for (i, (text, start, end)) in merged_windows(&segments).into_iter().enumerate() {
+            sqlx::query("INSERT OR IGNORE INTO assistant_chunks(id,meeting_id,text,start,end) VALUES(?,?,?,?,?)").bind(format!("{}:w{}",meeting,i)).bind(&meeting).bind(text).bind(start).bind(end).execute(&mut *tx).await.map_err(|e|e.to_string())?;
+        }
+        tx.commit().await.map_err(|e| e.to_string())?;
+    }
+    // A completed summary ("insights") is far shorter and denser than the transcript it comes from, so it is indexed too.
+    let summaries = sqlx::query("SELECT m.id AS id, s.result AS result FROM meetings m JOIN summary_processes s ON s.meeting_id=m.id WHERE s.status='completed' AND s.result IS NOT NULL AND (? IS NULL OR m.client=?) AND (? IS NULL OR m.project=?) AND NOT EXISTS(SELECT 1 FROM assistant_chunks c WHERE c.meeting_id=m.id AND c.id GLOB '*:s[0-9]*')").bind(client).bind(client).bind(project).bind(project).fetch_all(pool).await.map_err(|e|e.to_string())?;
+    for row in summaries {
+        let meeting: String = row.get("id");
+        let result: String = row.get("result");
+        let segments: Vec<(String, f64, Option<f64>)> = summary_lines(&result)
+            .into_iter()
+            .map(|line| (line, 0.0, None))
+            .collect();
+        let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+        for (i, (text, start, end)) in merged_windows(&segments).into_iter().enumerate() {
+            sqlx::query("INSERT OR IGNORE INTO assistant_chunks(id,meeting_id,text,start,end) VALUES(?,?,?,?,?)").bind(format!("{}:s{}",meeting,i)).bind(&meeting).bind(text).bind(start).bind(end).execute(&mut *tx).await.map_err(|e|e.to_string())?;
         }
         tx.commit().await.map_err(|e| e.to_string())?;
     }
@@ -397,7 +469,7 @@ pub async fn desktop_search_query(
     }
 
     let pool = state.db_manager.pool();
-    let (sources, partial) = retrieve_all(&app, pool, &query).await?;
+    let (sources, partial) = search_relevant(&app, pool, &query).await?;
     Ok(json!({"sources": sources, "partial": partial}))
 }
 
@@ -421,7 +493,7 @@ pub async fn retrieve_all(
     };
 
     let rows = sqlx::query(
-        "SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id ORDER BY m.created_at DESC LIMIT 50000",
+        "SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE c.id NOT GLOB '*:s[0-9]*' ORDER BY m.created_at DESC LIMIT 50000",
     )
     .fetch_all(pool)
     .await
@@ -464,6 +536,132 @@ pub async fn retrieve_all(
     let sources: Vec<Source> = ranked
         .into_iter()
         .take(8)
+        .filter_map(|(id, _)| {
+            let row = rows.iter().find(|row| row.get::<String, _>("id") == id)?;
+            Some(Source {
+                id,
+                meeting_id: Some(row.get("meeting_id")),
+                session_id: None,
+                title: row.get("title"),
+                text: row.get("text"),
+                start: row.get("start"),
+                end: row.get("end"),
+            })
+        })
+        .collect();
+    Ok((sources, partial))
+}
+
+const STOPWORDS: [&str; 40] = [
+    "que", "del", "los", "las", "una", "uno", "con", "por", "para", "como", "pero", "sus", "les", "este", "esta",
+    "esto", "ese", "esa", "muy", "mas", "hay", "fue", "son", "sobre", "entre", "the", "and", "for", "with", "that",
+    "this", "are", "was", "you", "not", "from", "have", "about", "what", "when",
+];
+/// Minimum cosine similarity, and how far above the query's own score distribution a passage must sit.
+/// multilingual-e5 scores cluster between 0.75 and 0.88 for everything, so absolute values alone do not
+/// separate relevant from unrelated text: the passage must also stand out from all the others.
+const MIN_SEMANTIC_SCORE: f32 = 0.82;
+const MIN_SEMANTIC_Z: f32 = 2.2;
+const MAX_GAP_FROM_BEST: f32 = 0.04;
+
+const SUMMARY_WEIGHT: f32 = 1.6;
+
+/// Keeps only the passages whose similarity clearly stands out from the rest of their kind.
+/// `scores` must be sorted best first.
+fn gate_semantic(scores: Vec<(String, f32)>) -> Vec<(String, f32)> {
+    let Some(best) = scores.first().map(|(_, score)| *score) else {
+        return scores;
+    };
+    let n = scores.len() as f32;
+    let mean = scores.iter().map(|(_, s)| s).sum::<f32>() / n;
+    let sd = (scores.iter().map(|(_, s)| (s - mean).powi(2)).sum::<f32>() / n).sqrt();
+    // With very few passages the spread is not meaningful, so only the absolute floor applies.
+    let floor = if scores.len() >= 10 {
+        MIN_SEMANTIC_SCORE.max(mean + MIN_SEMANTIC_Z * sd)
+    } else {
+        MIN_SEMANTIC_SCORE + 0.02
+    };
+    scores
+        .into_iter()
+        .filter(|(_, score)| *score >= floor && *score >= best - MAX_GAP_FROM_BEST)
+        .collect()
+}
+
+/// Search for the library and the palette: only passages that are actually relevant to the query come back.
+/// A passage qualifies by matching every meaningful word of the query, or by a similarity that clearly stands out.
+pub async fn search_relevant(
+    app: &tauri::AppHandle,
+    pool: &SqlitePool,
+    query: &str,
+) -> Result<(Vec<Source>, bool), String> {
+    ensure_text_index(pool).await?;
+    let path = directory(app)?;
+    let available = ready(&path);
+    let query_vector = if available {
+        let text = query.to_string();
+        Some(
+            tauri::async_runtime::spawn_blocking(move || embed(&path, &text, true))
+                .await
+                .map_err(|e| e.to_string())??,
+        )
+    } else {
+        None
+    };
+    let rows = sqlx::query(
+        "SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id ORDER BY m.created_at DESC LIMIT 50000",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    let partial = !available
+        || rows
+            .iter()
+            .any(|row| row.get::<Option<Vec<u8>>, _>("embedding").is_none());
+
+    let terms: Vec<String> = query
+        .split(|c: char| !c.is_alphanumeric())
+        .map(|word| word.to_lowercase())
+        .filter(|word| word.chars().count() > 2 && !STOPWORDS.contains(&word.as_str()))
+        .take(12)
+        .collect();
+    let keywords = terms
+        .iter()
+        .map(|word| format!("\"{}\"", word.replace('"', "")))
+        .collect::<Vec<_>>()
+        .join(" AND ");
+    let lexical = text_matches_all(pool, &keywords).await?;
+
+    let mut semantic: Vec<(String, f32)> = rows
+        .iter()
+        .filter_map(|row| {
+            Some((
+                row.get("id"),
+                cosine(&row.get::<Option<Vec<u8>>, _>("embedding")?, query_vector.as_ref()?),
+            ))
+        })
+        .collect();
+    semantic.sort_by(|a, b| b.1.total_cmp(&a.1));
+    // Summaries and transcripts score on different scales, so each is judged against its own distribution.
+    let (summary_scores, transcript_scores): (Vec<_>, Vec<_>) =
+        semantic.into_iter().partition(|(id, _)| is_summary_chunk(id));
+    let semantic: Vec<(String, f32)> = [gate_semantic(summary_scores), gate_semantic(transcript_scores)].concat();
+
+    let mut scores = std::collections::HashMap::<String, f32>::new();
+    // A summary passage is a distilled answer, so for open questions it ranks above the raw transcript.
+    let weight = |id: &str| if is_summary_chunk(id) { SUMMARY_WEIGHT } else { 1.0 };
+    for (rank, id) in lexical.iter().take(30).enumerate() {
+        *scores.entry(id.clone()).or_default() += weight(id) / (60 + rank) as f32;
+    }
+    let mut by_score = semantic.clone();
+    by_score.sort_by(|a, b| b.1.total_cmp(&a.1));
+    for (rank, (id, _)) in by_score.iter().take(30).enumerate() {
+        *scores.entry(id.clone()).or_default() += weight(id) / (60 + rank) as f32;
+    }
+    let mut ranked: Vec<_> = scores.into_iter().collect();
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let sources = ranked
+        .into_iter()
+        .take(12)
         .filter_map(|(id, _)| {
             let row = rows.iter().find(|row| row.get::<String, _>("id") == id)?;
             Some(Source {
@@ -569,7 +767,7 @@ pub async fn retrieve(
     } else {
         None
     };
-    let rows=sqlx::query("SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE m.client=? AND (?='' OR m.project=?) AND (? IS NULL OR date(m.created_at)>=date(?)) AND (? IS NULL OR date(m.created_at)<=date(?))").bind(client).bind(project).bind(project).bind(from).bind(from).bind(to).bind(to).fetch_all(pool).await.map_err(|e|e.to_string())?;
+    let rows=sqlx::query("SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE c.id NOT GLOB '*:s[0-9]*' AND m.client=? AND (?='' OR m.project=?) AND (? IS NULL OR date(m.created_at)>=date(?)) AND (? IS NULL OR date(m.created_at)<=date(?))").bind(client).bind(project).bind(project).bind(from).bind(from).bind(to).bind(to).fetch_all(pool).await.map_err(|e|e.to_string())?;
     let partial = !available
         || rows
             .iter()
@@ -639,11 +837,11 @@ mod tests {
     use super::*;
     #[test]
     fn unicode_windows_overlap_without_losing_tail() {
-        let text = "decisiÃ³n Ã¡gil æ—¥æœ¬èªž ".repeat(150);
-        let windows = text_windows(&text);
+        let text = "decisi\u{f3}n \u{e1}gil \u{65e5}\u{672c}\u{8a9e} ".repeat(150);
+        let windows = merged_windows(&[(text, 0.0, None)]);
         assert!(windows.len() > 1);
-        assert!(windows.last().unwrap().ends_with("æ—¥æœ¬èªž "));
-        assert!(windows.iter().all(|s| s.chars().count() <= 900));
+        assert!(windows.last().unwrap().0.ends_with("\u{65e5}\u{672c}\u{8a9e}"));
+        assert!(windows.iter().all(|w| w.0.chars().count() <= WINDOW_CHARS));
     }
     #[tokio::test]
     async fn index_is_idempotent_scoped_and_invalidated_on_retranscription() {
@@ -715,6 +913,59 @@ mod tests {
         println!("Relevant similarity: {yes}; unrelated: {no}");
         assert!(yes > no);
     }
+    #[test]
+    fn short_segments_merge_into_overlapping_passages_with_start_times() {
+        let rows: Vec<(String, f64, Option<f64>)> = (0..60)
+            .map(|i| (format!("segment number {i} with a few words"), i as f64 * 5.0, Some(i as f64 * 5.0 + 4.0)))
+            .collect();
+        let windows = merged_windows(&rows);
+        assert!(windows.len() > 1 && windows.len() < rows.len());
+        assert_eq!(windows[0].1, 0.0);
+        assert!(windows[0].0.chars().count() <= WINDOW_CHARS);
+        assert!(windows[1].1 > windows[0].1);
+        assert!(merged_windows(&[]).is_empty());
+        assert!(merged_windows(&[("  ".to_string(), 0.0, None)]).is_empty());
+    }
+
+    #[test]
+    fn summary_text_is_extracted_and_passages_are_recognised() {
+        let lines = summary_lines(r###"{"markdown":"## Decisions\n- **Approve** the budget\n\nNext steps"}"###);
+        assert_eq!(lines, vec!["Decisions", "Approve the budget", "Next steps"]);
+        let cached = summary_lines(r#"{"english_cache":{"markdown":"Only cached"}}"#);
+        assert_eq!(cached, vec!["Only cached"]);
+        assert!(summary_lines("not json").is_empty());
+        assert!(is_summary_chunk("meeting-1:s0") && is_summary_chunk("a:b:s12"));
+        assert!(!is_summary_chunk("meeting-1:w3") && !is_summary_chunk("s1x") && !is_summary_chunk("meeting:s"));
+    }
+
+    #[tokio::test]
+    async fn summaries_are_indexed_and_rebuilt_when_they_change() {
+        let pool = crate::desktop::test_pool().await;
+        sqlx::raw_sql("INSERT INTO meetings(id,title,created_at) VALUES('a','A','2026-10-01'); INSERT INTO summary_processes(meeting_id,status,result) VALUES('a','completed','{\"markdown\":\"Approved the irrigation budget\"}');").execute(&pool).await.unwrap();
+        ensure_text_index(&pool).await.unwrap();
+        let text: String = sqlx::query_scalar("SELECT text FROM assistant_chunks WHERE id='a:s0'").fetch_one(&pool).await.unwrap();
+        assert!(text.contains("Approved the irrigation budget"));
+
+        sqlx::query("UPDATE summary_processes SET result='{\"markdown\":\"Moved to next quarter\"}' WHERE meeting_id='a'").execute(&pool).await.unwrap();
+        let stale: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM assistant_chunks WHERE id GLOB '*:s[0-9]*'").fetch_one(&pool).await.unwrap();
+        assert_eq!(stale, 0);
+        ensure_text_index(&pool).await.unwrap();
+        let text: String = sqlx::query_scalar("SELECT text FROM assistant_chunks WHERE id='a:s0'").fetch_one(&pool).await.unwrap();
+        assert_eq!(text, "Moved to next quarter");
+    }
+
+    #[test]
+    fn gate_keeps_only_standouts() {
+        let mut scores: Vec<(String, f32)> = (0..30).map(|i| (format!("c{i}"), 0.78 + (i % 5) as f32 * 0.005)).collect();
+        scores.push(("hit".into(), 0.90));
+        scores.sort_by(|a, b| b.1.total_cmp(&a.1));
+        let kept = gate_semantic(scores);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].0, "hit");
+        let flat: Vec<(String, f32)> = (0..30).map(|i| (format!("c{i}"), 0.80 + (i % 5) as f32 * 0.005)).collect();
+        assert!(gate_semantic(flat).is_empty());
+    }
+
     #[test]
     fn vector_roundtrip_and_cosine() {
         assert!((cosine(&encode_vector(&[0.6, 0.8]), &[0.6, 0.8]) - 1.0).abs() < 0.0001);
