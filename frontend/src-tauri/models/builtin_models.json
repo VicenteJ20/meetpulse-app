@@ -1,0 +1,158 @@
+{
+  "_help": [
+    "Catálogo de modelos de la IA integrada (Built-in AI). Es lo único que hay que editar para añadir, jubilar o reemplazar un modelo.",
+    "El primer modelo con lifecycle 'current' es el predeterminado.",
+    "lifecycle: 'current' (vigente) | 'legacy' (sigue funcionando, se avisa que hay uno más nuevo) | 'retiring' (tiene fecha de retiro en retire_after).",
+    "successor: nombre del modelo que lo reemplaza. retire_after: fecha tentativa 'YYYY-MM-DD' desde la cual dejará de ofrecerse para nuevas descargas.",
+    "Para sumar un modelo nuevo (por ejemplo Gemma 4): copia una entrada, cambia name, gguf_file, download_url, size_mb, context_size y layer_count; marca el anterior como 'legacy' con successor apuntando al nuevo.",
+    "sampling.preset admite: 'qwen35_summary', 'gemma3_instruct', 'gemma4_instruct', 'tight_structured'. template debe existir en models.rs (format_prompt).",
+    "Los usuarios que ya descargaron un modelo 'legacy' o 'retiring' pueden seguir usándolo; la app solo muestra el aviso y ofrece cambiar al sucesor.",
+    "Gemma 4 usa la plantilla 'gemma4' (<|turn>…<turn|>) y requiere un llama.cpp con la arquitectura gemma4. LFM 2.5 usa la plantilla 'lfm2' (ChatML; el BOS lo agrega llama-helper) y la arquitectura lfm2moe."
+  ],
+  "models": [
+    {
+      "name": "qwen3.5:2b",
+      "display_name": "Qwen 3.5 2B (Balanced)",
+      "gguf_file": "Qwen3.5-2B-Q4_K_M.gguf",
+      "template": "qwen3.5_nonthinking",
+      "download_url": "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
+      "size_mb": 1221,
+      "context_size": 32768,
+      "layer_count": 24,
+      "sampling": {
+        "preset": "qwen35_summary",
+        "stop_tokens": [
+          "<|im_end|>"
+        ]
+      },
+      "description": "Balanced Qwen 3.5 model for built-in summaries. Higher quality with modest local requirements.",
+      "lifecycle": "current"
+    },
+    {
+      "name": "qwen3.5:4b",
+      "display_name": "Qwen 3.5 4B (High Quality)",
+      "gguf_file": "Qwen3.5-4B-Q4_K_M.gguf",
+      "template": "qwen3.5_nonthinking",
+      "download_url": "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf",
+      "size_mb": 2614,
+      "context_size": 32768,
+      "layer_count": 32,
+      "sampling": {
+        "preset": "qwen35_summary",
+        "stop_tokens": [
+          "<|im_end|>"
+        ]
+      },
+      "description": "High-quality Qwen 3.5 model for built-in summaries. Best local Qwen option in the current lineup.",
+      "lifecycle": "current"
+    },
+    {
+      "name": "gemma4:e4b",
+      "display_name": "Gemma 4 E4B (Balanced)",
+      "gguf_file": "gemma-4-E4B-it-Q4_K_M.gguf",
+      "template": "gemma4",
+      "download_url": "https://huggingface.co/lmstudio-community/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf",
+      "size_mb": 5088,
+      "context_size": 32768,
+      "layer_count": 42,
+      "sampling": {
+        "preset": "gemma4_instruct",
+        "stop_tokens": [
+          "<turn|>"
+        ]
+      },
+      "description": "Gemma 4 efficient 4B. Good quality for its size; needs ~6GB of free memory.",
+      "lifecycle": "current"
+    },
+    {
+      "name": "gemma4:12b",
+      "display_name": "Gemma 4 12B (High Quality)",
+      "gguf_file": "gemma-4-12B-it-Q4_K_M.gguf",
+      "template": "gemma4",
+      "download_url": "https://huggingface.co/lmstudio-community/gemma-4-12B-it-GGUF/resolve/main/gemma-4-12B-it-Q4_K_M.gguf",
+      "size_mb": 7039,
+      "context_size": 32768,
+      "layer_count": 48,
+      "sampling": {
+        "preset": "gemma4_instruct",
+        "stop_tokens": [
+          "<turn|>"
+        ]
+      },
+      "description": "Gemma 4 12B. High quality summaries; needs ~9GB of free memory.",
+      "lifecycle": "current"
+    },
+    {
+      "name": "qwen3.8:27b",
+      "display_name": "Qwen 3.8 27B (Maximum Quality)",
+      "gguf_file": "Qwen3.8-27B-Q4_K_M.gguf",
+      "template": "qwen3.5_nonthinking",
+      "download_url": "https://huggingface.co/lmstudio-community/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-Q4_K_M.gguf",
+      "size_mb": 16032,
+      "context_size": 32768,
+      "layer_count": 64,
+      "sampling": {
+        "preset": "qwen35_summary",
+        "stop_tokens": [
+          "<|im_end|>"
+        ]
+      },
+      "description": "Largest local option. Best quality, needs a powerful GPU or ~20GB of free memory.",
+      "lifecycle": "current"
+    },
+    {
+      "name": "lfm2.5:8b-a1b",
+      "display_name": "LFM 2.5 8B-A1B (Fast MoE)",
+      "gguf_file": "LFM2.5-8B-A1B-Q4_K_M.gguf",
+      "template": "lfm2",
+      "download_url": "https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF/resolve/main/LFM2.5-8B-A1B-Q4_K_M.gguf",
+      "size_mb": 4917,
+      "context_size": 32768,
+      "layer_count": 24,
+      "sampling": {
+        "preset": "lfm25_instruct",
+        "stop_tokens": [
+          "<|im_end|>"
+        ]
+      },
+      "description": "Liquid AI mixture-of-experts model: 8.3B parameters but only 1.5B active per token, so it runs fast on CPU. Needs ~6GB of free memory.",
+      "lifecycle": "current"
+    },
+    {
+      "name": "lfm2.5:350m",
+      "display_name": "LFM 2.5 350M (Tiny)",
+      "gguf_file": "LFM2.5-350M-Q8_0.gguf",
+      "template": "lfm2",
+      "download_url": "https://huggingface.co/LiquidAI/LFM2.5-350M-GGUF/resolve/main/LFM2.5-350M-Q8_0.gguf",
+      "size_mb": 362,
+      "context_size": 32768,
+      "layer_count": 16,
+      "sampling": {
+        "preset": "lfm25_extract",
+        "stop_tokens": [
+          "<|im_end|>"
+        ]
+      },
+      "description": "Tiny Liquid AI model (350M, 0.4GB). Built for data extraction, structured output and quick lookups; too small for high-quality summaries.",
+      "lifecycle": "current"
+    },
+    {
+      "name": "lfm2.5:1.2b",
+      "display_name": "LFM 2.5 1.2B (Fast)",
+      "gguf_file": "LFM2.5-1.2B-Instruct-Q8_0.gguf",
+      "template": "lfm2",
+      "download_url": "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-Q8_0.gguf",
+      "size_mb": 1189,
+      "context_size": 32768,
+      "layer_count": 16,
+      "sampling": {
+        "preset": "lfm25_extract",
+        "stop_tokens": [
+          "<|im_end|>"
+        ]
+      },
+      "description": "Compact Liquid AI instruct model (1.2B, 1.2GB). Fast on CPU and good for short summaries and structured output; needs ~2GB of free memory.",
+      "lifecycle": "current"
+    }
+  ]
+}

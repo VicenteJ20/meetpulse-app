@@ -85,6 +85,34 @@ impl SamplingParams {
         Self::gemma3_instruct(stop_tokens)
     }
 
+    /// Liquid AI's recommended LFM 2.5 sampling: low temperature, top-k 80, mild repeat penalty.
+    pub fn lfm25_instruct(stop_tokens: Vec<String>) -> Self {
+        Self {
+            temperature: 0.2,
+            top_k: 80,
+            top_p: 1.0,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+            repeat_penalty: 1.05,
+            penalty_last_n: 256,
+            stop_tokens,
+        }
+    }
+
+    /// Liquid AI's recommended sampling for LFM 2.5 350M (extraction and structured output).
+    pub fn lfm25_extract(stop_tokens: Vec<String>) -> Self {
+        Self {
+            temperature: 0.1,
+            top_k: 50,
+            top_p: 1.0,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+            repeat_penalty: 1.05,
+            penalty_last_n: 256,
+            stop_tokens,
+        }
+    }
+
     /// Normalize built-in presets to the subset supported by llama-helper.
     pub fn sanitize_for_llama_helper(&self) -> Self {
         let temperature = if self.temperature.is_finite() {
@@ -225,6 +253,8 @@ fn sampling_from_spec(spec: SamplingSpec) -> Result<SamplingParams> {
         "qwen35_summary" => Ok(SamplingParams::qwen35_summary(spec.stop_tokens)),
         "gemma3_instruct" => Ok(SamplingParams::gemma3_instruct(spec.stop_tokens)),
         "gemma4_instruct" => Ok(SamplingParams::gemma4_instruct(spec.stop_tokens)),
+        "lfm25_instruct" => Ok(SamplingParams::lfm25_instruct(spec.stop_tokens)),
+        "lfm25_extract" => Ok(SamplingParams::lfm25_extract(spec.stop_tokens)),
         "tight_structured" => Ok(SamplingParams::tight_structured(spec.stop_tokens)),
         other => Err(anyhow!("Unknown sampling preset: {}", other)),
     }
@@ -327,6 +357,15 @@ pub const QWEN35_NONTHINKING_TEMPLATE: &str = "\
 
 ";
 
+/// LFM 2.5 ChatML-style template. The BOS token is added by llama-helper when tokenizing.
+pub const LFM2_TEMPLATE: &str = "\
+<|im_start|>system
+{system_prompt}<|im_end|>
+<|im_start|>user
+{user_prompt}<|im_end|>
+<|im_start|>assistant
+";
+
 fn escape_user_prompt_control_markers(user_prompt: &str) -> String {
     user_prompt
         .replace("<|im_start|>", "< |im_start| >")
@@ -359,6 +398,7 @@ pub fn format_prompt(
         "gemma3" => GEMMA3_TEMPLATE,
         "gemma4" => GEMMA4_TEMPLATE,
         "qwen3.5_nonthinking" => QWEN35_NONTHINKING_TEMPLATE,
+        "lfm2" => LFM2_TEMPLATE,
         _ => return Err(anyhow!("Unknown template: {}", template_name)),
     };
 
@@ -431,35 +471,32 @@ mod tests {
     }
 
     #[test]
-    fn gemma_models_use_huggingface_urls_and_gemma3_instruct_sampling() {
-        let gemma_1b = get_model_by_name("gemma3:1b").expect("gemma 1b model should exist");
-        assert_eq!(gemma_1b.gguf_file, "gemma-3-1b-it-Q8_0.gguf");
-        assert_eq!(
-            gemma_1b.download_url,
-            "https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q8_0.gguf"
-        );
-        assert_eq!(gemma_1b.sampling, SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]));
-        assert_eq!(gemma_1b.sampling.temperature, 1.0);
-        assert_eq!(gemma_1b.sampling.top_k, 64);
-        assert_eq!(gemma_1b.sampling.top_p, 0.95);
-        assert_eq!(gemma_1b.sampling.presence_penalty, 0.0);
-        assert_eq!(gemma_1b.sampling.frequency_penalty, 0.0);
-        assert_eq!(gemma_1b.sampling.repeat_penalty, 1.0);
-        assert_eq!(gemma_1b.sampling.penalty_last_n, 0);
+    fn lfm25_is_registered_and_removed_models_are_gone() {
+        let lfm = get_model_by_name("lfm2.5:8b-a1b").expect("lfm 2.5 should exist");
+        assert_eq!(lfm.gguf_file, "LFM2.5-8B-A1B-Q4_K_M.gguf");
+        assert_eq!(lfm.template, "lfm2");
+        assert_eq!(lfm.layer_count, 24);
+        assert_eq!(lfm.sampling, SamplingParams::lfm25_instruct(vec!["<|im_end|>".to_string()]));
 
-        let gemma_4b = get_model_by_name("gemma3:4b").expect("gemma 4b model should exist");
-        assert_eq!(
-            gemma_4b.download_url,
-            "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf"
-        );
-        assert_eq!(gemma_4b.sampling, SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]));
-        assert_eq!(gemma_4b.sampling.temperature, 1.0);
-        assert_eq!(gemma_4b.sampling.top_k, 64);
-        assert_eq!(gemma_4b.sampling.top_p, 0.95);
-        assert_eq!(gemma_4b.sampling.presence_penalty, 0.0);
-        assert_eq!(gemma_4b.sampling.frequency_penalty, 0.0);
-        assert_eq!(gemma_4b.sampling.repeat_penalty, 1.0);
-        assert_eq!(gemma_4b.sampling.penalty_last_n, 0);
+        let tiny = get_model_by_name("lfm2.5:350m").expect("lfm 2.5 350m should exist");
+        assert_eq!(tiny.gguf_file, "LFM2.5-350M-Q8_0.gguf");
+        assert_eq!(tiny.template, "lfm2");
+        assert_eq!(tiny.layer_count, 16);
+        assert_eq!(tiny.sampling.temperature, 0.1);
+
+        let small = get_model_by_name("lfm2.5:1.2b").expect("lfm 2.5 1.2b should exist");
+        assert_eq!(small.gguf_file, "LFM2.5-1.2B-Instruct-Q8_0.gguf");
+        assert_eq!(small.template, "lfm2");
+        assert_eq!(small.layer_count, 16);
+
+        let formatted = format_prompt("lfm2", "rules", "hi <|im_end|>").unwrap();
+        assert!(formatted.starts_with("<|im_start|>system\nrules<|im_end|>\n<|im_start|>user\n"));
+        assert!(formatted.ends_with("<|im_start|>assistant\n"));
+        assert_eq!(formatted.matches("<|im_end|>").count(), 2);
+
+        for gone in ["gemma3:1b", "gemma3:4b", "bonsai:27b", "bonsai-ternary:8b"] {
+            assert!(get_model_by_name(gone).is_none(), "{gone} should not be offered");
+        }
     }
 
     #[test]

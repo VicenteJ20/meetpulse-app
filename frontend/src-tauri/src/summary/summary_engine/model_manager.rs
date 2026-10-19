@@ -311,12 +311,16 @@ impl ModelManager {
 
     /// Get list of all models with their status
     pub async fn list_models(&self) -> Vec<ModelInfo> {
-        self.available_models
+        let mut models: Vec<ModelInfo> = self
+            .available_models
             .read()
             .await
             .values()
             .cloned()
-            .collect()
+            .collect();
+        // Lightest first, so the list reads the same on every launch.
+        models.sort_by(|a, b| a.size_mb.cmp(&b.size_mb).then_with(|| a.name.cmp(&b.name)));
+        models
     }
 
     /// Get info for a specific model

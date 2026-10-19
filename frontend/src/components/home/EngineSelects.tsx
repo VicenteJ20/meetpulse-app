@@ -124,7 +124,6 @@ export function LanguageSelect() {
   );
 }
 
-type ModelList = { models: { id: string; name: string }[] };
 type LocalModel = { provider: string; id: string; name: string; available?: boolean; legacy?: boolean };
 type BuiltInInfo = { name: string; display_name: string; status: { type: string }; lifecycle?: string };
 
@@ -134,19 +133,9 @@ export function SummaryModelSelect() {
   const [local, setLocal] = useState<LocalModel[]>([]);
   const cloudModels = useCloudModels('analysis');
 
-  // Locales: los que expone Ollama y los integrados. Los de nube salen del catálogo editable.
+  // Locales: los de la IA integrada. Los de nube salen del catálogo editable.
   useEffect(() => {
     let active = true;
-    const load = (provider: string): Promise<LocalModel[]> =>
-      invoke<ModelList>('desktop_list_models', {
-        provider,
-        purpose: 'analysis',
-        apiKey: null,
-        endpoint: provider === 'ollama' ? modelConfig.ollamaEndpoint ?? null : null,
-        refresh: false,
-      })
-        .then((list) => (list.models ?? []).map((m) => ({ provider, id: m.id, name: m.name || m.id })))
-        .catch(() => []);
     // IA integrada: se listan todos los del catálogo; los no descargados quedan inactivos.
     const loadBuiltIn = (): Promise<LocalModel[]> =>
       invoke<BuiltInInfo[]>('builtin_ai_list_models')
@@ -154,9 +143,9 @@ export function SummaryModelSelect() {
           .map((m) => ({ provider: 'builtin-ai', id: m.name, name: m.display_name || m.name, available: m.status.type === 'available', legacy: !!m.lifecycle && m.lifecycle !== 'current' }))
           .sort((x, y) => Number(x.legacy) - Number(y.legacy)))
         .catch(() => []);
-    void Promise.all([loadBuiltIn(), load('ollama')]).then(([a, b]) => { if (active) setLocal([...a, ...b]); });
+    void loadBuiltIn().then((items) => { if (active) setLocal(items); });
     return () => { active = false; };
-  }, [modelConfig.ollamaEndpoint]);
+  }, []);
 
   const keyFor = (provider: string): string | null => {
     if (!isCloudProvider(provider)) return null;
