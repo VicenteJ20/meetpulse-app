@@ -102,6 +102,7 @@ export default function AskPage() {
   return (
     <main className="ask-page grid h-full min-h-0 grid-cols-[272px_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-hidden bg-muted/20">
       <aside aria-label={t('ask.conversations')} className="flex min-h-0 flex-col gap-5 overflow-y-auto border-r border-border bg-background p-4">
+        <p className="px-2 pt-1 text-base font-semibold tracking-[-0.02em]">MeetPulse</p>
         <Button className="w-full justify-start" onClick={startNew}>
           <Plus /> {t('ask.newConversation')}
         </Button>
