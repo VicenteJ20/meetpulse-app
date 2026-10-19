@@ -12,10 +12,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader, EmptyState } from '@/components/ui/product';
+import { LibraryMark } from '@/components/brand/LibraryMark';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+
+type SemanticHit = { id: string; meetingId?: string; title: string; text: string; start: number; rank?: number };
+
+const GROUP_PREVIEW = 5;
+
+const normalize = (value: string) => value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 export default function LibraryPage() {
   const router = useRouter();
@@ -32,6 +39,8 @@ export default function LibraryPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [renaming, setRenaming] = useState<CurrentMeeting | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [showAllGroups, setShowAllGroups] = useState(false);
+  const [meetingLimit, setMeetingLimit] = useState(20);
 
   const NONE = '__none__';
   const byClient = (m: CurrentMeeting) => m.client || NONE;
@@ -51,6 +60,8 @@ export default function LibraryPage() {
     setClient(nextClient);
     setProject(nextProject);
     setSelected(new Set());
+    setShowAllGroups(false);
+    setMeetingLimit(20);
     const params = new URLSearchParams();
     if (nextClient) params.set('client', nextClient);
     if (nextProject) params.set('project', nextProject);
@@ -74,14 +85,58 @@ export default function LibraryPage() {
     return [...map.values()].sort((x, y) => (x.id === NONE ? 1 : y.id === NONE ? -1 : y.last.localeCompare(x.last)));
   }, [meetings, inClient, client]);
 
-  const searching = query.trim().length > 0;
+  const trimmedQuery = query.trim();
+  useEffect(() => setMeetingLimit(20), [trimmedQuery]);
+  const searching = trimmedQuery.length > 0;
+  // Niveles: clientes -> proyectos -> reuniones. La búsqueda mira todo y salta directo a las reuniones.
   const level: 'clients' | 'projects' | 'meetings' = searching || project ? 'meetings' : client ? 'projects' : 'clients';
+  const home = level === 'clients';
+
+  // Asegura que las reuniones nuevas tengan su índice semántico (no hace nada si ya está al día).
+  useEffect(() => {
+    void invoke('desktop_search_index', { cancel: false }).catch(() => undefined);
+  }, []);
+
+  // Búsqueda semántica sobre el índice local (multilingual-e5-small + texto): devuelve pasajes por reunión.
+  const [hits, setHits] = useState<Map<string, SemanticHit>>(new Map());
+  const [searchingIndex, setSearchingIndex] = useState(false);
+  useEffect(() => {
+    if (trimmedQuery.length < 3) {
+      setHits(new Map());
+      setSearchingIndex(false);
+      return;
+    }
+    let stale = false;
+    setSearchingIndex(true);
+    const timer = setTimeout(() => {
+      void invoke<{ sources: SemanticHit[] }>('desktop_search_query', { query: trimmedQuery })
+        .then((result) => {
+          if (stale) return;
+          const next = new Map<string, SemanticHit>();
+          (result.sources ?? []).forEach((source, rank) => {
+            if (source.meetingId && !next.has(source.meetingId)) next.set(source.meetingId, { ...source, rank });
+          });
+          setHits(next);
+        })
+        .catch((error) => {
+          if (!stale) console.warn('Library semantic search failed:', error);
+        })
+        .finally(() => {
+          if (!stale) setSearchingIndex(false);
+        });
+    }, 300);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [trimmedQuery]);
 
   const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return [...meetings]
-      .filter((m) => searching || !client || byClient(m) === client)
-      .filter((m) => searching || !project || byProject(m) === project)
+    const q = normalize(trimmedQuery);
+    const inScope = (m: CurrentMeeting) =>
+      (searching || !client || byClient(m) === client) && (searching || !project || byProject(m) === project);
+    const list = [...meetings]
+      .filter(inScope)
       .filter((m) => !tag || (m.tags ?? []).includes(tag))
       .filter((m) => {
         const date = m.created_at?.slice(0, 10) ?? '';
@@ -90,10 +145,29 @@ export default function LibraryPage() {
       .filter(
         (m) =>
           !q ||
-          `${m.title} ${m.client ?? ''} ${m.project ?? ''} ${(m.tags ?? []).join(' ')}`.toLowerCase().includes(q),
-      )
-      .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
-  }, [meetings, query, client, project, tag, fromDate, toDate, searching]);
+          hits.has(m.id) ||
+          normalize(`${m.title} ${m.client ?? ''} ${m.project ?? ''} ${(m.tags ?? []).join(' ')}`).includes(q),
+      );
+    return list.sort((a, b) => {
+      const ra = hits.get(a.id)?.rank ?? Infinity;
+      const rb = hits.get(b.id)?.rank ?? Infinity;
+      return ra !== rb ? ra - rb : (b.created_at ?? '').localeCompare(a.created_at ?? '');
+    });
+  }, [meetings, trimmedQuery, client, project, tag, fromDate, toDate, searching, hits]);
+
+  // Clientes y proyectos cuyo nombre coincide con la búsqueda.
+  const nameMatches = useMemo(() => {
+    const q = normalize(trimmedQuery);
+    if (!q) return [] as { client: string; project: string }[];
+    const seen = new Map<string, { client: string; project: string }>();
+    for (const m of meetings) {
+      if (m.client && normalize(m.client).includes(q)) seen.set(m.client, { client: m.client, project: '' });
+      if (m.client && m.project && normalize(m.project).includes(q)) seen.set(`${m.client}/${m.project}`, { client: m.client, project: m.project });
+    }
+    return [...seen.values()].slice(0, 6);
+  }, [meetings, trimmedQuery]);
+
+  const rows = level === 'meetings' ? visible.slice(0, meetingLimit) : [];
 
   const open = (meeting: CurrentMeeting) => {
     setCurrentMeeting(meeting);
@@ -147,32 +221,24 @@ export default function LibraryPage() {
 
   return (
     <main className="custom-scrollbar h-dvh overflow-y-auto">
-      <div className="mx-auto flex max-w-[1180px] flex-col gap-5 px-8 pb-16 pt-7">
-        <PageHeader
-          title={t('library.title')}
-          description={t('library.description')}
-          actions={
-            <>
-              <Button variant="outline" onClick={() => router.push('/ask')}>
-                <Sparkles /> {t('nav.ask')}
-              </Button>
-              <Button variant="recording" onClick={handleRecordingToggle}>
-                <Mic /> {t('nav.recordLive')}
-              </Button>
-            </>
-          }
-        />
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative w-full max-w-sm">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+      <div className={cn('mx-auto flex min-h-full max-w-[760px] flex-col gap-6 px-8 py-10', home ? 'justify-center' : 'justify-start pt-14')}>
+        <div className="animate-enter flex flex-col items-center gap-4 text-center">
+          <LibraryMark className="size-14 drop-shadow-sm" />
+          <PageHeader title={t('library.title')} description={t('library.hint')} className="justify-center text-center" />
+          <div className="relative w-full max-w-[560px]">
+            <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground" />
+            <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t('library.filter')}
-              aria-label={t('library.filter')}
-              className="pl-8"
+              placeholder={t('library.searchPlaceholder')}
+              aria-label={t('library.searchPlaceholder')}
+              className="h-12 w-full rounded-full border border-input bg-card pl-11 pr-11 text-[15px] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground hover:border-border-strong focus:border-brand focus:shadow-[0_0_0_3px_hsl(var(--brand)/0.12)]"
             />
+            {query && (
+              <button type="button" aria-label={t('common.cancel')} onClick={() => setQuery('')} className="absolute right-3.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
+                <X className="size-4" />
+              </button>
+            )}
           </div>
           {level === 'meetings' && (
             <Button variant={showFilters || tag || fromDate || toDate ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters}>
@@ -182,7 +248,7 @@ export default function LibraryPage() {
         </div>
 
         {showFilters && level === 'meetings' && (
-          <div className="animate-enter flex flex-wrap items-center gap-2">
+          <div className="animate-enter flex flex-wrap items-center justify-center gap-2">
             <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label={t('library.fromDate')} title={t('library.fromDate')} className="w-[9.5rem]" />
             <span aria-hidden="true" className="text-xs text-muted-foreground">–</span>
             <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label={t('library.toDate')} title={t('library.toDate')} className="w-[9.5rem]" />
@@ -228,39 +294,69 @@ export default function LibraryPage() {
         )}
 
         {meetings.length > 0 && level !== 'meetings' && (
-          <ul key={`${level}-${client}`} className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {groups.map((group, index) => {
-              const isClients = level === 'clients';
-              const Icon = isClients ? UserRound : FolderOpen;
-              const label = group.id === NONE ? (isClients ? t('library.noClient') : t('library.noProject')) : group.id;
-              return (
-                <li key={group.id} style={{ '--i': Math.min(index, 11) } as React.CSSProperties}>
-                  <button
-                    type="button"
-                    onClick={() => (isClients ? go(group.id) : go(client, group.id))}
-                    className="product-surface product-surface-interactive group flex h-full w-full flex-col gap-4 p-4 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-0.5 active:translate-y-0"
-                  >
-                    <span className="flex items-start justify-between gap-3">
-                      <span className="grid size-10 place-items-center rounded-xl bg-accent text-brand"><Icon className="size-5" /></span>
-                      <ChevronRight className="size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate font-semibold tracking-tight">{label}</span>
-                      <span className="mt-0.5 block truncate text-sm text-muted-foreground">
-                        {isClients ? `${t('library.nProjects').replace('{n}', String(group.projects.size))} · ` : ''}
+          <section key={`groups-${client}`} className="animate-enter flex flex-col gap-2">
+            <ul
+              className={cn(
+                'divide-y divide-border overflow-hidden rounded-xl border border-border bg-card',
+                showAllGroups && 'max-h-[22rem] overflow-y-auto',
+              )}
+            >
+              {(showAllGroups ? groups : groups.slice(0, GROUP_PREVIEW)).map((group) => {
+                const isClients = level === 'clients';
+                const label = group.id === NONE ? (isClients ? t('library.noClient') : t('library.noProject')) : group.id;
+                return (
+                  <li key={group.id}>
+                    <button
+                      type="button"
+                      onClick={() => (isClients ? go(group.id) : go(client, group.id))}
+                      className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                    >
+                      <span className="min-w-0 flex-1 truncate font-medium group-hover:text-brand">{label}</span>
+                      <span className="shrink-0 text-sm text-muted-foreground">
+                        {isClients && group.projects.size > 0 ? `${t('library.nProjects').replace('{n}', String(group.projects.size))} · ` : ''}
                         {t('library.nMeetings').replace('{n}', String(group.count))}
                       </span>
-                    </span>
-                    {group.last && (
-                      <span className="mt-auto text-xs text-muted-foreground">
-                        {t('library.lastMeeting').replace('{date}', formatDate(group.last, { dateStyle: 'medium' }))}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {groups.length > GROUP_PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setShowAllGroups((v) => !v)}
+                className="self-center rounded-full px-3 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {showAllGroups ? t('library.showLess') : t('library.showAll').replace('{n}', String(groups.length))}
+              </button>
+            )}
+          </section>
+        )}
+
+        {searching && nameMatches.length > 0 && (
+          <section className="animate-enter flex flex-col gap-2">
+            <h2 className="text-xs font-medium text-muted-foreground">{t('library.clientsProjects')}</h2>
+            <div className="flex flex-wrap gap-2">
+              {nameMatches.map((match) => (
+                <button
+                  key={`${match.client}/${match.project}`}
+                  type="button"
+                  onClick={() => { setQuery(''); go(match.client, match.project); }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 text-sm text-accent-foreground transition-colors hover:bg-accent/70"
+                >
+                  <FolderOpen className="size-3.5" />
+                  {[match.client, match.project].filter(Boolean).join(' / ')}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {meetings.length > 0 && level === 'meetings' && (
+          <h2 className="-mb-3 text-xs font-medium text-muted-foreground">
+            {searching && searchingIndex ? t('library.searching') : t('library.meetings')}
+          </h2>
         )}
 
         {meetings.length === 0 ? (
@@ -276,75 +372,88 @@ export default function LibraryPage() {
               }
             />
           </div>
-        ) : level !== 'meetings' ? null : visible.length === 0 ? (
-          <div className="product-surface">
-            <EmptyState
-              icon={<Search className="size-5" />}
-              title={t('library.empty')}
-              description={t('library.emptyHint')}
-              action={<Button variant="outline" onClick={clearFilters}>{t('library.clearFilters')}</Button>}
-            />
-          </div>
-        ) : (
-          <ul className="product-surface stagger divide-y divide-border overflow-hidden">
-            {visible.map((meeting, index) => {
+        ) : level === 'meetings' && rows.length === 0 ? (
+          searchingIndex ? null : (
+            <div className="product-surface">
+              <EmptyState
+                icon={<Search className="size-5" />}
+                title={t('library.empty')}
+                description={t('library.emptyHint')}
+                action={<Button variant="outline" onClick={clearFilters}>{t('library.clearFilters')}</Button>}
+              />
+            </div>
+          )
+        ) : rows.length > 0 ? (
+          <ul className="stagger divide-y divide-border border-y border-border">
+            {rows.map((meeting, index) => {
               const isSelected = selected.has(meeting.id);
+              const hit = searching ? hits.get(meeting.id) : undefined;
+              const fromSummary = !!hit && /:s\d+$/.test(hit.id);
+              const where = [meeting.client, meeting.project].filter(Boolean).join(' / ') || t('library.noClient');
+              const date = meeting.created_at ? formatDate(meeting.created_at, { day: 'numeric', month: 'short' }) : '';
               return (
                 <li
                   key={meeting.id}
                   style={{ '--i': Math.min(index, 10) } as React.CSSProperties}
-                  className={cn(
-                    'group grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 transition-colors',
-                    isSelected ? 'bg-accent' : 'hover:bg-muted/50',
-                  )}
+                  className={cn('group relative flex items-start gap-3 px-2 py-3.5 transition-colors', isSelected ? 'bg-accent' : 'hover:bg-muted/40')}
                 >
                   <Checkbox
                     checked={isSelected}
                     onCheckedChange={() => toggle(meeting.id)}
                     aria-label={meeting.title}
+                    className={cn('mt-1 transition-opacity', isSelected || selected.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100')}
                   />
-                  <button type="button" onClick={() => open(meeting)} className="flex min-w-0 flex-col gap-1 text-left">
-                    <span className="flex items-center gap-2">
-                      <FileText className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="truncate font-medium group-hover:text-brand">{meeting.title}</span>
-                    </span>
-                    <span className="flex flex-wrap items-center gap-1.5 pl-6 text-sm text-muted-foreground">
-                      {meeting.client || meeting.project ? (
-                        <span>{[meeting.client, meeting.project].filter(Boolean).join(' / ')}</span>
-                      ) : (
-                        <span>{t('library.noClient')}</span>
-                      )}
-                      {(meeting.tags ?? []).slice(0, 3).map((tag) => (
-                        <Badge key={tag} variant="accent" className="border border-brand/20 px-2.5 text-xs font-medium">{tag}</Badge>
-                      ))}
-                      {(meeting.tags ?? []).length > 3 && (
-                        <span className="text-xs text-muted-foreground" title={(meeting.tags ?? []).slice(3).join(', ')}>+{(meeting.tags ?? []).length - 3}</span>
-                      )}
-                    </span>
+                  <button
+                    type="button"
+                    onClick={() => (hit && !fromSummary
+                      ? (setCurrentMeeting(meeting), router.push(`/meeting-details?id=${encodeURIComponent(meeting.id)}&sourceTime=${hit.start}`))
+                      : open(meeting))}
+                    className="flex min-w-0 flex-1 flex-col text-left"
+                  >
+                    <span className="truncate text-[15px] font-medium group-hover:text-brand">{meeting.title}</span>
+                    <span className="mt-0.5 truncate text-sm text-muted-foreground">{where}</span>
+                    {hit && (
+                      <span className="mt-1.5 line-clamp-2 text-sm leading-snug text-muted-foreground/80">
+                        {fromSummary && <span className="mr-1.5 font-medium text-brand">{t('library.fromSummary')} ·</span>}
+                        {hit.text.trim()}
+                      </span>
+                    )}
                   </button>
-                  <div className="flex items-center gap-1">
-                    <span className="mr-2 font-mono text-xs tabular-nums text-muted-foreground">
-                      {meeting.created_at ? formatDate(meeting.created_at, { dateStyle: 'medium' }) : ''}
-                    </span>
-                    <div className="flex opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-                      <Button size="icon" variant="ghost" aria-label={t('library.rename')} onClick={() => { setRenaming(meeting); setRenameValue(meeting.title); }}>
-                        <Pencil />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        aria-label={t('library.delete')}
-                        className="hover:text-destructive"
-                        onClick={() => { setSelected(new Set([meeting.id])); setConfirmDelete(true); }}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
+                  <span className="mt-0.5 shrink-0 text-xs tabular-nums text-muted-foreground group-focus-within:hidden group-hover:hidden">{date}</span>
+                  <div className="hidden shrink-0 items-center group-focus-within:flex group-hover:flex">
+                    <Button size="icon" variant="ghost" className="size-7" aria-label={t('library.rename')} onClick={() => { setRenaming(meeting); setRenameValue(meeting.title); }}>
+                      <Pencil />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7 hover:text-destructive"
+                      aria-label={t('library.delete')}
+                      onClick={() => { setSelected(new Set([meeting.id])); setConfirmDelete(true); }}
+                    >
+                      <Trash2 />
+                    </Button>
                   </div>
                 </li>
               );
             })}
           </ul>
+        ) : null}
+
+        {level === 'meetings' && visible.length > meetingLimit && (
+          <button type="button" onClick={() => setMeetingLimit((n) => n + 20)} className="self-center rounded-full px-3 py-1 text-sm text-muted-foreground hover:text-foreground">
+            {t('library.showMore').replace('{n}', String(visible.length - meetingLimit))}
+          </button>
+        )}
+
+        {searching && trimmedQuery.length > 2 && (
+          <button
+            type="button"
+            onClick={() => router.push(`/ask?q=${encodeURIComponent(trimmedQuery)}`)}
+            className="inline-flex items-center gap-1.5 self-start text-sm text-brand hover:underline"
+          >
+            <Sparkles className="size-4" /> {t('library.askAbout')}
+          </button>
         )}
       </div>
 
