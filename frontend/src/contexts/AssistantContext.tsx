@@ -258,7 +258,13 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         sessionRef.current = value.id;
         setSession(value.id);
         setPrefs(value.preferences);
-        setMessages(value.messages);
+        if (target.allMeetings) {
+          setMessages(value.messages);
+          return;
+        }
+        // El chat de una reunión siempre abre en limpio; el coach conserva sus sugerencias.
+        setMessages(value.messages.filter((m) => m.kind !== "chat"));
+        return invoke("desktop_assistant_new_chat", { sessionId: value.id });
       })
       .catch((e) => {
         if (current === version.current) setError(String(e));
@@ -514,11 +520,13 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const selectedScope =
     scope === "current" ? "current" : scope === "all" ? "all meetings" : project ? `${client} / ${project}` : client;
   const isAskPage = !!target?.allMeetings && !live;
+  // Fuera de una grabación no hay coach: el panel solo muestra el chat, aunque la pestaña interna haya quedado en "coach".
+  const effectiveTab = isRecording ? tab : "chat";
   // En Preguntar la conversación entera se muestra completa: su alcance queda fijado por el primer mensaje.
   const shown = messages.filter((m) =>
     isAskPage
       ? m.kind === "chat" && !m.dismissed
-      : m.kind === tab && !m.dismissed && (tab === "coach" || m.scope === selectedScope),
+      : m.kind === effectiveTab && !m.dismissed && (effectiveTab === "coach" || m.scope === selectedScope),
   );
   const firstChatScope = isAskPage ? messages.find((m) => m.kind === "chat")?.scope : undefined;
   useEffect(() => {
