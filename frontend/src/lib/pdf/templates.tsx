@@ -26,26 +26,43 @@ const styles = StyleSheet.create({
   page: {
     fontFamily: brand.font,
     fontSize: brand.fontSize,
-    lineHeight: 1.45,
+    lineHeight: 1.5,
     paddingLeft: brand.margin,
     paddingRight: brand.margin,
-    paddingTop: 78,
-    paddingBottom: 60,
+    paddingTop: 92,
+    paddingBottom: 64,
     color: brand.ink,
+  },
+  bar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 8,
+    backgroundColor: brand.accent,
+  },
+  watermark: {
+    position: "absolute",
+    top: 340,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    opacity: 0.055,
+    transform: "rotate(-28deg)",
   },
   header: {
     position: "absolute",
-    top: 24,
+    top: 26,
     left: brand.margin,
     right: brand.margin,
     flexDirection: "row",
     alignItems: "center",
-    borderBottom: `1 solid ${brand.accent}`,
-    paddingBottom: 10,
+    borderBottom: `1.5 solid ${brand.accent}`,
+    paddingBottom: 12,
   },
-  logo: { width: 23, height: 23, marginRight: 8 },
-  title: { fontSize: 23, fontWeight: 600, lineHeight: 1.2, marginBottom: 8 },
-  meta: { color: brand.muted, fontSize: 9, marginBottom: 18 },
+  logo: { width: 26, height: 26, marginRight: 8 },
+  title: { fontSize: 22, fontWeight: 600, lineHeight: 1.2, marginBottom: 6 },
+  meta: { color: brand.muted, fontSize: 9, marginBottom: 16 },
   p: { marginBottom: 8 },
   heading: {
     fontWeight: 600,
@@ -53,7 +70,14 @@ const styles = StyleSheet.create({
     marginTop: 13,
     marginBottom: 6,
   },
-  footer: { position: "absolute", top: 806, fontSize: 8, color: brand.muted },
+  footerRule: {
+    position: "absolute",
+    left: brand.margin,
+    right: brand.margin,
+    top: 792,
+    borderTop: `0.6 solid ${brand.accent}`,
+  },
+  footer: { position: "absolute", top: 800, fontSize: 8, color: brand.muted },
   row: { flexDirection: "row", borderBottom: "0.5 solid #dbe2ea" },
   cell: { flex: 1, padding: 5, fontSize: 9 },
 });
@@ -187,14 +211,14 @@ function TranscriptionTemplate({
   return (
     <>
       {segments?.map((s, i) => (
-        <View key={i} wrap={s.text.length > 1200} style={{ marginBottom: 9 }}>
+        <View key={i} wrap={s.text.length > 1200} style={{ flexDirection: "row", marginBottom: 8 }}>
           <Text
-            style={{ fontSize: 8, color: brand.muted }}
+            style={{ width: 36, fontSize: 8, color: brand.accent, marginTop: 1 }}
             minPresenceAhead={16}
           >
             {reportTime(s.start)}
           </Text>
-          <Text>{s.text}</Text>
+          <Text style={{ flex: 1 }}>{s.text}</Text>
         </View>
       ))}
     </>
@@ -224,6 +248,8 @@ export function buildReport(snapshot: ReportSnapshot) {
       : snapshot.kind === "analysis"
         ? "Meeting analysis"
         : "Transcript";
+  const onDevice =
+    snapshot.locale === "es" ? "Generado en tu equipo" : "Generated on your device";
   return (
     <Document
       title={snapshot.title}
@@ -232,28 +258,35 @@ export function buildReport(snapshot: ReportSnapshot) {
       language={snapshot.locale}
     >
       <Page size="A4" style={styles.page}>
-        <View fixed style={styles.header}>
-          <Image src={asset(brand.logo)} style={styles.logo} />
-          <Text style={{ fontWeight: 600, color: brand.accent }}>
+        <View fixed style={styles.bar} />
+        <View fixed style={styles.watermark}>
+          <Text style={{ fontSize: 64, fontWeight: 600, color: brand.accent }}>
             {brand.name}
           </Text>
-          <Text style={{ marginLeft: "auto", fontSize: 9, color: brand.muted }}>
-            {label}
-          </Text>
+        </View>
+        <View fixed style={styles.header}>
+          <Image src={asset(brand.logo)} style={styles.logo} />
+          <View>
+            <Text style={{ fontWeight: 600, fontSize: 12, color: brand.accent }}>
+              {brand.name}
+            </Text>
+            <Text style={{ fontSize: 8, color: brand.muted }}>{label}</Text>
+          </View>
         </View>
         <Text style={styles.title}>{snapshot.title}</Text>
         <Text style={styles.meta}>
           {[snapshot.date, snapshot.client, snapshot.project]
             .filter(Boolean)
-            .join(" · ")}
+            .join("  ·  ")}
         </Text>
         {snapshot.kind === "transcript" ? (
           <TranscriptionTemplate segments={snapshot.segments} />
         ) : (
           <AnalysisTemplate markdown={snapshot.markdown || ""} />
         )}
+        <View fixed style={styles.footerRule} />
         <Text fixed style={[styles.footer, { left: brand.margin }]}>
-          {brand.name}
+          {brand.name}  ·  {onDevice}
         </Text>
         <Text
           fixed
