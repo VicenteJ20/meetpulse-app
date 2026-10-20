@@ -142,7 +142,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { transcripts, currentMeetingId, meetingTitle } = useTranscripts();
   const { isRecording, isPaused } = useRecordingState();
-  const { modelConfig } = useConfig();
+  const { chatModelConfig, saveChatModel } = useConfig();
   const { meetings } = useSidebar();
   const [savedTarget, setTarget] = useState<Target | null>(null);
   const [open, setOpen] = useState(false);
@@ -216,10 +216,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     }, 50);
     return () => clearTimeout(timer);
   }, [isRecording, currentMeetingId]);
-  // Un valor guardado a medias (proveedor sin modelo) se ignora: se usa el modelo de análisis configurado.
-  const hasPrefModel = !!prefs.provider && !!prefs.model;
-  const provider = hasPrefModel ? prefs.provider! : modelConfig.provider;
-  const model = hasPrefModel ? prefs.model! : modelConfig.model;
+  // Chat y coach comparten un modelo global. No sigue al modelo de análisis ni al de transcripción.
+  const provider = chatModelConfig.provider;
+  const model = chatModelConfig.model;
   useEffect(() => {
     const shell = document.querySelector<HTMLElement>(".app-shell");
     if (shell) {
@@ -542,10 +541,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       setProject(rest.join(" / "));
     }
   }, [firstChatScope, session]);
-  const isLocalProvider =
-    provider === "builtin-ai" ||
-    (provider === "ollama" &&
-      /localhost|127\.0\.0\.1/.test(modelConfig.ollamaEndpoint || "localhost"));
+  const isLocalProvider = provider === "builtin-ai";
   const clients = Array.from(
     new Set(meetings.map((m) => m.client).filter((c): c is string => !!c)),
   );
@@ -637,7 +633,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           sourceClick={sourceClick}
           provider={provider}
           model={model}
-          onModelChange={(nextProvider, nextModel) => void savePrefs({ ...prefs, provider: nextProvider, model: nextModel })}
+          onModelChange={(nextProvider, nextModel) => void saveChatModel(nextProvider, nextModel)}
         />
       ) : (
       <AssistantPanel
@@ -656,6 +652,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         search={search}
         provider={provider}
         model={model}
+        onModelChange={(nextProvider, nextModel) => void saveChatModel(nextProvider, nextModel)}
         prefs={prefs}
         savePrefs={savePrefs}
         defaultCadence={defaultCadence}

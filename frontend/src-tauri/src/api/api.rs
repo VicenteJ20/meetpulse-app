@@ -71,6 +71,12 @@ pub struct UpdateProfileRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ChatModelConfig {
+    pub provider: String,
+    pub model: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ModelConfig {
     pub provider: String,
     pub model: String,
@@ -541,12 +547,16 @@ pub async fn api_get_model_config<R: Runtime>(
                 &config.whisper_model,
                 &config.ollama_endpoint
             );
-            match SettingsRepository::get_api_key(pool, &config.provider).await {
+            let (provider, model) = crate::summary::llm_client::normalize_analysis_selection(
+                &config.provider,
+                &config.model,
+            );
+            match SettingsRepository::get_api_key(pool, &provider).await {
                 Ok(api_key) => {
                     log_info!("Successfully retrieved model config and API key.");
                     Ok(Some(ModelConfig {
-                        provider: config.provider,
-                        model: config.model,
+                        provider,
+                        model,
                         whisper_model: config.whisper_model,
                         api_key,
                         ollama_endpoint: config.ollama_endpoint,
@@ -630,6 +640,69 @@ pub async fn api_save_model_config<R: Runtime>(
     )
 }
 
+fn chat_selection_from_setting(config: &crate::database::models::Setting) -> (String, String) {
+    let provider = config
+        .chat_provider
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(config.provider.as_str());
+    let model = config
+        .chat_model
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(config.model.as_str());
+    crate::summary::llm_client::normalize_analysis_selection(provider, model)
+}
+
+#[tauri::command]
+pub async fn api_get_chat_model_config<R: Runtime>(
+    _app: AppHandle<R>,
+    state: tauri::State<'_, AppState>,
+) -> Result<ChatModelConfig, String> {
+    log_info!("api_get_chat_model_config called (native)");
+    let pool = state.db_manager.pool();
+    match SettingsRepository::get_model_config(pool).await {
+        Ok(Some(config)) => {
+            let (provider, model) = chat_selection_from_setting(&config);
+            Ok(ChatModelConfig { provider, model })
+        }
+        Ok(None) => {
+            let model = crate::summary::summary_engine::models::get_default_model().name;
+            Ok(ChatModelConfig { provider: "builtin-ai".to_string(), model })
+        }
+        Err(e) => {
+            log_error!("Failed to get chat model config: {}", e);
+            Err(e.to_string())
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn api_save_chat_model_config<R: Runtime>(
+    _app: AppHandle<R>,
+    state: tauri::State<'_, AppState>,
+    provider: String,
+    model: String,
+) -> Result<serde_json::Value, String> {
+    let (provider, model) = crate::summary::llm_client::normalize_analysis_selection(&provider, &model);
+    log_info!(
+        "api_save_chat_model_config called (native): provider='{}', model='{}'",
+        provider,
+        model
+    );
+    if model.trim().is_empty() {
+        return Err("Select a chat model first".to_string());
+    }
+    let pool = state.db_manager.pool();
+    SettingsRepository::save_chat_model(pool, &provider, &model)
+        .await
+        .map_err(|e| {
+            log_error!("Failed to save chat model config: {}", e);
+            e.to_string()
+        })?;
+    Ok(serde_json::json!({ "status": "success" }))
+}
+
 #[tauri::command]
 pub async fn api_get_api_key<R: Runtime>(
     _app: AppHandle<R>,
@@ -672,12 +745,31 @@ pub async fn api_get_transcript_config<R: Runtime>(
                 &config.provider,
                 &config.model
             );
-            match SettingsRepository::get_transcript_api_key(pool, &config.provider).await {
+            let retired = !matches!(
+                config.provider.as_str(),
+                "localWhisper" | "parakeet" | "vercel-gateway"
+            );
+            let provider = if retired {
+                "parakeet".to_string()
+            } else {
+                config.provider.clone()
+            };
+            let model = if retired {
+                crate::config::DEFAULT_PARAKEET_MODEL.to_string()
+            } else {
+                config.model.clone()
+            };
+            let key_result = if provider == "vercel-gateway" {
+                SettingsRepository::get_api_key(pool, "vercel-gateway").await
+            } else {
+                SettingsRepository::get_transcript_api_key(pool, &provider).await
+            };
+            match key_result {
                 Ok(api_key) => {
                     log_info!("Successfully retrieved transcript config and API key.");
                     Ok(Some(TranscriptConfig {
-                        provider: config.provider,
-                        model: config.model,
+                        provider,
+                        model,
                         api_key,
                     }))
                 }
@@ -726,14 +818,16 @@ pub async fn api_save_transcript_config<R: Runtime>(
         return Err(e.to_string());
     }
 
-    if let Some(key) = api_key {
-        if !key.is_empty() {
-            log_info!("API key provided, saving for transcript provider...");
-            if let Err(e) = SettingsRepository::save_transcript_api_key(pool, &provider, &key).await
-            {
-                log_error!("Failed to save transcript API key: {}", e);
-                return Err(e.to_string());
-            }
+    if let Some(key) = api_key.filter(|key| !key.is_empty()) {
+        log_info!("API key provided, saving for transcript provider...");
+        let saved = if provider == "vercel-gateway" {
+            SettingsRepository::save_api_key(pool, "vercel-gateway", &key).await
+        } else {
+            SettingsRepository::save_transcript_api_key(pool, &provider, &key).await
+        };
+        if let Err(e) = saved {
+            log_error!("Failed to save transcript API key: {}", e);
+            return Err(e.to_string());
         }
     }
 
@@ -771,6 +865,24 @@ pub async fn api_get_transcript_api_key<R: Runtime>(
             Err(e.to_string())
         }
     }
+}
+
+#[tauri::command]
+pub async fn api_save_api_key<R: Runtime>(
+    _app: AppHandle<R>,
+    state: tauri::State<'_, AppState>,
+    provider: String,
+    api_key: String,
+    _auth_token: Option<String>,
+) -> Result<(), String> {
+    let key = api_key.trim();
+    if key.is_empty() {
+        return Err("API key is empty".to_string());
+    }
+    log_info!("api_save_api_key called (native) for provider '{}'", &provider);
+    SettingsRepository::save_api_key(&state.db_manager.pool(), &provider, key)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

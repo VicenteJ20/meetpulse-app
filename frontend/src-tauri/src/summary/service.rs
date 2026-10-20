@@ -371,6 +371,9 @@ impl SummaryService {
         // Register cancellation token for this meeting
         let cancellation_token = Self::register_cancellation_token(&meeting_id);
 
+        let (model_provider, model_name) =
+            crate::summary::llm_client::normalize_analysis_selection(&model_provider, &model_name);
+
         // Parse provider
         let provider = match LLMProvider::from_str(&model_provider) {
             Ok(p) => p,

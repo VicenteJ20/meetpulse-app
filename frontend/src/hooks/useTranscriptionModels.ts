@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { acceptsRecordedAudio, loadGatewayCatalog } from '@/hooks/useCloudModels';
 
 export interface RawModelInfo {
   name: string;
@@ -8,7 +9,7 @@ export interface RawModelInfo {
 }
 
 export interface ModelOption {
-  provider: 'whisper' | 'parakeet' | 'gemini';
+  provider: 'whisper' | 'parakeet' | 'gemini' | 'vercel-gateway';
   name: string;
   displayName: string;
   size_mb: number;
@@ -77,8 +78,19 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
       console.error('Failed to fetch Parakeet models:', err);
     }
 
-    if (transcriptModelConfig?.provider === 'gemini' && transcriptModelConfig.model) {
-      allModels.push({ provider: 'gemini', name: transcriptModelConfig.model, displayName: `Cloud Gemini: ${transcriptModelConfig.model}`, size_mb: 0 });
+    try {
+      const gatewayModels = await loadGatewayCatalog(false);
+      for (const model of gatewayModels) {
+        if (!acceptsRecordedAudio(model)) continue;
+        allModels.push({
+          provider: 'vercel-gateway',
+          name: model.id,
+          displayName: model.name || model.id,
+          size_mb: 0,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch gateway transcription models:', err);
     }
 
     setAvailableModels(allModels);
@@ -93,7 +105,7 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
       (m) =>
         (configuredProvider === 'localWhisper' && m.provider === 'whisper' && m.name === configuredModel) ||
         (configuredProvider === 'parakeet' && m.provider === 'parakeet' && m.name === configuredModel) ||
-        (configuredProvider === 'gemini' && m.provider === 'gemini' && m.name === configuredModel)
+        (configuredProvider === 'vercel-gateway' && m.provider === 'vercel-gateway' && m.name === configuredModel)
     );
 
     // Only set default model if user hasn't manually selected one

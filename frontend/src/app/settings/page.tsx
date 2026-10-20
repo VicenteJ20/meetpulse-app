@@ -2,12 +2,13 @@
 
 import { desktopCapabilities } from '@/config/capabilities';
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Cpu, UserRound, Database as DatabaseIcon, Lightbulb, Mic, Settings2, ShieldCheck } from 'lucide-react';
+import { BookOpen, Cpu, FileText, UserRound, Database as DatabaseIcon, Lightbulb, Mic, Settings2, ShieldCheck } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { TranscriptSettings } from '@/components/TranscriptSettings';
 import { RecordingSettings } from '@/components/RecordingSettings';
 import { PreferenceSettings } from '@/components/PreferenceSettings';
 import { ModelsSettings } from '@/components/settings/ModelsSettings';
+import { LanguageTaskSettings } from '@/components/settings/LanguageTaskSettings';
 import { AssistantDefaultsSettings } from '@/components/settings/AssistantDefaultsSettings';
 import { PrivacySettings } from '@/components/settings/PrivacySettings';
 import { AboutMeSettings } from '@/components/settings/AboutMeSettings';
@@ -32,6 +33,7 @@ export default function SettingsPage() {
     { value: 'general', label: t('settings.general'), icon: Settings2 },
     { value: 'recording', label: t('st.tabAudio'), icon: Mic },
     { value: 'transcription', label: t('settings.transcription'), icon: DatabaseIcon },
+    { value: 'analysis', label: t('st.fnAnalysis'), icon: FileText },
     { value: 'models', label: t('st.tabModels'), icon: Cpu },
     { value: 'about', label: t('st.tabAbout'), icon: UserRound },
     { value: 'coach', label: t('st.tabCoach'), icon: Lightbulb },
@@ -67,6 +69,7 @@ export default function SettingsPage() {
             <TabsContent value="general" className="mt-0"><PreferenceSettings /></TabsContent>
             <TabsContent value="recording" className="mt-0"><RecordingSettings /></TabsContent>
             <TabsContent value="transcription" className="mt-0"><TranscriptSettings transcriptModelConfig={transcriptModelConfig} setTranscriptModelConfig={setTranscriptModelConfig} /></TabsContent>
+            <TabsContent value="analysis" className="mt-0"><LanguageTaskSettings task="analysis" /></TabsContent>
             <TabsContent value="models" className="mt-0"><ModelsSettings onGoTo={setActiveTab} /></TabsContent>
             <TabsContent value="about" className="mt-0"><AboutMeSettings /></TabsContent>
             <TabsContent value="coach" className="mt-0"><AssistantDefaultsSettings /></TabsContent>

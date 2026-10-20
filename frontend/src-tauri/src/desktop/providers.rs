@@ -10,7 +10,7 @@ use std::{
 use tauri::Manager;
 use tokio::sync::Mutex;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderModel {
     pub id: String,
@@ -19,6 +19,24 @@ pub struct ProviderModel {
     pub audio: Option<bool>,
     pub input_tokens: Option<u64>,
     pub output_tokens: Option<u64>,
+    #[serde(default)]
+    pub model_type: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub input_modalities: Vec<String>,
+    #[serde(default)]
+    pub output_modalities: Vec<String>,
+    #[serde(default)]
+    pub zdr: Option<String>,
+    #[serde(default)]
+    pub no_training: Option<String>,
+    #[serde(default)]
+    pub price_input: Option<String>,
+    #[serde(default)]
+    pub price_output: Option<String>,
+    #[serde(default)]
+    pub transcription_per_second: Option<String>,
 }
 #[derive(Clone, Serialize)]
 pub struct Catalog {
@@ -70,6 +88,15 @@ pub async fn desktop_list_models(
     endpoint: Option<String>,
     refresh: Option<bool>,
 ) -> Result<Catalog, String> {
+    if provider == "vercel-gateway" {
+        let (models, cached) = gateway_catalog(refresh.unwrap_or(false)).await?;
+        return Ok(Catalog {
+            models,
+            cached,
+            stale: false,
+            error: None,
+        });
+    }
     if provider == "builtin-ai" {
         let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
         let models = crate::summary::summary_engine::models::get_available_models()
@@ -85,7 +112,8 @@ pub async fn desktop_list_models(
                 text: Some(true),
                 audio: Some(false),
                 input_tokens: Some(m.context_size as u64),
-                output_tokens: None,
+                model_type: "language".into(),
+                ..Default::default()
             })
             .collect();
         return Ok(Catalog {
@@ -266,6 +294,7 @@ async fn fetch_models_at(
                     .or_else(|| m.get("context_length"))
                     .and_then(Value::as_u64),
                 output_tokens: m.get("outputTokenLimit").and_then(Value::as_u64),
+                ..Default::default()
             });
         }
         let next = if provider == "claude" && value["has_more"] == true {
@@ -281,6 +310,144 @@ async fn fetch_models_at(
     models.sort_by(|a, b| a.id.cmp(&b.id));
     models.dedup_by(|a, b| a.id == b.id);
     Ok(models)
+}
+
+const GATEWAY_MODELS_URL: &str = "https://ai-gateway.vercel.sh/v1/models";
+static GATEWAY_CATALOG: Lazy<Mutex<Option<(Instant, Vec<ProviderModel>)>>> =
+    Lazy::new(|| Mutex::new(None));
+
+/// Public model list. The API key is not sent: the catalog does not require one.
+pub async fn gateway_catalog(refresh: bool) -> Result<(Vec<ProviderModel>, bool), String> {
+    if !refresh {
+        if let Some((at, models)) = GATEWAY_CATALOG.lock().await.as_ref() {
+            if at.elapsed() < Duration::from_secs(300) {
+                return Ok((models.clone(), true));
+            }
+        }
+    }
+    match fetch_gateway_catalog_http(GATEWAY_MODELS_URL).await {
+        Ok(models) => {
+            *GATEWAY_CATALOG.lock().await = Some((Instant::now(), models.clone()));
+            Ok((models, false))
+        }
+        Err(error) => match GATEWAY_CATALOG.lock().await.clone() {
+            Some((_, models)) => Ok((models, true)),
+            None => Err(error),
+        },
+    }
+}
+
+pub async fn find_gateway_model(id: &str) -> Result<Option<ProviderModel>, String> {
+    let (models, _) = gateway_catalog(false).await?;
+    Ok(models.into_iter().find(|model| model.id == id))
+}
+
+/// A recorded WAV can be posted when the model accepts audio and is not websocket-only.
+pub fn accepts_recorded_audio(model: &ProviderModel) -> bool {
+    let socket = model.tags.iter().any(|tag| {
+        tag == "websocket-transcription" || tag == "websocket-realtime"
+    });
+    !socket && model.input_modalities.iter().any(|item| item == "audio")
+}
+
+pub fn is_file_transcription_model(model: &ProviderModel) -> bool {
+    accepts_recorded_audio(model) && model.model_type == "transcription"
+}
+
+async fn fetch_gateway_catalog_http(url: &str) -> Result<Vec<ProviderModel>, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let response = client.get(url).send().await.map_err(|e| {
+        format!(
+            "Model catalog connection failed: {}",
+            if e.is_timeout() { "timeout" } else { "network" }
+        )
+    })?;
+    if !response.status().is_success() {
+        return Err(format!("Model catalog: HTTP {}", response.status()));
+    }
+    let value: Value = response.json().await.map_err(|_| "Invalid model catalog")?;
+    parse_gateway_catalog(&value)
+}
+
+pub fn parse_gateway_catalog(value: &Value) -> Result<Vec<ProviderModel>, String> {
+    let items = value
+        .get("data")
+        .and_then(Value::as_array)
+        .ok_or("Invalid model list")?;
+    let mut models = Vec::new();
+    for item in items {
+        let Some(id) = item.get("id").and_then(Value::as_str).map(str::trim) else {
+            continue;
+        };
+        if id.is_empty() {
+            continue;
+        }
+        let tags = string_list(item.get("tags"));
+        let input_modalities = string_list(item.pointer("/modalities/input"));
+        let output_modalities = string_list(item.pointer("/modalities/output"));
+        let model_type = item
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let pricing = item.get("pricing");
+        models.push(ProviderModel {
+            id: id.to_string(),
+            name: item
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or(id)
+                .to_string(),
+            text: Some(
+                output_modalities.iter().any(|item| item == "text") || model_type == "language",
+            ),
+            audio: Some(input_modalities.iter().any(|item| item == "audio")),
+            input_tokens: item.get("context_window").and_then(Value::as_u64),
+            output_tokens: item.get("max_tokens").and_then(Value::as_u64),
+            model_type,
+            tags,
+            input_modalities,
+            output_modalities,
+            zdr: compliance_flag(item.get("zdr")),
+            no_training: compliance_flag(item.get("no_training")),
+            price_input: pricing
+                .and_then(|value| value.get("input"))
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            price_output: pricing
+                .and_then(|value| value.get("output"))
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            transcription_per_second: pricing
+                .and_then(|value| value.get("transcription_duration_cost_per_second"))
+                .and_then(Value::as_str)
+                .map(str::to_string),
+        });
+    }
+    Ok(models)
+}
+
+fn string_list(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn compliance_flag(value: Option<&Value>) -> Option<String> {
+    match value.and_then(Value::as_str) {
+        Some(flag @ ("all" | "some" | "none")) => Some(flag.to_string()),
+        _ => None,
+    }
 }
 
 #[tauri::command]
@@ -358,5 +525,55 @@ mod tests {
                 .contains(&status.to_string()));
             task.await.unwrap();
         }
+    }
+
+    #[test]
+    fn gateway_catalog_keeps_prices_compliance_and_drops_blank_ids() {
+        let models = parse_gateway_catalog(&serde_json::json!({
+            "data": [
+                {"name": "missing id", "type": "language"},
+                {"id": "  ", "type": "language"},
+                {
+                    "id": "microsoft/mai-transcribe-2",
+                    "name": "MAI-Transcribe-2",
+                    "type": "transcription",
+                    "zdr": "all",
+                    "no_training": "all",
+                    "tags": [],
+                    "modalities": {"input": ["audio"], "output": ["text"]},
+                    "pricing": {"input": "0", "transcription_duration_cost_per_second": "0.00002778"}
+                },
+                {
+                    "id": "openai/gpt-6",
+                    "name": "GPT",
+                    "type": "language",
+                    "zdr": "some",
+                    "no_training": "none",
+                    "tags": ["file-input", "reasoning"],
+                    "modalities": {"input": ["text", "image"], "output": ["text"]},
+                    "context_window": 128000,
+                    "pricing": {"input": "0.000002", "output": "0.000012"}
+                },
+                {
+                    "id": "microsoft/mai-transcribe-2-streaming",
+                    "type": "transcription",
+                    "tags": ["websocket-transcription"],
+                    "modalities": {"input": ["audio"], "output": ["text"]}
+                }
+            ]
+        }))
+        .unwrap();
+        assert_eq!(models.len(), 3);
+        assert_eq!(models[0].transcription_per_second.as_deref(), Some("0.00002778"));
+        assert_eq!(models[0].zdr.as_deref(), Some("all"));
+        assert_eq!(models[0].no_training.as_deref(), Some("all"));
+        assert!(is_file_transcription_model(&models[0]));
+        assert_eq!(models[1].price_input.as_deref(), Some("0.000002"));
+        assert_eq!(models[1].price_output.as_deref(), Some("0.000012"));
+        assert_eq!(models[1].zdr.as_deref(), Some("some"));
+        assert_eq!(models[1].no_training.as_deref(), Some("none"));
+        assert_eq!(models[1].input_tokens, Some(128000));
+        assert!(!accepts_recorded_audio(&models[1]));
+        assert!(!accepts_recorded_audio(&models[2]));
     }
 }

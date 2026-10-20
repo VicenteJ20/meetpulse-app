@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { EmptyState, PageHeader, Surface } from '@/components/ui/product';
 import { DataFlowChip } from '@/components/DataFlowChip';
-import { LanguageSelect, SummaryModelSelect, TranscriptionEngineSelect } from '@/components/home/EngineSelects';
+import { ChatModelSelect, LanguageSelect, SummaryModelSelect, TranscriptionEngineSelect } from '@/components/home/EngineSelects';
 import { cn } from '@/lib/utils';
 
 const RECORDING_CONTEXT_KEY = 'meetpulse-recording-context';
@@ -183,6 +183,7 @@ export function HomeWorkspace({
             <TranscriptionEngineSelect />
             <LanguageSelect />
             <SummaryModelSelect />
+            <ChatModelSelect />
           </PopoverContent>
         </Popover>
       </footer>

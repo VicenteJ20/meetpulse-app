@@ -10,7 +10,7 @@ import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { cn } from '@/lib/utils';
 
 type Entry = { provider: string; id: string; label: string };
-const isCloud = (provider: string) => provider !== 'ollama' && provider !== 'builtin-ai';
+const isCloud = (provider: string) => provider === 'vercel-gateway';
 
 // Selector compacto del modelo con el que conversa el chat. Usa el mismo catálogo que el análisis.
 export function AssistantModelSelect({
@@ -25,30 +25,21 @@ export function AssistantModelSelect({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const { providerApiKeys, modelConfig } = useConfig();
+  const { providerApiKeys } = useConfig();
   const [local, setLocal] = useState<Entry[]>([]);
   const cloudModels = useCloudModels('analysis');
+  const hasGatewayKey = !!providerApiKeys['vercel-gateway'];
 
   useEffect(() => {
     let active = true;
-    const ollama = invoke<{ models: { id: string; name: string }[] }>('desktop_list_models', {
-      provider: 'ollama',
-      purpose: 'analysis',
-      apiKey: null,
-      endpoint: modelConfig.ollamaEndpoint ?? null,
-      refresh: false,
-    })
-      .then((list) => (list.models ?? []).map((m) => ({ provider: 'ollama', id: m.id, label: m.name || m.id })))
-      .catch(() => [] as Entry[]);
-    // IA integrada: solo los modelos ya descargados.
-    const builtIn = invoke<{ name: string; display_name: string; status: { type: string } }[]>('builtin_ai_list_models')
+    invoke<{ name: string; display_name: string; status: { type: string } }[]>('builtin_ai_list_models')
       .then((items) => items.filter((m) => m.status.type === 'available').map((m) => ({ provider: 'builtin-ai', id: m.name, label: m.display_name || m.name })))
-      .catch(() => [] as Entry[]);
-    void Promise.all([builtIn, ollama]).then(([a, b]) => { if (active) setLocal([...a, ...b]); });
+      .catch(() => [] as Entry[])
+      .then((items) => { if (active) setLocal(items); });
     return () => { active = false; };
-  }, [modelConfig.ollamaEndpoint]);
+  }, []);
 
-  const hasKey = (p: string) => !isCloud(p) || !!(providerApiKeys as Record<string, string | null>)[p];
+  const hasKey = (p: string) => !isCloud(p) || hasGatewayKey;
   const current = `${provider}:${model}`;
   const cloud = [...cloudModels];
   const localList = [...local];

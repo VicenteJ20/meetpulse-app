@@ -357,9 +357,9 @@ export function RetranscribeDialog({
               <p className="text-xs text-muted-foreground">
                 Choose a transcription model
               </p>
-              {selectedModelDetails?.provider === 'gemini' && (
+              {selectedModelDetails?.provider === 'vercel-gateway' && (
                 <p className="rounded-md border border-warning/30 bg-warning/10 p-2 text-xs text-warning">
-                  This mode sends meeting audio chunks to Google Gemini. Existing transcripts are replaced only after all chunks finish successfully.
+                  This mode sends meeting audio chunks to Vercel AI Gateway. Existing transcripts are replaced only after all chunks finish successfully.
                 </p>
               )}
             </div>

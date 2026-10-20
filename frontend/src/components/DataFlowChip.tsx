@@ -15,6 +15,7 @@ export function DataFlowChip({ className }: { className?: string }) {
   const add = (provider: string, what: string) => targets.set(provider, [...(targets.get(provider) ?? []), what]);
   if (flow.audioTo) add(flow.audioTo, t('flow.audio'));
   if (flow.textTo) add(flow.textTo === 'custom' ? t('flow.custom') : flow.textTo, t('flow.text'));
+  if (flow.chatTo) add(flow.chatTo === 'custom' ? t('flow.custom') : flow.chatTo, t('flow.chat'));
 
   const label = [...targets.entries()].map(([provider, what]) => `${provider} (${what.join(` ${t('flow.and')} `)})`).join(', ');
 

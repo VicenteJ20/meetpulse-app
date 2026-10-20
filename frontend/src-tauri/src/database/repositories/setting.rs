@@ -48,8 +48,8 @@ impl SettingsRepository {
         // Using id '1' for backward compatibility
         sqlx::query(
             r#"
-            INSERT INTO settings (id, provider, model, whisperModel, ollamaEndpoint)
-            VALUES ('1', $1, $2, $3, $4)
+            INSERT INTO settings (id, provider, model, whisperModel, ollamaEndpoint, chatProvider, chatModel)
+            VALUES ('1', $1, $2, $3, $4, $1, $2)
             ON CONFLICT(id) DO UPDATE SET
                 provider = excluded.provider,
                 model = excluded.model,
@@ -61,6 +61,30 @@ impl SettingsRepository {
         .bind(model)
         .bind(whisper_model)
         .bind(ollama_endpoint)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Saves the chat and coach model without changing the analysis model.
+    /// A new settings row copies that choice into analysis as well, so the row stays valid.
+    pub async fn save_chat_model(
+        pool: &SqlitePool,
+        provider: &str,
+        model: &str,
+    ) -> std::result::Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO settings (id, provider, model, whisperModel, chatProvider, chatModel)
+            VALUES ('1', 'builtin-ai', $2, 'large-v3', $1, $2)
+            ON CONFLICT(id) DO UPDATE SET
+                chatProvider = excluded.chatProvider,
+                chatModel = excluded.chatModel
+            "#,
+        )
+        .bind(provider)
+        .bind(model)
         .execute(pool)
         .await?;
 
@@ -86,6 +110,7 @@ impl SettingsRepository {
             "groq" => "groqApiKey",
             "gemini" => "geminiApiKey",
             "openrouter" => "openRouterApiKey",
+            "vercel-gateway" => "vercelGatewayApiKey",
             "builtin-ai" => return Ok(()), // No API key needed
             _ => {
                 return Err(sqlx::Error::Protocol(
@@ -125,6 +150,7 @@ impl SettingsRepository {
             "gemini" => "geminiApiKey",
             "claude" => "anthropicApiKey",
             "openrouter" => "openRouterApiKey",
+            "vercel-gateway" => "vercelGatewayApiKey",
             "builtin-ai" => return Ok(None), // No API key needed
             _ => {
                 return Err(sqlx::Error::Protocol(
@@ -253,6 +279,7 @@ impl SettingsRepository {
             "groq" => "groqApiKey",
             "claude" => "anthropicApiKey",
             "openrouter" => "openRouterApiKey",
+            "vercel-gateway" => "vercelGatewayApiKey",
             "builtin-ai" => return Ok(()), // No API key needed
             _ => {
                 return Err(sqlx::Error::Protocol(

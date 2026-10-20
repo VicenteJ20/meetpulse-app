@@ -621,6 +621,17 @@ export function useSummaryGeneration({
       }
     }
 
+    if (modelConfig.provider === 'vercel-gateway') {
+      const key = await invokeTauri<string>('api_get_api_key', { provider: 'vercel-gateway' }).catch(() => '');
+      if (!key.trim()) {
+        toast.error('Vercel AI Gateway API key is required', {
+          description: 'Add it in Settings, on the AI models page.',
+          duration: 5000,
+        });
+        return;
+      }
+    }
+
     const summaryPayload = buildSummaryTranscriptPayload(allTranscripts);
 
     await processSummary({

@@ -782,13 +782,28 @@ async fn answer(
         .await
         .map_err(|e| e.to_string())?
         .ok_or("Configure an analysis model in Settings first")?;
-    let provider_name = r.provider.as_deref().unwrap_or(&config.provider);
-    let model = r.model.as_deref().unwrap_or(&config.model);
+    let (fallback_provider, fallback_model) = {
+        let provider = config
+            .chat_provider
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(config.provider.as_str());
+        let model = config
+            .chat_model
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(config.model.as_str());
+        (provider.to_string(), model.to_string())
+    };
+    let (provider_name, model) = crate::summary::llm_client::normalize_analysis_selection(
+        r.provider.as_deref().filter(|value| !value.trim().is_empty()).unwrap_or(&fallback_provider),
+        r.model.as_deref().filter(|value| !value.trim().is_empty()).unwrap_or(&fallback_model),
+    );
     if model.is_empty() {
         return Err("Select an assistant model first".into());
     }
-    let provider = LLMProvider::from_str(provider_name)?;
-    let key = super::providers::credential(state, provider_name, "analysis").await?;
+    let provider = LLMProvider::from_str(&provider_name)?;
+    let key = super::providers::credential(state, &provider_name, "analysis").await?;
     let custom = SettingsRepository::get_custom_openai_config(pool)
         .await
         .map_err(|e| e.to_string())?;
@@ -979,7 +994,7 @@ async fn answer(
         }
     };
     let mut packet = json!({"question":r.question,"context":context.chars().take(1500).collect::<String>(),"memory":memory.chars().take(1200).collect::<String>(),"previousSuggestions":previous_titles,"history":conversation,"meetingSummary":meeting_summary.as_deref().unwrap_or(""),"coachNotes":coach_notes,"sources":repack(&sources),"aboutUser":r.about_me.as_deref().unwrap_or("").chars().take(1200).collect::<String>()});
-    let limit = super::providers::context_limit(provider_name, model)
+    let limit = super::providers::context_limit(&provider_name, &model)
         .await
         .saturating_sub(2048 + system.len());
     fit_context(&mut packet, &mut sources, limit, r.kind == "coach", &repack)?;

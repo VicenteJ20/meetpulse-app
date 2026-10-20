@@ -4,6 +4,7 @@ import { Cloud, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsSection } from '@/components/ui/settings';
 import { SummaryModelSettings } from '@/components/SummaryModelSettings';
+import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
 import { useDataFlow } from '@/hooks/useDataFlow';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
@@ -24,7 +25,7 @@ function FlowBadge({ to, what }: { to: string | null; what: string }) {
 export function ModelsSettings({ onGoTo }: { onGoTo: (tab: string) => void }) {
   const { t } = useTranslation();
   const flow = useDataFlow();
-  const { transcriptModelConfig, modelConfig } = useConfig();
+  const { transcriptModelConfig, modelConfig, chatModelConfig } = useConfig();
 
   const rows = [
     {
@@ -37,8 +38,14 @@ export function ModelsSettings({ onGoTo }: { onGoTo: (tab: string) => void }) {
       label: t('st.fnAnalysis'),
       value: `${modelConfig?.provider ?? ''} · ${modelConfig?.model ?? ''}`,
       badge: <FlowBadge to={flow.textTo} what={t('flow.text')} />,
+      action: () => onGoTo('analysis'),
     },
-    { label: t('st.fnChat'), value: t('st.fnChatValue') },
+    {
+      label: t('st.fnChat'),
+      value: `${chatModelConfig?.provider ?? ''} · ${chatModelConfig?.model ?? ''}`,
+      badge: <FlowBadge to={flow.chatTo} what={t('flow.chat')} />,
+      action: () => onGoTo('coach'),
+    },
   ];
 
   return (
@@ -58,6 +65,7 @@ export function ModelsSettings({ onGoTo }: { onGoTo: (tab: string) => void }) {
         </ul>
       </SettingsSection>
       <SummaryModelSettings />
+      <ProvidersSettings />
     </div>
   );
 }

@@ -6,6 +6,7 @@ pub mod provider;
 pub mod whisper_provider;
 pub mod parakeet_provider;
 pub mod gemini_provider;
+pub mod gateway_provider;
 pub mod engine;
 pub mod worker;
 
@@ -17,6 +18,7 @@ pub use provider::{
 pub use whisper_provider::WhisperProvider;
 pub use parakeet_provider::ParakeetProvider;
 pub use gemini_provider::GeminiTranscriptionProvider;
+pub use gateway_provider::GatewayTranscriptionProvider;
 pub use engine::{
     TranscriptionEngine,
     validate_transcription_model_ready,

@@ -74,23 +74,90 @@ pub enum LLMProvider {
     OpenRouter,
     BuiltInAI,
     CustomOpenAI,
+    VercelGateway,
 }
 
 impl LLMProvider {
     /// Parse provider from string (case-insensitive)
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
-            "openai" => Ok(Self::OpenAI),
-            "claude" => Ok(Self::Claude),
-            "groq" => Ok(Self::Groq),
-            "gemini" => Ok(Self::Gemini),
-            "ollama" => Ok(Self::Ollama),
-            "openrouter" => Ok(Self::OpenRouter),
             "builtin-ai" | "local-llama" | "localllama" => Ok(Self::BuiltInAI),
-            "custom-openai" => Ok(Self::CustomOpenAI),
+            "vercel-gateway" => Ok(Self::VercelGateway),
             _ => Err(format!("Unsupported LLM provider: {}", s)),
         }
     }
+}
+
+fn known_builtin_model(model: &str) -> String {
+    if crate::summary::summary_engine::models::get_model_by_name(model).is_some() {
+        model.to_string()
+    } else {
+        crate::summary::summary_engine::models::get_default_model().name
+    }
+}
+
+/// Retired cloud providers and retired local models become the current Built-in AI default.
+/// Gateway stays as saved. Built-in AI keeps the model when it is still in the catalog.
+pub fn normalize_analysis_selection(provider: &str, model: &str) -> (String, String) {
+    if provider == "vercel-gateway" && !model.trim().is_empty() {
+        return (provider.to_string(), model.to_string());
+    }
+    ("builtin-ai".to_string(), known_builtin_model(model))
+}
+
+pub const GATEWAY_CHAT_URL: &str = "https://ai-gateway.vercel.sh/v1/chat/completions";
+
+pub async fn gateway_chat_completion(
+    client: &Client,
+    endpoint: &str,
+    api_key: &str,
+    model_name: &str,
+    system_prompt: &str,
+    user_prompt: &str,
+    cancellation_token: Option<&CancellationToken>,
+) -> Result<String, String> {
+    let body = serde_json::json!(ChatRequest {
+        model: model_name.to_string(),
+        messages: vec![
+            ChatMessage { role: "system".into(), content: system_prompt.into() },
+            ChatMessage { role: "user".into(), content: user_prompt.into() },
+        ],
+        max_tokens: None,
+        temperature: None,
+        top_p: None,
+    });
+    let request = client
+        .post(endpoint)
+        .bearer_auth(api_key)
+        .header(header::CONTENT_TYPE, "application/json")
+        .json(&body)
+        .timeout(REQUEST_TIMEOUT_DURATION)
+        .send();
+    let response = if let Some(token) = cancellation_token {
+        tokio::select! {
+            result = request => result.map_err(|e| format!("Failed to send request to LLM: {}", e))?,
+            _ = token.cancelled() => return Err("Summary generation was cancelled".into()),
+        }
+    } else {
+        request.await.map_err(|e| format!("Failed to send request to LLM: {}", e))?
+    };
+    if !response.status().is_success() {
+        let status = response.status();
+        return Err(format!("LLM API request failed: HTTP {}", status));
+    }
+    let chat_response = response
+        .json::<ChatResponse>()
+        .await
+        .map_err(|e| format!("Failed to parse LLM response: {}", e))?;
+    let content = chat_response
+        .choices
+        .first()
+        .ok_or("No content in LLM response")?
+        .message
+        .content
+        .trim()
+        .to_string();
+    Ok(content)
 }
 
 /// Generates a summary using the specified LLM provider
@@ -138,6 +205,19 @@ pub async fn generate_text(
         if token.is_cancelled() {
             return Err("Summary generation was cancelled".to_string());
         }
+    }
+
+    if provider == &LLMProvider::VercelGateway {
+        return gateway_chat_completion(
+            client,
+            GATEWAY_CHAT_URL,
+            api_key,
+            model_name,
+            system_prompt,
+            user_prompt,
+            cancellation_token,
+        )
+        .await;
     }
 
     // Handle BuiltInAI provider separately (uses local sidecar, no HTTP API)
@@ -217,9 +297,8 @@ pub async fn generate_text(
             );
             ("https://api.anthropic.com/v1/messages".to_string(), header_map)
         }
-        LLMProvider::BuiltInAI => {
-            // This case is handled earlier with early returns
-            unreachable!("BuiltInAI is handled before this match statement")
+        LLMProvider::BuiltInAI | LLMProvider::VercelGateway => {
+            unreachable!("Built-in AI and Vercel AI Gateway return before this match")
         }
     };
 
@@ -396,6 +475,7 @@ fn provider_name(provider: &LLMProvider) -> &str {
         LLMProvider::BuiltInAI => "Built-in AI",
         LLMProvider::OpenRouter => "OpenRouter",
         LLMProvider::CustomOpenAI => "Custom OpenAI",
+        LLMProvider::VercelGateway => "Vercel AI Gateway",
     }
 }
 
@@ -404,8 +484,70 @@ mod tests {
     use super::LLMProvider;
 
     #[test]
-    fn recognises_gemini_summary_provider() {
-        assert_eq!(LLMProvider::from_str("gemini").unwrap(), LLMProvider::Gemini);
+    fn recognises_gateway_and_retires_old_providers_on_read() {
+        assert_eq!(LLMProvider::from_str("vercel-gateway").unwrap(), LLMProvider::VercelGateway);
+        assert!(LLMProvider::from_str("gemini").is_err());
+        assert!(LLMProvider::from_str("openai").is_err());
+        assert!(LLMProvider::from_str("claude").is_err());
+        assert!(LLMProvider::from_str("groq").is_err());
+        assert!(LLMProvider::from_str("ollama").is_err());
+        assert!(LLMProvider::from_str("openrouter").is_err());
+        assert!(LLMProvider::from_str("custom-openai").is_err());
+        let (provider, model) = super::normalize_analysis_selection("gemini", "gemini-3.1-flash-lite");
+        assert_eq!(provider, "builtin-ai");
+        assert_eq!(model, "qwen3.5:2b");
+        assert_eq!(
+            super::normalize_analysis_selection("builtin-ai", "qwen3.5:4b").1,
+            "qwen3.5:2b"
+        );
+        assert_eq!(
+            super::normalize_analysis_selection("builtin-ai", "gemma4:e4b").1,
+            "gemma4:e4b"
+        );
+        assert_eq!(
+            super::normalize_analysis_selection("vercel-gateway", "openai/gpt-6").0,
+            "vercel-gateway"
+        );
+    }
+
+    #[tokio::test]
+    async fn gateway_chat_posts_bearer_token_to_the_chat_endpoint() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/v1/chat/completions", listener.local_addr().unwrap());
+        let task = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut bytes = vec![0; 8192];
+            let n = stream.read(&mut bytes).await.unwrap();
+            let request = String::from_utf8_lossy(&bytes[..n]).to_string();
+            let body = r#"{"choices":[{"message":{"content":"hola"}}]}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+            request
+        });
+        let client = reqwest::Client::new();
+        let text = super::gateway_chat_completion(
+            &client,
+            &url,
+            "test-key",
+            "openai/gpt-6",
+            "system",
+            "user",
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(text, "hola");
+        let request = task.await.unwrap();
+        let lower = request.to_lowercase();
+        assert!(lower.contains("post /v1/chat/completions"));
+        assert!(lower.contains("authorization: bearer test-key"));
+        assert!(request.contains("openai/gpt-6"));
+        assert!(!request.contains("test-key\""));
     }
 }
 

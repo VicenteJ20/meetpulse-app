@@ -6,6 +6,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { SettingsSection } from '@/components/ui/settings';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { loadAssistantDefaults, saveAssistantDefaults, type AssistantDefaults } from '@/lib/assistantDefaults';
+import { LanguageTaskSettings } from '@/components/settings/LanguageTaskSettings';
 
 export function AssistantDefaultsSettings() {
   const { t } = useTranslation();
@@ -18,6 +19,7 @@ export function AssistantDefaultsSettings() {
 
   return (
     <div>
+      <LanguageTaskSettings task="chat" />
       <SettingsSection
         title={t('st.coachDefault')}
         description={t('st.coachDefaultDesc')}

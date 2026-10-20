@@ -26,9 +26,9 @@ function Labeled({ label, hint, children }: { label: string; hint?: string; chil
 
 // Los modelos en la nube salen en vivo del proveedor, filtrados por las reglas de src/config/models.json.
 
-const PROVIDER_LABEL: Record<string, string> = { whisper: 'Whisper', parakeet: 'Parakeet', gemini: 'Gemini' };
-const PROVIDER_NAME: Record<string, string> = { ollama: 'Ollama', 'builtin-ai': 'MeetPulse' };
-const isCloudProvider = (provider: string) => provider !== 'ollama' && provider !== 'builtin-ai';
+const PROVIDER_LABEL: Record<string, string> = { whisper: 'Whisper', parakeet: 'Parakeet', 'vercel-gateway': 'Vercel AI Gateway' };
+const PROVIDER_NAME: Record<string, string> = { 'builtin-ai': 'MeetPulse' };
+const isCloudProvider = (provider: string) => provider === 'vercel-gateway';
 const groupLabel = 'text-xs text-muted-foreground';
 
 export function TranscriptionEngineSelect() {
@@ -40,8 +40,8 @@ export function TranscriptionEngineSelect() {
   useEffect(() => { void fetchModels(); }, [fetchModels]);
 
   const current = `${transcriptModelConfig.provider === 'localWhisper' ? 'whisper' : transcriptModelConfig.provider}:${transcriptModelConfig.model}`;
-  const local = availableModels.filter((m) => m.provider !== 'gemini');
-  const geminiKey = providerApiKeys.gemini ?? (transcriptModelConfig.provider === 'gemini' ? transcriptModelConfig.apiKey : null);
+  const local = availableModels.filter((m) => m.provider !== 'vercel-gateway' && m.provider !== 'gemini');
+  const gatewayKey = providerApiKeys['vercel-gateway'];
 
   const save = async (key: string) => {
     const separator = key.indexOf(':');
@@ -53,7 +53,7 @@ export function TranscriptionEngineSelect() {
       ...previous,
       provider: mapped,
       model,
-      apiKey: mapped === 'gemini' ? geminiKey : mapped === previous.provider ? previous.apiKey : null,
+      apiKey: null,
     };
     setTranscriptModelConfig(next);
     try {
@@ -66,8 +66,8 @@ export function TranscriptionEngineSelect() {
   };
 
   const cloud = [...cloudModels];
-  if (transcriptModelConfig.provider === 'gemini' && !cloud.some((m) => m.id === transcriptModelConfig.model)) {
-    cloud.unshift({ provider: 'gemini', id: transcriptModelConfig.model, label: transcriptModelConfig.model });
+  if (transcriptModelConfig.provider === 'vercel-gateway' && !cloud.some((m) => m.id === transcriptModelConfig.model)) {
+    cloud.unshift({ provider: 'vercel-gateway', id: transcriptModelConfig.model, label: transcriptModelConfig.model });
   }
 
   return (
@@ -84,15 +84,15 @@ export function TranscriptionEngineSelect() {
                 {PROVIDER_LABEL[model.provider]} · {model.name}
               </SelectItem>
             ))}
-            {!local.some((m) => `${m.provider}:${m.name}` === current) && transcriptModelConfig.provider !== 'gemini' && transcriptModelConfig.model && (
+            {!local.some((m) => `${m.provider}:${m.name}` === current) && transcriptModelConfig.provider !== 'vercel-gateway' && transcriptModelConfig.model && (
               <SelectItem value={current}>{transcriptModelConfig.model}</SelectItem>
             )}
           </SelectGroup>
           <SelectGroup>
             <SelectLabel className={groupLabel}>{t('home.groupCloud')}</SelectLabel>
             {cloud.map((model) => (
-              <SelectItem key={`${model.provider}:${model.id}`} value={`${model.provider}:${model.id}`} disabled={!geminiKey}>
-                {model.label}{!geminiKey ? ` · ${t('home.needsKey')}` : ''}
+              <SelectItem key={`${model.provider}:${model.id}`} value={`${model.provider}:${model.id}`} disabled={!gatewayKey && `${model.provider}:${model.id}` !== current}>
+                {model.label}{!gatewayKey ? ` · ${t('home.needsKey')}` : ''}
               </SelectItem>
             ))}
           </SelectGroup>
@@ -127,9 +127,19 @@ export function LanguageSelect() {
 type LocalModel = { provider: string; id: string; name: string; available?: boolean; legacy?: boolean };
 type BuiltInInfo = { name: string; display_name: string; status: { type: string }; lifecycle?: string };
 
-export function SummaryModelSelect() {
+function LanguageModelSelect({
+  label,
+  provider,
+  model,
+  onSave,
+}: {
+  label: string;
+  provider: string;
+  model: string;
+  onSave: (provider: string, model: string) => Promise<void>;
+}) {
   const { t } = useTranslation();
-  const { modelConfig, setModelConfig, providerApiKeys } = useConfig();
+  const { providerApiKeys } = useConfig();
   const [local, setLocal] = useState<LocalModel[]>([]);
   const cloudModels = useCloudModels('analysis');
 
@@ -147,46 +157,36 @@ export function SummaryModelSelect() {
     return () => { active = false; };
   }, []);
 
-  const keyFor = (provider: string): string | null => {
-    if (!isCloudProvider(provider)) return null;
-    return (providerApiKeys as Record<string, string | null>)[provider] ?? (modelConfig.provider === provider ? modelConfig.apiKey ?? null : null);
+  const keyFor = (name: string): string | null => {
+    if (!isCloudProvider(name)) return null;
+    return (providerApiKeys as Record<string, string | null>)[name] ?? null;
   };
 
   const save = async (value: string) => {
     const separator = value.indexOf(':');
-    const provider = value.slice(0, separator);
-    const model = value.slice(separator + 1);
-    const previous = modelConfig;
-    const next = { ...previous, provider: provider as typeof previous.provider, model, apiKey: keyFor(provider) };
-    setModelConfig(next);
+    const nextProvider = value.slice(0, separator);
+    const nextModel = value.slice(separator + 1);
     try {
-      await invoke('api_save_model_config', {
-        provider: next.provider,
-        model: next.model,
-        whisperModel: next.whisperModel,
-        apiKey: next.apiKey ?? null,
-        ollamaEndpoint: next.ollamaEndpoint ?? null,
-      });
+      await onSave(nextProvider, nextModel);
     } catch (error) {
-      setModelConfig(previous);
-      console.error('Could not save the summary model:', error);
+      console.error('Could not save the model:', error);
       toast.error(t('home.settingSaveError'));
     }
   };
 
-  const current = `${modelConfig.provider}:${modelConfig.model}`;
+  const current = `${provider}:${model}`;
   const cloud = [...cloudModels];
   const localList = [...local];
-  if (isCloudProvider(modelConfig.provider) && !cloud.some((m) => m.provider === modelConfig.provider && m.id === modelConfig.model)) {
-    cloud.unshift({ provider: modelConfig.provider, id: modelConfig.model, label: modelConfig.model });
-  } else if (!isCloudProvider(modelConfig.provider) && !localList.some((m) => m.provider === modelConfig.provider && m.id === modelConfig.model)) {
-    localList.unshift({ provider: modelConfig.provider, id: modelConfig.model, name: modelConfig.model });
+  if (isCloudProvider(provider) && model && !cloud.some((m) => m.provider === provider && m.id === model)) {
+    cloud.unshift({ provider, id: model, label: model });
+  } else if (!isCloudProvider(provider) && model && !localList.some((m) => m.provider === provider && m.id === model)) {
+    localList.unshift({ provider, id: model, name: model });
   }
 
   return (
-    <Labeled label={t('home.summarizeWith')}>
+    <Labeled label={label}>
       <Select value={current} onValueChange={(value) => void save(value)}>
-        <SelectTrigger aria-label={t('home.summarizeWith')}>
+        <SelectTrigger aria-label={label}>
           <SelectValue placeholder="—" />
         </SelectTrigger>
         <SelectContent>
@@ -221,5 +221,50 @@ export function SummaryModelSelect() {
         </SelectContent>
       </Select>
     </Labeled>
+  );
+}
+
+export function SummaryModelSelect() {
+  const { t } = useTranslation();
+  const { modelConfig, setModelConfig } = useConfig();
+
+  const save = async (provider: string, model: string) => {
+    const previous = modelConfig;
+    const next = { ...previous, provider: provider as typeof previous.provider, model, apiKey: null as string | null };
+    setModelConfig(next);
+    try {
+      await invoke('api_save_model_config', {
+        provider: next.provider,
+        model: next.model,
+        whisperModel: next.whisperModel,
+        apiKey: null,
+        ollamaEndpoint: next.ollamaEndpoint ?? null,
+      });
+    } catch (error) {
+      setModelConfig(previous);
+      throw error;
+    }
+  };
+
+  return (
+    <LanguageModelSelect
+      label={t('home.summarizeWith')}
+      provider={modelConfig.provider}
+      model={modelConfig.model}
+      onSave={save}
+    />
+  );
+}
+
+export function ChatModelSelect() {
+  const { t } = useTranslation();
+  const { chatModelConfig, saveChatModel } = useConfig();
+  return (
+    <LanguageModelSelect
+      label={t('home.chatWith')}
+      provider={chatModelConfig.provider}
+      model={chatModelConfig.model}
+      onSave={saveChatModel}
+    />
   );
 }

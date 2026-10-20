@@ -456,45 +456,22 @@ mod tests {
         assert_eq!(qwen_2b.layer_count, 24);
         assert_eq!(qwen_2b.sampling, SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]));
 
-        let qwen_4b = get_model_by_name("qwen3.5:4b").expect("qwen 4b model should exist");
-        assert_eq!(qwen_4b.display_name, "Qwen 3.5 4B (High Quality)");
-        assert_eq!(qwen_4b.gguf_file, "Qwen3.5-4B-Q4_K_M.gguf");
-        assert_eq!(qwen_4b.template, "qwen3.5_nonthinking");
-        assert_eq!(
-            qwen_4b.download_url,
-            "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf"
-        );
-        assert_eq!(qwen_4b.size_mb, 2614);
-        assert_eq!(qwen_4b.context_size, 32768);
-        assert_eq!(qwen_4b.layer_count, 32);
-        assert_eq!(qwen_4b.sampling, SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]));
+        let gemma = get_model_by_name("gemma4:e4b").expect("gemma 4 e4b should exist");
+        assert_eq!(gemma.template, "gemma4");
+        assert_eq!(gemma.layer_count, 42);
     }
 
     #[test]
-    fn lfm25_is_registered_and_removed_models_are_gone() {
-        let lfm = get_model_by_name("lfm2.5:8b-a1b").expect("lfm 2.5 should exist");
-        assert_eq!(lfm.gguf_file, "LFM2.5-8B-A1B-Q4_K_M.gguf");
-        assert_eq!(lfm.template, "lfm2");
-        assert_eq!(lfm.layer_count, 24);
-        assert_eq!(lfm.sampling, SamplingParams::lfm25_instruct(vec!["<|im_end|>".to_string()]));
-
-        let tiny = get_model_by_name("lfm2.5:350m").expect("lfm 2.5 350m should exist");
-        assert_eq!(tiny.gguf_file, "LFM2.5-350M-Q8_0.gguf");
-        assert_eq!(tiny.template, "lfm2");
-        assert_eq!(tiny.layer_count, 16);
-        assert_eq!(tiny.sampling.temperature, 0.1);
-
-        let small = get_model_by_name("lfm2.5:1.2b").expect("lfm 2.5 1.2b should exist");
-        assert_eq!(small.gguf_file, "LFM2.5-1.2B-Instruct-Q8_0.gguf");
-        assert_eq!(small.template, "lfm2");
-        assert_eq!(small.layer_count, 16);
+    fn catalog_offers_only_qwen_2b_and_gemma_e4b() {
+        let names: Vec<_> = get_available_models().into_iter().map(|model| model.name).collect();
+        assert_eq!(names, vec!["qwen3.5:2b".to_string(), "gemma4:e4b".to_string()]);
 
         let formatted = format_prompt("lfm2", "rules", "hi <|im_end|>").unwrap();
         assert!(formatted.starts_with("<|im_start|>system\nrules<|im_end|>\n<|im_start|>user\n"));
         assert!(formatted.ends_with("<|im_start|>assistant\n"));
         assert_eq!(formatted.matches("<|im_end|>").count(), 2);
 
-        for gone in ["gemma3:1b", "gemma3:4b", "bonsai:27b", "bonsai-ternary:8b"] {
+        for gone in ["qwen3.5:4b", "gemma4:12b", "qwen3.8:27b", "lfm2.5:8b-a1b", "lfm2.5:350m", "lfm2.5:1.2b", "gemma3:1b", "gemma3:4b"] {
             assert!(get_model_by_name(gone).is_none(), "{gone} should not be offered");
         }
     }

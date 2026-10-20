@@ -12,7 +12,7 @@ import { ParakeetModelManager } from './ParakeetModelManager';
 
 
 export interface TranscriptModelProps {
-    provider: 'localWhisper' | 'parakeet' | 'deepgram' | 'elevenLabs' | 'groq' | 'openai' | 'gemini';
+    provider: 'localWhisper' | 'parakeet' | 'deepgram' | 'elevenLabs' | 'groq' | 'openai' | 'gemini' | 'vercel-gateway';
     model: string;
     apiKey?: string | null;
 }
@@ -73,6 +73,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
         groq: [],
         openai: [],
         gemini: [],
+        'vercel-gateway': [],
     };
     const requiresApiKey = uiProvider === 'deepgram' || uiProvider === 'elevenLabs' || uiProvider === 'openai' || uiProvider === 'groq' || uiProvider === 'gemini';
 
@@ -111,15 +112,15 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
         }
     };
 
-    const engines: { value: 'parakeet' | 'localWhisper' | 'gemini'; label: string; desc: string; cloud: boolean }[] = [
+    const engines: { value: 'parakeet' | 'localWhisper' | 'vercel-gateway'; label: string; desc: string; cloud: boolean }[] = [
         { value: 'parakeet', label: t('sx.parakeet'), desc: t('sx.parakeetDesc'), cloud: false },
         { value: 'localWhisper', label: t('sx.whisper'), desc: t('sx.whisperDesc'), cloud: false },
-        { value: 'gemini', label: t('sx.gemini'), desc: t('sx.geminiDesc'), cloud: true },
+        { value: 'vercel-gateway', label: t('sx.gateway'), desc: t('sx.gatewayDesc'), cloud: true },
     ];
 
     const chooseEngine = (provider: TranscriptModelProps['provider']) => {
         setUiProvider(provider);
-        if (provider !== 'localWhisper' && provider !== 'parakeet') {
+        if (provider !== 'localWhisper' && provider !== 'parakeet' && provider !== 'vercel-gateway') {
             fetchApiKey(provider);
             const nextConfig: TranscriptModelProps = {
                 ...transcriptModelConfig,
@@ -163,15 +164,15 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                     })}
                 </div>
 
-                {uiProvider === 'gemini' && (
+                {uiProvider === 'vercel-gateway' && (
                     <p className="mt-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
                         <Cloud className="mt-0.5 size-3.5 shrink-0" />
-                        {t('sx.geminiWarn')}
+                        {t('sx.gatewayWarn')}
                     </p>
                 )}
             </SettingsSection>
 
-            {['gemini', 'openai', 'groq'].includes(uiProvider) && (
+            {['vercel-gateway', 'openai', 'groq'].includes(uiProvider) && (
                 <SettingsSection title={t('sx.model')}>
                     <ProviderModelPicker
                         provider={uiProvider}

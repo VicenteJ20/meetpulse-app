@@ -111,6 +111,16 @@ pub struct Setting {
     #[sqlx(rename = "customOpenAIConfig")]
     #[serde(rename = "customOpenAIConfig")]
     pub custom_openai_config: Option<String>,
+    #[sqlx(default, rename = "vercelGatewayApiKey")]
+    #[serde(rename = "vercelGatewayApiKey", default)]
+    pub vercel_gateway_api_key: Option<String>,
+    /// Model used by chat and the live coach. Independent from analysis (`provider` / `model`).
+    #[sqlx(default, rename = "chatProvider")]
+    #[serde(rename = "chatProvider", default)]
+    pub chat_provider: Option<String>,
+    #[sqlx(default, rename = "chatModel")]
+    #[serde(rename = "chatModel", default)]
+    pub chat_model: Option<String>,
 }
 
 impl Setting {

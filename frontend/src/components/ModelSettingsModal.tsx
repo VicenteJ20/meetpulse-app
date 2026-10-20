@@ -33,7 +33,7 @@ import { cn, isOllamaNotInstalledError } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export interface ModelConfig {
-  provider: 'ollama' | 'groq' | 'claude' | 'gemini' | 'openai' | 'openrouter' | 'builtin-ai' | 'custom-openai';
+  provider: 'ollama' | 'groq' | 'claude' | 'gemini' | 'openai' | 'openrouter' | 'builtin-ai' | 'custom-openai' | 'vercel-gateway';
   model: string;
   whisperModel: string;
   apiKey?: string | null;
@@ -211,6 +211,7 @@ export function ModelSettingsModal({
     openrouter: openRouterModels.map((m) => m.id),
     'builtin-ai': builtinAiModels.map((m) => m.name),
     'custom-openai': customOpenAIModel ? [customOpenAIModel] : [], // User specifies model manually
+    'vercel-gateway': [],
   };
 
   const requiresApiKey =
@@ -218,7 +219,8 @@ export function ModelSettingsModal({
     modelConfig.provider === 'groq' ||
     modelConfig.provider === 'gemini' ||
     modelConfig.provider === 'openai' ||
-    modelConfig.provider === 'openrouter';
+    modelConfig.provider === 'openrouter' ||
+    modelConfig.provider === 'vercel-gateway';
 
   // Check if Ollama endpoint has changed but models haven't been fetched yet
   const ollamaEndpointChanged = modelConfig.provider === 'ollama' &&
@@ -812,10 +814,8 @@ export function ModelSettingsModal({
                 <SelectValue placeholder={t('sx.selectProvider')} />
               </SelectTrigger>
               <SelectContent className="max-h-64 overflow-y-auto">
-                <SelectItem value="builtin-ai">Built-in AI (Offline, No API needed)</SelectItem>
-                <SelectItem value="custom-openai">Custom Server (OpenAI)</SelectItem>
-                <SelectItem value="gemini">Gemini (Google AI)</SelectItem>
-                <SelectItem value="openrouter">OpenRouter</SelectItem>
+                <SelectItem value="builtin-ai">Built-in AI</SelectItem>
+                <SelectItem value="vercel-gateway">Vercel AI Gateway</SelectItem>
               </SelectContent>
             </Select>
 

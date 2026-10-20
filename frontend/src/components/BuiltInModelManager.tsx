@@ -33,16 +33,29 @@ interface DownloadProgressInfo {
   speedMbps: number;
 }
 
+export interface ModelAssignment {
+  id: string;
+  label: string;
+  activeLabel: string;
+  model: string;
+  onSelect: (model: string) => void;
+}
+
 interface BuiltInModelManagerProps {
   selectedModel: string;
   onModelSelect: (model: string) => void;
   layout?: 'inline' | 'dialog';
+  /** When set, each downloaded model can be assigned to a task instead of a single click. */
+  assignments?: ModelAssignment[];
+  autoSelect?: boolean;
 }
 
 export function BuiltInModelManager({
   selectedModel,
   onModelSelect,
   layout = 'inline',
+  assignments,
+  autoSelect = true,
 }: BuiltInModelManagerProps) {
   const { t } = useTranslation();
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -60,8 +73,7 @@ export function BuiltInModelManager({
       const data = [...raw].sort((a, b) => Number((a.lifecycle ?? 'current') !== 'current') - Number((b.lifecycle ?? 'current') !== 'current'));
       setModels(data);
 
-      // Auto-select first available model if none selected
-      if (data.length > 0 && !selectedModel) {
+      if (autoSelect && data.length > 0 && !selectedModel.trim()) {
         const firstAvailable = data.find((m) => m.status.type === 'available');
         if (firstAvailable) {
           onModelSelect(firstAvailable.name);
@@ -302,6 +314,8 @@ export function BuiltInModelManager({
           const isNotDownloaded = model.status.type === 'not_downloaded';
           const isCorrupted = model.status.type === 'corrupted';
           const isError = model.status.type === 'error';
+          const activeAssignments = assignments?.filter((item) => item.model === model.name) ?? [];
+          const isChosen = selectedModel === model.name || activeAssignments.length > 0;
 
           return (
             <div
@@ -311,15 +325,14 @@ export function BuiltInModelManager({
                 modelIsDownloading
                   ? 'bg-card border-border'
                   : 'bg-card',
-                selectedModel === model.name
+                isChosen
                   ? 'ring-2 ring-gray-800 border-gray-800'
                   : 'border-border hover:border-border',
-                isAvailable && !modelIsDownloading && 'cursor-pointer'
+                !assignments && isAvailable && !modelIsDownloading && 'cursor-pointer'
               )}
               onClick={() => {
-                if (isAvailable && !modelIsDownloading) {
-                  onModelSelect(model.name);
-                }
+                if (assignments || !isAvailable || modelIsDownloading) return;
+                onModelSelect(model.name);
               }}
             >
             <div className="space-y-3">
@@ -333,11 +346,16 @@ export function BuiltInModelManager({
                           <span className="h-2 w-2 rounded-full bg-success"></span>
                           Ready
                         </span>
-                        {selectedModel === model.name && (
+                        {!assignments && selectedModel === model.name && (
                           <span className="shrink-0 rounded bg-brand/15 px-2 py-0.5 text-xs font-medium text-brand">
                             Selected
                           </span>
                         )}
+                        {activeAssignments.map((item) => (
+                          <span key={item.id} className="shrink-0 rounded bg-brand/15 px-2 py-0.5 text-xs font-medium text-brand">
+                            {item.activeLabel}
+                          </span>
+                        ))}
                       </>
                     )}
                     {model.lifecycle && model.lifecycle !== 'current' && (
@@ -431,7 +449,7 @@ export function BuiltInModelManager({
                     </>
                   )}
                   {/* Available - Show small trash icon (only if not currently selected) */}
-                  {isAvailable && !modelIsDownloading && selectedModel !== model.name && (
+                  {isAvailable && !modelIsDownloading && !isChosen && (
                     <button
                       className="p-2 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-destructive"
                       onClick={(e) => {
@@ -474,6 +492,27 @@ export function BuiltInModelManager({
                 <div className="text-xs text-muted-foreground">
                   <span>{formatSummaryModelSizeLabelFromMb(model.size_mb)} • {model.context_size} tokens</span>
                 </div>
+                {assignments && isAvailable && !modelIsDownloading && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {assignments.map((item) => {
+                      const active = item.model === model.name;
+                      return (
+                        <Button
+                          key={item.id}
+                          type="button"
+                          size="sm"
+                          variant={active ? 'secondary' : 'outline'}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            item.onSelect(model.name);
+                          }}
+                        >
+                          {active ? item.activeLabel : item.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
                 </div>
               </div>
 
