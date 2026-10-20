@@ -30,11 +30,29 @@ function prettify(id: string): string {
 
 const versionKey = (id: string) => (id.match(/\d+(\.\d+)*/g) ?? []).map((n) => n.padStart(4, '0')).join('.');
 
+/** Keeps the models approved in models.json. Providers without a rule pass through unchanged. */
+export function selectApprovedModels<T extends { id: string; audio?: boolean | null }>(
+  provider: string,
+  purpose: string,
+  models: T[],
+): T[] {
+  const rule = RULES[provider];
+  if (!rule) return models;
+  const include = new RegExp(rule.include, 'i');
+  const exclude = rule.exclude ? new RegExp(rule.exclude, 'i') : null;
+  return models
+    .filter((model) => {
+      const id = cleanId(model.id);
+      if (!include.test(id) || (exclude && exclude.test(id))) return false;
+      return purpose === 'transcription' ? model.audio === true : true;
+    })
+    .sort((a, b) => versionKey(cleanId(b.id)).localeCompare(versionKey(cleanId(a.id))) || cleanId(a.id).localeCompare(cleanId(b.id)))
+    .slice(0, rule.max ?? 6);
+}
+
 async function load(provider: string, purpose: CloudPurpose): Promise<CloudModel[]> {
   const rule = RULES[provider];
   if (!rule) return [];
-  const include = new RegExp(rule.include, 'i');
-  const exclude = rule.exclude ? new RegExp(rule.exclude, 'i') : null;
   const list = await invoke<ListResult>('desktop_list_models', {
     provider,
     purpose: purpose === 'transcription' ? 'transcription' : 'analysis',
@@ -42,15 +60,8 @@ async function load(provider: string, purpose: CloudPurpose): Promise<CloudModel
     endpoint: null,
     refresh: false,
   });
-  return (list.models ?? [])
-    .filter((m) => {
-      const id = cleanId(m.id);
-      if (!include.test(id) || (exclude && exclude.test(id))) return false;
-      return purpose === 'transcription' ? m.audio === true : true;
-    })
-    .map((m) => ({ provider, id: cleanId(m.id), label: prettify(cleanId(m.id)) }))
-    .sort((a, b) => versionKey(b.id).localeCompare(versionKey(a.id)) || a.id.localeCompare(b.id))
-    .slice(0, rule.max ?? 6);
+  return selectApprovedModels(provider, purpose, list.models ?? [])
+    .map((model) => ({ provider, id: cleanId(model.id), label: prettify(cleanId(model.id)) }));
 }
 
 /**

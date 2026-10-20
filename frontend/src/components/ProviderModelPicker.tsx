@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ChevronRight, Mic, RefreshCw } from "lucide-react";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
+import modelCatalog from "@/config/models.json";
+import { selectApprovedModels } from "@/hooks/useCloudModels";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
@@ -80,18 +82,41 @@ export function ProviderModelPicker({
     };
   }, [provider, purpose, apiKey, endpoint]);
 
-  const items = useMemo<ComboboxItem[]>(() => {
-    const list: ComboboxItem[] = (catalog?.models ?? []).map((m) => ({
-      value: m.id,
-      label: m.name === m.id ? m.id : m.name,
-      description: m.name === m.id ? undefined : m.id,
-      trailing: purpose === "transcription" && m.audio ? <Badge variant="accent"><Mic />audio</Badge> : undefined,
+  const approved = useMemo(() => {
+    if (!catalog) return [] as ProviderModel[];
+    const filtered = selectApprovedModels(provider, purpose, catalog.models ?? []);
+    const hasRule = Object.prototype.hasOwnProperty.call(modelCatalog.providers, provider);
+    if (!hasRule || filtered.length > 0) return filtered;
+    const purposeKey = purpose === "transcription" ? "transcription" : "analysis";
+    const fallback = (modelCatalog.fallback[purposeKey] ?? []).filter((model) => model.provider === provider);
+    return fallback.map((model) => ({
+      id: model.id,
+      name: model.label,
+      text: true,
+      audio: purpose === "transcription" ? true : null,
     }));
+  }, [catalog, provider, purpose]);
+
+  const items = useMemo<ComboboxItem[]>(() => {
+    const seen = new Set<string>();
+    const list: ComboboxItem[] = [];
+    for (const model of approved) {
+      const id = model.id.replace(/^models\//, "");
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const name = model.name.replace(/^models\//, "");
+      list.push({
+        value: id,
+        label: name === id ? id : name,
+        description: name === id ? undefined : id,
+        trailing: purpose === "transcription" && model.audio ? <Badge variant="accent"><Mic />audio</Badge> : undefined,
+      });
+    }
     if (value && !list.some((item) => item.value === value)) {
       list.unshift({ value, label: value, description: t("picker.saved") });
     }
     return list;
-  }, [catalog, value, purpose, t]);
+  }, [approved, value, purpose, t]);
 
   return (
     <div className="w-full min-w-0 space-y-2">
@@ -107,7 +132,7 @@ export function ProviderModelPicker({
           emptyText={t("picker.none")}
           footer={
             catalog
-              ? `${catalog.models.length} ${t("picker.models")} · ${catalog.cached ? (catalog.stale ? t("picker.cacheStale") : t("picker.cache")) : "API"}`
+              ? `${approved.length} ${t("picker.models")} · ${catalog.cached ? (catalog.stale ? t("picker.cacheStale") : t("picker.cache")) : "API"}`
               : undefined
           }
         />
