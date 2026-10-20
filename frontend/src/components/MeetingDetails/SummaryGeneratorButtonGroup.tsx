@@ -10,13 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Sparkles, Loader2, FileText, Check, Square, ChevronDown, Cpu, RefreshCw } from 'lucide-react';
+import { Sparkles, Loader2, Square, ChevronDown, Cpu, RefreshCw } from 'lucide-react';
 import Analytics from '@/lib/analytics';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
@@ -50,9 +44,6 @@ export function SummaryGeneratorButtonGroup({
   onStopGeneration,
   customPrompt,
   summaryStatus,
-  availableTemplates,
-  selectedTemplate,
-  onTemplateSelect,
   hasTranscripts = true,
   hasSummary = false,
   isModelConfigLoading = false,
@@ -244,43 +235,10 @@ export function SummaryGeneratorButtonGroup({
   const isGenerating = summaryStatus === 'processing' || summaryStatus === 'summarizing' || summaryStatus === 'regenerating';
 
   const isCloud = modelConfig.provider !== 'ollama' && modelConfig.provider !== 'builtin-ai';
-  const templateName = availableTemplates.find((template) => template.id === selectedTemplate)?.name;
   const busy = isCheckingModels || isModelConfigLoading;
 
   return (
-    <div className="flex flex-nowrap items-center gap-1.5">
-      {/* Plantilla */}
-      {availableTemplates.length > 0 && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              title={t('meeting.template')}
-              aria-label={t('meeting.template')}
-              className="max-w-[10rem] data-[state=open]:border-brand"
-            >
-              <FileText />
-              <span className="hidden truncate min-[1500px]:inline">{templateName ?? t('meeting.template')}</span>
-              <ChevronDown className="size-3.5 text-muted-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {availableTemplates.map((template) => (
-              <DropdownMenuItem
-                key={template.id}
-                onClick={() => onTemplateSelect(template.id, template.name)}
-                title={template.description}
-                className="flex items-center justify-between gap-2"
-              >
-                <span>{template.name}</span>
-                {selectedTemplate === template.id && <Check className="h-4 w-4 text-brand" />}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-
+    <div className="flex flex-wrap items-center gap-1.5">
       {/* Modelo */}
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
         <DialogTrigger asChild>

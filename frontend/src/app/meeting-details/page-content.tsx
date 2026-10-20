@@ -309,7 +309,7 @@ export default function PageContent({
   return (
     <>
     <div className="flex h-dvh min-h-0 flex-col bg-background">
-      <header className="flex shrink-0 flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-border bg-card px-6 pb-3.5 pt-4">
+      <header className="flex shrink-0 flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-border bg-card px-4 pb-3.5 pt-4 sm:px-6">
         <div className="min-w-0 flex-1">
           <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
             <button type="button" onClick={() => router.push('/library')} className="hover:text-foreground hover:underline">
@@ -322,7 +322,7 @@ export default function PageContent({
             value={meetingData.meetingTitle || meeting.title}
             onChange={(event) => meetingData.handleTitleChange(event.target.value)}
             aria-label="Title"
-            className="mt-0.5 w-full truncate rounded-md border border-transparent bg-transparent px-0 text-[1.65rem] font-semibold leading-tight tracking-[-0.03em] outline-none transition-colors hover:border-input focus:border-brand focus:px-2"
+            className="mt-0.5 w-full truncate rounded-md border border-transparent bg-transparent px-0 text-2xl font-semibold leading-tight tracking-[-0.03em] outline-none transition-colors hover:border-input focus:border-brand focus:px-2 sm:text-[1.65rem]"
           />
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">

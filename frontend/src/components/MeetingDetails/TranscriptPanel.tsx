@@ -5,10 +5,9 @@ import { Transcript, TranscriptSegmentData } from '@/types';
 import { TranscriptView } from '@/components/TranscriptView';
 import { VirtualizedTranscriptView } from '@/components/VirtualizedTranscriptView';
 import { TranscriptButtonGroup } from './TranscriptButtonGroup';
-import { useMemo, useState } from 'react';
-import { Search, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { publishMeetingTranscript } from '@/lib/meeting-transcript-bus';
 
 interface TranscriptPanelProps {
   transcripts: Transcript[];
@@ -84,35 +83,26 @@ export function TranscriptPanel({
     }));
   }, [transcripts, usePagination, segments]);
 
-  const [query, setQuery] = useState('');
+  useEffect(() => {
+    publishMeetingTranscript(convertedSegments.map((segment) => ({
+      id: segment.id,
+      text: segment.text,
+      start: segment.timestamp,
+    })));
+  }, [convertedSegments]);
+
+  useEffect(() => () => publishMeetingTranscript([]), []);
+
   const total = usePagination ? (totalCount ?? convertedSegments.length) : convertedSegments.length;
-  const visibleSegments = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? convertedSegments.filter((segment) => segment.text.toLowerCase().includes(q)) : convertedSegments;
-  }, [convertedSegments, query]);
 
   return (
     <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col bg-card">
-      <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-border px-4">
+      <div className="flex min-h-[52px] shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <div className="shrink-0">
           <h2 className="whitespace-nowrap text-sm font-semibold tracking-tight">{t('meeting.transcript')}</h2>
         </div>
-        <span className="hidden whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground min-[1700px]:inline">{t('meeting.segments').replace('{n}', String(total))}</span>
-        <div className="relative ml-auto min-w-0 max-w-56 flex-1">
-          <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t('meeting.searchTranscript')}
-            aria-label={t('meeting.searchTranscript')}
-            className="h-8 bg-muted/50 pl-7 pr-7 text-sm"
-          />
-          {query && (
-            <button type="button" aria-label="Clear" onClick={() => setQuery('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X className="size-3.5" />
-            </button>
-          )}
-        </div>
+        <span className="hidden whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground md:inline">{t('meeting.segments').replace('{n}', String(total))}</span>
+        <div className="ml-auto">
         <TranscriptButtonGroup
           transcriptCount={total}
           onCopyTranscript={onCopyTranscript}
@@ -121,14 +111,12 @@ export function TranscriptPanel({
           meetingFolderPath={meetingFolderPath}
           onRefetchTranscripts={onRefetchTranscripts}
         />
+        </div>
       </div>
 
       <div className="flex-1 overflow-hidden pb-4">
-        {query && visibleSegments.length === 0 ? (
-          <p className="px-6 py-10 text-center text-sm text-muted-foreground">{t('meeting.noMatches')}</p>
-        ) : (
           <VirtualizedTranscriptView
-            segments={visibleSegments}
+            segments={convertedSegments}
             isRecording={isRecording}
             isPaused={false}
             isProcessing={false}
@@ -142,7 +130,6 @@ export function TranscriptPanel({
             loadedCount={loadedCount}
             onLoadMore={onLoadMore}
           />
-        )}
       </div>
     </div>
   );

@@ -2,19 +2,16 @@
 
 import { Summary, SummaryResponse, Transcript } from '@/types';
 import { EditableTitle } from '@/components/EditableTitle';
-import { BlockNoteSummaryView, BlockNoteSummaryViewRef } from '@/components/AISummary/BlockNoteSummaryView';
+import { BlockNoteSummaryViewRef } from '@/components/AISummary/BlockNoteSummaryView';
 import { EmptyStateSummary } from '@/components/EmptyStateSummary';
 import { ModelConfig } from '@/components/ModelSettingsModal';
 import { SummaryGeneratorButtonGroup } from './SummaryGeneratorButtonGroup';
-import { SummaryEditorErrorBoundary } from './SummaryEditorErrorBoundary';
 import { SummaryUpdaterButtonGroup } from './SummaryUpdaterButtonGroup';
-import Analytics from '@/lib/analytics';
 import { useEffect, useRef, useState, RefObject } from 'react';
 import { toast } from 'sonner';
 import { Languages, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Segmented } from '@/components/ui/segmented';
 import { InsightsView } from './InsightsView';
 import { parseInsights } from '@/lib/insights';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
@@ -23,7 +20,6 @@ import { LanguagePickerPopover } from '@/components/LanguagePickerPopover';
 import { useRecentLanguages } from '@/hooks/useRecentLanguages';
 import { labelForCode } from '@/lib/summary-languages';
 import {
-  readCachedDetectedSummaryLanguage,
   readMeetingSummaryLanguage,
   saveMeetingSummaryLanguage,
   SummaryLanguageStorage,
@@ -98,7 +94,6 @@ export function SummaryPanel({
   summaryResponse,
   onSaveSummary,
   onSummaryChange,
-  onDirtyChange,
   summaryError,
   onRegenerateSummary,
   getSummaryStatusMessage,
@@ -112,9 +107,7 @@ export function SummaryPanel({
   onOpenWiki
 }: SummaryPanelProps) {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<'insights' | 'document'>('insights');
   const [summaryLang, setSummaryLang] = useState<string | null>(null);
-  const [detectedSummaryLang, setDetectedSummaryLang] = useState<string | null>(null);
   const [summaryLangStorage, setSummaryLangStorage] = useState<SummaryLanguageStorage>('metadata');
   const [langPickerOpen, setLangPickerOpen] = useState(false);
   const languageLoadVersionRef = useRef(0);
@@ -138,9 +131,6 @@ export function SummaryPanel({
   const autoSubtitle = isLocalFallbackLanguage
     ? 'Saved on this device for folderless meetings'
     : 'Uses dominant transcript language';
-  const editorLanguage = summaryLang
-    || detectedSummaryLang
-    || (typeof navigator !== 'undefined' ? navigator.language : 'en');
 
   useEffect(() => {
     let cancelled = false;
@@ -149,13 +139,9 @@ export function SummaryPanel({
 
     const loadSummaryLanguage = async () => {
       try {
-        const [stored, detected] = await Promise.all([
-          readMeetingSummaryLanguage(meeting.id),
-          readCachedDetectedSummaryLanguage(meeting.id),
-        ]);
+        const stored = await readMeetingSummaryLanguage(meeting.id);
         if (!cancelled && languageLoadVersionRef.current === loadVersion) {
           setSummaryLang(stored.language);
-          setDetectedSummaryLang(detected);
           setSummaryLangStorage(stored.storage);
         }
       } catch (err) {
@@ -165,7 +151,6 @@ export function SummaryPanel({
         });
         if (!cancelled && languageLoadVersionRef.current === loadVersion) {
           setSummaryLang(null);
-          setDetectedSummaryLang(null);
         }
       }
     };
@@ -298,7 +283,6 @@ export function SummaryPanel({
   const summaryMarkdown = (aiSummary as unknown as { markdown?: string } | null)?.markdown ?? '';
   const hasInsights = parseInsights(summaryMarkdown).some((section) => section.kind !== 'other');
   const hasLegacySummary = summaryMarkdown.trim().length > 0 && !hasInsights;
-  const showInsights = mode === 'insights' && hasInsights;
 
   const generatorGroup = (
     <SummaryGeneratorButtonGroup
@@ -323,17 +307,9 @@ export function SummaryPanel({
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-card">
       {/* Encabezado del panel: título a la izquierda, acciones a la derecha */}
-      <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-border px-4">
-        <Segmented
-          aria-label={t('insights.tabInsights')}
-          value={mode}
-          onValueChange={setMode}
-          options={[
-            { value: 'insights', label: t('insights.tabInsights') },
-            { value: 'document', label: t('insights.tabDocument'), disabled: !summaryMarkdown.trim() },
-          ]}
-        />
-        <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5">
+      <div className="flex min-h-[52px] shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+        <h2 className="shrink-0 text-sm font-semibold tracking-tight">{t('insights.tabInsights')}</h2>
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">
           {summaryActions}
           {generatorGroup}
         </div>
@@ -351,7 +327,7 @@ export function SummaryPanel({
           <Skeleton className="h-4 w-8/12" />
           <Skeleton className="h-4 w-10/12" />
         </div>
-      ) : !aiSummary || (mode === 'insights' && hasLegacySummary) ? (
+      ) : !aiSummary || hasLegacySummary || !hasInsights ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <EmptyStateSummary
             legacy={!!aiSummary}
@@ -360,7 +336,7 @@ export function SummaryPanel({
             isGenerating={isSummaryLoading}
           />
         </div>
-      ) : transcripts?.length > 0 && (
+      ) : (
         <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
           {summaryResponse && (
             <div className="fixed bottom-0 left-0 right-0 max-h-1/3 overflow-y-auto border-t border-border bg-card p-4 text-card-foreground shadow-lg">
@@ -390,41 +366,13 @@ export function SummaryPanel({
               ) : null}
             </div>
           )}
-          {showInsights ? (
-            <InsightsView
-              markdown={summaryMarkdown}
-              onChange={(next) => {
-                onSummaryChange({ ...(aiSummary as object), markdown: next } as unknown as Summary);
-                void onSaveSummary({ markdown: next });
-              }}
-            />
-          ) : (
-          <div className="meeting-summary-editor w-full">
-            <SummaryEditorErrorBoundary
-              fallbackMarkdown={(aiSummary as unknown as { markdown?: string }).markdown}
-            >
-              <BlockNoteSummaryView
-                ref={summaryRef}
-                summaryData={aiSummary}
-                onSave={onSaveSummary}
-                onSummaryChange={onSummaryChange}
-                onDirtyChange={onDirtyChange}
-                status={summaryStatus}
-                error={summaryError}
-                onRegenerateSummary={() => {
-                  Analytics.trackButtonClick('regenerate_summary', 'meeting_details');
-                  onRegenerateSummary();
-                }}
-                meeting={{
-                  id: meeting.id,
-                  title: meetingTitle,
-                  created_at: meeting.created_at
-                }}
-                language={editorLanguage}
-              />
-            </SummaryEditorErrorBoundary>
-          </div>
-          )}
+          <InsightsView
+            markdown={summaryMarkdown}
+            onChange={(next) => {
+              onSummaryChange({ ...(aiSummary as object), markdown: next } as unknown as Summary);
+              void onSaveSummary({ markdown: next });
+            }}
+          />
           {summaryStatus === 'error' && (
             <div className="mx-8 mb-6 rounded-lg bg-destructive/10 p-4 text-destructive">
               <p className="text-sm font-medium">{getSummaryStatusMessage(summaryStatus)}</p>
