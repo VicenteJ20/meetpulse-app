@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { invoke } from '@tauri-apps/api/core';
-import { Loader2, Plus, RefreshCw, Settings2 } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Settings2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LiveAssistantDockHost, useAssistantTarget } from '@/contexts/AssistantContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
@@ -76,6 +76,17 @@ export default function AskPage() {
     title: t('ask.newConversation'),
   });
 
+  const removeConversation = async (id: string) => {
+    if (!window.confirm(t('ask.deleteConfirm'))) return;
+    try {
+      await invoke('desktop_assistant_delete_session', { sessionId: id });
+      if (conversation.id === id) startNew();
+      await refresh();
+    } catch (error) {
+      console.error('Could not delete the conversation:', error);
+    }
+  };
+
   const rebuildIndex = async () => {
     setRebuilding(true);
     try {
@@ -113,19 +124,31 @@ export default function AskPage() {
           </h2>
           <div className="stagger grid gap-0.5">
             {recent.map((item, i) => (
-              <button
+              <div
                 key={item.id}
                 style={{ '--i': Math.min(i, 8) } as React.CSSProperties}
-                type="button"
-                onClick={() => setConversation({ id: item.id, title: item.title })}
-                aria-current={conversation.id === item.id ? 'page' : undefined}
-                className="grid gap-1 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-muted aria-[current=page]:bg-accent"
+                className={`flex items-start gap-1 rounded-md pr-1 transition-colors hover:bg-muted ${conversation.id === item.id ? 'bg-accent' : ''}`}
               >
-                <span className="truncate text-sm font-medium">{item.title || t('ask.newConversation')}</span>
-                <span className="text-xs text-muted-foreground">
-                  {item.createdAt ? formatDate(item.createdAt, { dateStyle: 'medium' }) : ''}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setConversation({ id: item.id, title: item.title })}
+                  aria-current={conversation.id === item.id ? 'page' : undefined}
+                  className="grid min-w-0 flex-1 gap-1 rounded-md px-2.5 py-2 text-left"
+                >
+                  <span className="truncate text-sm font-medium">{item.title || t('ask.newConversation')}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.createdAt ? formatDate(item.createdAt, { dateStyle: 'medium' }) : ''}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="mt-2 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-destructive"
+                  aria-label={t('ask.delete')}
+                  onClick={() => void removeConversation(item.id)}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
             ))}
             {recent.length === 0 && <p className="px-2.5 py-2 text-sm text-muted-foreground">{t('ask.noRecent')}</p>}
           </div>

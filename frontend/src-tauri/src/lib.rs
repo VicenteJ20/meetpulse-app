@@ -538,6 +538,7 @@ pub fn run() {
             desktop::providers::desktop_test_gemini_audio,
             desktop::assistant::desktop_assistant_session,
             desktop::assistant::desktop_assistant_recent_sessions,
+            desktop::assistant::desktop_assistant_delete_session,
             desktop::assistant::desktop_assistant_sync,
             desktop::assistant::desktop_assistant_recording_state,
             desktop::assistant::desktop_assistant_preferences,

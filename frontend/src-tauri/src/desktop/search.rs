@@ -473,83 +473,13 @@ pub async fn desktop_search_query(
     Ok(json!({"sources": sources, "partial": partial}))
 }
 
+/// Chat across every meeting. Same ranking as the library, with at most two passages per meeting.
 pub async fn retrieve_all(
     app: &tauri::AppHandle,
     pool: &SqlitePool,
     query: &str,
 ) -> Result<(Vec<Source>, bool), String> {
-    ensure_text_index(pool).await?;
-    let path = directory(app)?;
-    let available = ready(&path);
-    let query_vector = if available {
-        let text = query.to_string();
-        Some(
-            tauri::async_runtime::spawn_blocking(move || embed(&path, &text, true))
-                .await
-                .map_err(|e| e.to_string())??,
-        )
-    } else {
-        None
-    };
-
-    let rows = sqlx::query(
-        "SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE c.id NOT GLOB '*:s[0-9]*' ORDER BY m.created_at DESC LIMIT 50000",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-    let partial = !available
-        || rows
-            .iter()
-            .any(|row| row.get::<Option<Vec<u8>>, _>("embedding").is_none());
-    let keywords = query
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|word| word.chars().count() > 2)
-        .take(24)
-        .map(|word| format!("\"{}\"", word.replace('"', "")))
-        .collect::<Vec<_>>()
-        .join(" OR ");
-    let lexical = text_matches_all(pool, &keywords).await?;
-    let mut semantic: Vec<(String, f32)> = rows
-        .iter()
-        .filter_map(|row| {
-            Some((
-                row.get("id"),
-                cosine(
-                    &row.get::<Option<Vec<u8>>, _>("embedding")?,
-                    query_vector.as_ref()?,
-                ),
-            ))
-        })
-        .collect();
-    semantic.sort_by(|a, b| b.1.total_cmp(&a.1));
-
-    let mut scores = std::collections::HashMap::<String, f32>::new();
-    for (rank, id) in lexical.iter().enumerate() {
-        *scores.entry(id.clone()).or_default() += 1.0 / (60 + rank) as f32;
-    }
-    for (rank, (id, _)) in semantic.iter().take(60).enumerate() {
-        *scores.entry(id.clone()).or_default() += 1.0 / (60 + rank) as f32;
-    }
-    let mut ranked: Vec<_> = scores.into_iter().collect();
-    ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let sources: Vec<Source> = ranked
-        .into_iter()
-        .take(8)
-        .filter_map(|(id, _)| {
-            let row = rows.iter().find(|row| row.get::<String, _>("id") == id)?;
-            Some(Source {
-                id,
-                meeting_id: Some(row.get("meeting_id")),
-                session_id: None,
-                title: row.get("title"),
-                text: row.get("text"),
-                start: row.get("start"),
-                end: row.get("end"),
-            })
-        })
-        .collect();
-    Ok((sources, partial))
+    search_scoped(app, pool, query, None, None, None, None, 2).await
 }
 
 const STOPWORDS: [&str; 40] = [
@@ -557,6 +487,54 @@ const STOPWORDS: [&str; 40] = [
     "esto", "ese", "esa", "muy", "mas", "hay", "fue", "son", "sobre", "entre", "the", "and", "for", "with", "that",
     "this", "are", "was", "you", "not", "from", "have", "about", "what", "when",
 ];
+
+/// Meaningful query words, lowercased and without accents, so "qué" is the stopword "que".
+fn content_terms(query: &str) -> Vec<String> {
+    query
+        .split(|c: char| !c.is_alphanumeric())
+        .map(|word| {
+            word.to_lowercase()
+                .chars()
+                .map(|c| match c {
+                    'á' => 'a',
+                    'é' => 'e',
+                    'í' => 'i',
+                    'ó' => 'o',
+                    'ú' | 'ü' => 'u',
+                    other => other,
+                })
+                .collect::<String>()
+        })
+        .filter(|word| word.chars().count() > 2 && !STOPWORDS.contains(&word.as_str()))
+        .take(12)
+        .collect()
+}
+
+fn and_keywords(query: &str) -> String {
+    content_terms(query)
+        .into_iter()
+        .map(|word| format!("\"{}\"", word.replace('"', "")))
+        .collect::<Vec<_>>()
+        .join(" AND ")
+}
+
+/// Keeps the best passages, but not more than `per_meeting` from the same meeting.
+fn take_diverse(ranked: Vec<(String, String)>, limit: usize, per_meeting: usize) -> Vec<String> {
+    let mut counts = std::collections::HashMap::<String, usize>::new();
+    let mut kept = Vec::new();
+    for (id, meeting) in ranked {
+        let count = counts.entry(meeting).or_default();
+        if *count >= per_meeting {
+            continue;
+        }
+        *count += 1;
+        kept.push(id);
+        if kept.len() == limit {
+            break;
+        }
+    }
+    kept
+}
 /// Minimum cosine similarity, and how far above the query's own score distribution a passage must sit.
 /// multilingual-e5 scores cluster between 0.75 and 0.88 for everything, so absolute values alone do not
 /// separate relevant from unrelated text: the passage must also stand out from all the others.
@@ -594,7 +572,26 @@ pub async fn search_relevant(
     pool: &SqlitePool,
     query: &str,
 ) -> Result<(Vec<Source>, bool), String> {
-    ensure_text_index(pool).await?;
+    search_scoped(app, pool, query, None, None, None, None, usize::MAX).await
+}
+
+/// Shared ranking for the library and the general chat.
+/// Insights and transcript passages are both eligible. `per_meeting` limits how many passages of one meeting survive.
+async fn search_scoped(
+    app: &tauri::AppHandle,
+    pool: &SqlitePool,
+    query: &str,
+    client: Option<&str>,
+    project: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+    per_meeting: usize,
+) -> Result<(Vec<Source>, bool), String> {
+    if let Some(client) = client.filter(|value| !value.is_empty()) {
+        ensure_scoped_text_index(pool, Some(client), project.filter(|value| !value.is_empty())).await?;
+    } else {
+        ensure_text_index(pool).await?;
+    }
     let path = directory(app)?;
     let available = ready(&path);
     let query_vector = if available {
@@ -608,8 +605,17 @@ pub async fn search_relevant(
         None
     };
     let rows = sqlx::query(
-        "SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id ORDER BY m.created_at DESC LIMIT 50000",
+        "SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE (? IS NULL OR m.client=?) AND (? IS NULL OR ?='' OR m.project=?) AND (? IS NULL OR date(m.created_at)>=date(?)) AND (? IS NULL OR date(m.created_at)<=date(?)) ORDER BY m.created_at DESC LIMIT 50000",
     )
+    .bind(client)
+    .bind(client)
+    .bind(project)
+    .bind(project)
+    .bind(project)
+    .bind(from)
+    .bind(from)
+    .bind(to)
+    .bind(to)
     .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -617,19 +623,7 @@ pub async fn search_relevant(
         || rows
             .iter()
             .any(|row| row.get::<Option<Vec<u8>>, _>("embedding").is_none());
-
-    let terms: Vec<String> = query
-        .split(|c: char| !c.is_alphanumeric())
-        .map(|word| word.to_lowercase())
-        .filter(|word| word.chars().count() > 2 && !STOPWORDS.contains(&word.as_str()))
-        .take(12)
-        .collect();
-    let keywords = terms
-        .iter()
-        .map(|word| format!("\"{}\"", word.replace('"', "")))
-        .collect::<Vec<_>>()
-        .join(" AND ");
-    let lexical = text_matches_all(pool, &keywords).await?;
+    let lexical = lexical_ids(pool, &and_keywords(query), client, project, from, to).await?;
 
     let mut semantic: Vec<(String, f32)> = rows
         .iter()
@@ -659,10 +653,20 @@ pub async fn search_relevant(
     }
     let mut ranked: Vec<_> = scores.into_iter().collect();
     ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let sources = ranked
+    let ranked_ids = take_diverse(
+        ranked
+            .into_iter()
+            .filter_map(|(id, _)| {
+                let meeting = rows.iter().find(|row| row.get::<String, _>("id") == id)?.get::<String, _>("meeting_id");
+                Some((id, meeting))
+            })
+            .collect(),
+        12,
+        per_meeting,
+    );
+    let sources = ranked_ids
         .into_iter()
-        .take(12)
-        .filter_map(|(id, _)| {
+        .filter_map(|id| {
             let row = rows.iter().find(|row| row.get::<String, _>("id") == id)?;
             Some(Source {
                 id,
@@ -678,14 +682,30 @@ pub async fn search_relevant(
     Ok((sources, partial))
 }
 
-async fn text_matches_all(pool: &SqlitePool, keywords: &str) -> Result<Vec<String>, String> {
+async fn lexical_ids(
+    pool: &SqlitePool,
+    keywords: &str,
+    client: Option<&str>,
+    project: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+) -> Result<Vec<String>, String> {
     if keywords.is_empty() {
         return Ok(vec![]);
     }
     sqlx::query_scalar::<_, String>(
-        "SELECT c.id FROM assistant_fts f JOIN assistant_chunks c ON c.id=f.id WHERE assistant_fts MATCH ? ORDER BY bm25(assistant_fts) LIMIT 60",
+        "SELECT c.id FROM assistant_fts f JOIN assistant_chunks c ON c.id=f.id JOIN meetings m ON m.id=c.meeting_id WHERE assistant_fts MATCH ? AND (? IS NULL OR m.client=?) AND (? IS NULL OR ?='' OR m.project=?) AND (? IS NULL OR date(m.created_at)>=date(?)) AND (? IS NULL OR date(m.created_at)<=date(?)) ORDER BY bm25(assistant_fts) LIMIT 60",
     )
     .bind(keywords)
+    .bind(client)
+    .bind(client)
+    .bind(project)
+    .bind(project)
+    .bind(project)
+    .bind(from)
+    .bind(from)
+    .bind(to)
+    .bind(to)
     .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())
@@ -754,68 +774,7 @@ pub async fn retrieve(
     from: Option<&str>,
     to: Option<&str>,
 ) -> Result<(Vec<Source>, bool), String> {
-    ensure_scoped_text_index(pool, Some(client), Some(project).filter(|p| !p.is_empty())).await?;
-    let path = directory(app)?;
-    let available = ready(&path);
-    let q = if available {
-        let text = question.to_string();
-        Some(
-            tauri::async_runtime::spawn_blocking(move || embed(&path, &text, true))
-                .await
-                .map_err(|e| e.to_string())??,
-        )
-    } else {
-        None
-    };
-    let rows=sqlx::query("SELECT c.id,c.meeting_id,c.text,c.start,c.end,c.embedding,m.title FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE c.id NOT GLOB '*:s[0-9]*' AND m.client=? AND (?='' OR m.project=?) AND (? IS NULL OR date(m.created_at)>=date(?)) AND (? IS NULL OR date(m.created_at)<=date(?))").bind(client).bind(project).bind(project).bind(from).bind(from).bind(to).bind(to).fetch_all(pool).await.map_err(|e|e.to_string())?;
-    let partial = !available
-        || rows
-            .iter()
-            .any(|r| r.get::<Option<Vec<u8>>, _>("embedding").is_none());
-    let keywords = question
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|s| s.chars().count() > 2)
-        .take(24)
-        .map(|s| format!("\"{}\"", s.replace('"', "")))
-        .collect::<Vec<_>>()
-        .join(" OR ");
-    let lexical = text_matches(pool, &keywords, client, project, from, to).await?;
-    let mut semantic: Vec<(String, f32)> = rows
-        .iter()
-        .filter_map(|r| {
-            Some((
-                r.get("id"),
-                cosine(&r.get::<Option<Vec<u8>>, _>("embedding")?, q.as_ref()?),
-            ))
-        })
-        .collect();
-    semantic.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let mut scores = std::collections::HashMap::<String, f32>::new();
-    for (i, id) in lexical.iter().enumerate() {
-        *scores.entry(id.clone()).or_default() += 1.0 / (60 + i) as f32;
-    }
-    for (i, (id, _)) in semantic.iter().take(60).enumerate() {
-        *scores.entry(id.clone()).or_default() += 1.0 / (60 + i) as f32;
-    }
-    let mut ranked: Vec<_> = scores.into_iter().collect();
-    ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let sources = ranked
-        .into_iter()
-        .take(12)
-        .filter_map(|(id, _)| {
-            let r = rows.iter().find(|r| r.get::<String, _>("id") == id)?;
-            Some(Source {
-                id,
-                meeting_id: Some(r.get("meeting_id")),
-                session_id: None,
-                title: r.get("title"),
-                text: r.get("text"),
-                start: r.get("start"),
-                end: r.get("end"),
-            })
-        })
-        .collect();
-    Ok((sources, partial))
+    search_scoped(app, pool, question, Some(client), Some(project), from, to, 2).await
 }
 
 async fn text_matches(
@@ -826,10 +785,7 @@ async fn text_matches(
     from: Option<&str>,
     to: Option<&str>,
 ) -> Result<Vec<String>, String> {
-    if keywords.is_empty() {
-        return Ok(vec![]);
-    }
-    sqlx::query_scalar::<_,String>("SELECT c.id FROM assistant_fts f JOIN assistant_chunks c ON c.id=f.id JOIN meetings m ON m.id=c.meeting_id WHERE assistant_fts MATCH ? AND m.client=? AND (?='' OR m.project=?) AND (? IS NULL OR date(m.created_at)>=date(?)) AND (? IS NULL OR date(m.created_at)<=date(?)) ORDER BY bm25(assistant_fts) LIMIT 60").bind(&keywords).bind(client).bind(project).bind(project).bind(from).bind(from).bind(to).bind(to).fetch_all(pool).await.map_err(|e|e.to_string())
+    lexical_ids(pool, keywords, Some(client), Some(project), from, to).await
 }
 
 #[cfg(test)]
@@ -969,5 +925,35 @@ mod tests {
     #[test]
     fn vector_roundtrip_and_cosine() {
         assert!((cosine(&encode_vector(&[0.6, 0.8]), &[0.6, 0.8]) - 1.0).abs() < 0.0001);
+    }
+
+    #[test]
+    fn content_terms_drop_stopwords_and_accents() {
+        assert_eq!(content_terms("qué se decidió sobre el riego"), vec!["decidio", "riego"]);
+    }
+
+    #[test]
+    fn diversity_keeps_two_passages_per_meeting() {
+        let ranked = vec![
+            ("a:s0".into(), "a".into()),
+            ("a:w0".into(), "a".into()),
+            ("a:w1".into(), "a".into()),
+            ("b:s0".into(), "b".into()),
+        ];
+        assert_eq!(take_diverse(ranked, 12, 2), vec!["a:s0", "a:w0", "b:s0"]);
+    }
+
+    #[tokio::test]
+    async fn corpus_lexical_includes_summaries_and_respects_client() {
+        let pool = crate::desktop::test_pool().await;
+        sqlx::raw_sql("INSERT INTO meetings(id,title,client,project,created_at) VALUES('a','Riego','Norte','Portal','2026-10-01'),('b','Clima','Norte','Portal','2026-10-02'),('c','Sur','Sur','Otro','2026-10-03'); INSERT INTO summary_processes(meeting_id,status,result) VALUES('a','completed','{\"markdown\":\"Decidimos el presupuesto de riego para el viernes\"}'); INSERT INTO transcripts(id,meeting_id,transcript,audio_start_time) VALUES('tb','b','que hay sobre el clima de manana',1),('tc','c','presupuesto de riego del sur',1);").execute(&pool).await.unwrap();
+        ensure_text_index(&pool).await.unwrap();
+        let keywords = and_keywords("presupuesto de riego");
+        let norte = lexical_ids(&pool, &keywords, Some("Norte"), Some(""), None, None).await.unwrap();
+        assert!(norte.iter().any(|id| id.starts_with("a:s")), "{norte:?}");
+        assert!(norte.iter().all(|id| id.starts_with("a:")));
+        let loose = lexical_ids(&pool, &and_keywords("qué hay sobre el presupuesto de riego"), None, None, None, None).await.unwrap();
+        assert!(loose.iter().all(|id| !id.starts_with("b:")), "{loose:?}");
+        assert!(loose.iter().any(|id| id.starts_with("a:s")), "{loose:?}");
     }
 }
