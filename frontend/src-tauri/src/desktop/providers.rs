@@ -48,23 +48,46 @@ pub struct Catalog {
 static CACHE: Lazy<Mutex<HashMap<u64, (Instant, Vec<ProviderModel>)>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
+/// Catalog window for the chat path. Zero or a missing value falls back to 8192.
+/// The chat model is not clamped at 32768: cloud models report 128k and, in some cases, 1M.
+pub fn catalog_window_tokens(reported: Option<u64>) -> usize {
+    reported
+        .filter(|tokens| *tokens > 0)
+        .map(|tokens| tokens as usize)
+        .unwrap_or(8192)
+}
+
+fn model_window(models: &[ProviderModel], model: &str) -> Option<usize> {
+    models
+        .iter()
+        .find(|item| item.id == model)
+        .map(|item| catalog_window_tokens(item.input_tokens))
+}
+
 pub async fn context_limit(provider: &str, model: &str) -> usize {
     if provider == "builtin-ai" {
         return crate::summary::summary_engine::models::get_model_by_name(model)
-            .map(|m| m.context_size as usize)
-            .unwrap_or(8192)
-            .min(32768);
+            .map(|model| model.context_size as usize)
+            .filter(|tokens| *tokens > 0)
+            .unwrap_or(8192);
     }
-    CACHE
+    // Gateway listings are not stored in CACHE, so a cloud chat model must be read from its catalog.
+    if provider == "vercel-gateway" {
+        if let Ok((models, _)) = gateway_catalog(false).await {
+            if let Some(window) = model_window(&models, model) {
+                return window;
+            }
+        }
+    }
+    let reported = CACHE
         .lock()
         .await
         .values()
         .flat_map(|(_, models)| models)
-        .filter(|m| m.id == model)
-        .filter_map(|m| m.input_tokens)
-        .min()
-        .unwrap_or(8192)
-        .min(32768) as usize
+        .filter(|item| item.id == model)
+        .filter_map(|item| item.input_tokens)
+        .min();
+    catalog_window_tokens(reported)
 }
 
 pub async fn credential(state: &AppState, provider: &str, purpose: &str) -> Result<String, String> {
@@ -477,6 +500,22 @@ pub async fn desktop_test_gemini_audio(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chat_window_keeps_the_catalog_size() {
+        assert_eq!(catalog_window_tokens(Some(128_000)), 128_000);
+        assert_eq!(catalog_window_tokens(Some(1_000_000)), 1_000_000);
+        assert_eq!(catalog_window_tokens(None), 8192);
+        assert_eq!(catalog_window_tokens(Some(0)), 8192);
+        let models = vec![ProviderModel {
+            id: "amazon/nova-micro".into(),
+            input_tokens: Some(128_000),
+            ..ProviderModel::default()
+        }];
+        assert_eq!(model_window(&models, "amazon/nova-micro"), Some(128_000));
+        assert_eq!(model_window(&models, "missing"), None);
+    }
+
     async fn server(
         responses: Vec<(u16, Value)>,
     ) -> (String, tokio::task::JoinHandle<Vec<String>>) {

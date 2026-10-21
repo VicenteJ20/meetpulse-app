@@ -16,6 +16,8 @@ use tauri::{Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 
 const REVISION: &str = "614241f622f53c4eeff9890bdc4f31cfecc418b3";
+/// Stored on each vector. Bumped when the embedded text gains meeting metadata, so old vectors are rebuilt.
+const EMBEDDING_REVISION: &str = "614241f622f53c4eeff9890bdc4f31cfecc418b3+meta1";
 const FILES: [(&str, &str, u64); 2] = [
     (
         "onnx/model.onnx",
@@ -238,7 +240,7 @@ pub async fn desktop_search_status(
     let indexed: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM assistant_chunks WHERE embedding IS NOT NULL AND revision=?",
     )
-    .bind(REVISION)
+    .bind(EMBEDDING_REVISION)
     .fetch_one(pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -676,6 +678,7 @@ async fn search_scoped(
                 text: row.get("text"),
                 start: row.get("start"),
                 end: row.get("end"),
+                date: None,
             })
         })
         .collect();
@@ -731,13 +734,7 @@ async fn index(app: &tauri::AppHandle, pool: &SqlitePool) -> Result<(), String> 
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             continue;
         }
-        let rows = sqlx::query(
-            "SELECT id,text FROM assistant_chunks WHERE embedding IS NULL OR revision!=? LIMIT 8",
-        )
-        .bind(REVISION)
-        .fetch_all(pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        let rows = next_embedding_batch(pool).await?;
         if rows.is_empty() {
             break;
         }
@@ -747,15 +744,15 @@ async fn index(app: &tauri::AppHandle, pool: &SqlitePool) -> Result<(), String> 
             {
                 break;
             }
-            let id: String = row.get("id");
-            let text: String = row.get("text");
+            let id = row.id.clone();
+            let text = embed_passage(&row.id, &row.title, &row.client, &row.project, &row.created_at, &row.text);
             let root = path.clone();
             let vector = tauri::async_runtime::spawn_blocking(move || embed(&root, &text, false))
                 .await
                 .map_err(|e| e.to_string())??;
             sqlx::query("UPDATE assistant_chunks SET embedding=?,revision=? WHERE id=?")
                 .bind(encode_vector(&vector))
-                .bind(REVISION)
+                .bind(EMBEDDING_REVISION)
                 .bind(id)
                 .execute(pool)
                 .await
@@ -765,6 +762,800 @@ async fn index(app: &tauri::AppHandle, pool: &SqlitePool) -> Result<(), String> 
     }
     Ok(())
 }
+const RECENCY_HALF_LIFE_DAYS: f32 = 45.0;
+const RECENCY_WEIGHT: f32 = 0.12;
+const LEXICAL_WEIGHT: f32 = 0.04;
+const AND_BONUS: f32 = 0.04;
+const INSIGHT_BONUS: f32 = 0.03;
+const METADATA_BONUS: f32 = 0.25;
+const SHORTLIST: usize = 40;
+const COSINE_FLOOR: f32 = 0.78;
+const COSINE_GAP: f32 = 0.06;
+
+/// How much of the chat model's window the first search should fill.
+#[derive(Clone, Copy, Debug)]
+pub struct ChatLimits {
+    pub max_meetings: usize,
+    pub windows_per_meeting: usize,
+    pub insight_chars: usize,
+    pub window_chars: usize,
+    pub char_budget: usize,
+}
+
+/// One meeting the chat agent can cite. Passages are the insight, then transcript windows.
+#[derive(Clone, Debug)]
+pub struct ChatMeeting {
+    pub id: String,
+    pub title: String,
+    pub client: String,
+    pub project: String,
+    pub date: String,
+    pub passages: Vec<Source>,
+}
+
+pub struct ChatSearch {
+    pub meetings: Vec<ChatMeeting>,
+    pub partial: bool,
+}
+
+struct ChatCandidate {
+    id: String,
+    meeting_id: String,
+    age_days: f32,
+    cosine: Option<f32>,
+    lexical_rank: Option<usize>,
+    and_match: bool,
+    metadata: bool,
+    recent_insight: bool,
+    insight: bool,
+}
+
+struct ChunkRow {
+    id: String,
+    meeting_id: String,
+    text: String,
+    start: f64,
+    end: Option<f64>,
+    embedding: Option<Vec<u8>>,
+    title: String,
+    client: String,
+    project: String,
+    created_at: String,
+}
+
+struct EmbedJob {
+    id: String,
+    text: String,
+    title: String,
+    client: String,
+    project: String,
+    created_at: String,
+}
+
+pub fn chat_limits_for(context_tokens: usize) -> ChatLimits {
+    let usable = context_tokens.saturating_sub(4096).max(1024);
+    // Half of the usable window, counted in characters. The rest stays for history and the answer.
+    let char_budget = usable.saturating_mul(3) / 2;
+    let max_meetings = if char_budget < 12_000 {
+        2
+    } else if char_budget < 24_000 {
+        4
+    } else {
+        8
+    };
+    let windows = if char_budget < 12_000 { 2 } else { 4 };
+    let insight_chars = (char_budget / max_meetings / 2).clamp(1_200, 8_000);
+    ChatLimits {
+        max_meetings,
+        windows_per_meeting: windows,
+        insight_chars,
+        window_chars: 800,
+        char_budget,
+    }
+}
+
+/// Listing questions name the calendar, not a topic. "recientes" would otherwise match meetings that talk about meetings.
+fn asks_for_recent_meetings(query: &str) -> bool {
+    const MARKERS: [&str; 8] = [
+        "reciente", "recientes", "ultima", "ultimas", "ultimo", "ultimos", "recent", "latest",
+    ];
+    content_terms(query)
+        .iter()
+        .any(|term| MARKERS.contains(&term.as_str()))
+}
+
+fn or_keywords(query: &str) -> String {
+    content_terms(query)
+        .into_iter()
+        .map(|word| format!("\"{}\"", word.replace('"', "")))
+        .collect::<Vec<_>>()
+        .join(" OR ")
+}
+
+fn day_label(created_at: &str) -> String {
+    created_at.chars().take(10).collect()
+}
+
+fn meeting_age_days(created_at: &str) -> f32 {
+    let today = chrono::Utc::now().date_naive();
+    let Ok(date) = chrono::NaiveDate::parse_from_str(&day_label(created_at), "%Y-%m-%d") else {
+        return 0.0;
+    };
+    (today - date).num_days().max(0) as f32
+}
+
+/// Text actually embedded. The stored passage stays unchanged.
+fn embed_passage(id: &str, title: &str, client: &str, project: &str, created_at: &str, text: &str) -> String {
+    let kind = if is_summary_chunk(id) { "insight" } else { "transcript" };
+    format!("{title}. {client}. {project}. {}. {kind}. {text}", day_label(created_at))
+}
+
+fn passage_score(candidate: &ChatCandidate) -> f32 {
+    let mut score = candidate.cosine.unwrap_or(0.0);
+    if let Some(rank) = candidate.lexical_rank {
+        let closeness = 1.0 - (rank as f32 / SHORTLIST as f32).min(1.0);
+        score += LEXICAL_WEIGHT * closeness;
+    }
+    if candidate.and_match {
+        score += AND_BONUS;
+    }
+    if candidate.insight {
+        score += INSIGHT_BONUS;
+    }
+    if candidate.metadata {
+        score += METADATA_BONUS;
+    }
+    score
+}
+
+fn meeting_score(best_passage: f32, age_days: f32) -> f32 {
+    best_passage + RECENCY_WEIGHT * (-age_days / RECENCY_HALF_LIFE_DAYS).exp()
+}
+
+/// Picks meetings by score. Recency breaks close calls. The cosine gate runs on the shortlist, not on the whole corpus.
+fn select_chat_meetings(candidates: &[ChatCandidate], limit: usize) -> Vec<(String, f32)> {
+    let mut semantic: Vec<(usize, f32)> = candidates
+        .iter()
+        .enumerate()
+        .filter_map(|(index, candidate)| candidate.cosine.map(|score| (index, score)))
+        .collect();
+    semantic.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let best = semantic.first().map(|(_, score)| *score).unwrap_or(0.0);
+    let floor = if semantic.is_empty() {
+        f32::MAX
+    } else {
+        COSINE_FLOOR.max(best - COSINE_GAP)
+    };
+    let mut chosen = std::collections::HashSet::new();
+    for (index, score) in semantic.iter().take(SHORTLIST) {
+        if *score >= floor {
+            chosen.insert(*index);
+        }
+    }
+    for (index, candidate) in candidates.iter().enumerate() {
+        if chosen.contains(&index) {
+            continue;
+        }
+        if candidate.lexical_rank.is_some() || candidate.and_match || candidate.metadata {
+            chosen.insert(index);
+            continue;
+        }
+        if candidate.recent_insight && candidate.cosine.is_some_and(|score| score >= floor) {
+            chosen.insert(index);
+        }
+    }
+    let mut best_of = std::collections::HashMap::<String, (f32, f32)>::new();
+    for index in chosen {
+        let candidate = &candidates[index];
+        let score = passage_score(candidate);
+        let entry = best_of
+            .entry(candidate.meeting_id.clone())
+            .or_insert((f32::MIN, candidate.age_days));
+        if score > entry.0 {
+            *entry = (score, candidate.age_days);
+        }
+    }
+    let mut ranked: Vec<(String, f32)> = best_of
+        .into_iter()
+        .map(|(id, (score, age))| (id, meeting_score(score, age)))
+        .collect();
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+    ranked.truncate(limit);
+    ranked
+}
+
+fn take_chars(text: &str, max_chars: usize) -> String {
+    text.chars().take(max_chars).collect()
+}
+
+fn scope_clause(alias: &str) -> String {
+    format!(
+        "(? IS NULL OR {alias}.client=?) AND (? IS NULL OR ?='' OR {alias}.project=?) AND (? IS NULL OR date({alias}.created_at)>=date(?)) AND (? IS NULL OR date({alias}.created_at)<=date(?))"
+    )
+}
+
+macro_rules! bind_scope {
+    ($query:expr, $client:expr, $project:expr, $from:expr, $to:expr) => {
+        $query
+            .bind($client)
+            .bind($client)
+            .bind($project)
+            .bind($project)
+            .bind($project)
+            .bind($from)
+            .bind($from)
+            .bind($to)
+            .bind($to)
+    };
+}
+
+async fn load_scoped_chunks(
+    pool: &SqlitePool,
+    client: Option<&str>,
+    project: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+) -> Result<Vec<ChunkRow>, String> {
+    let sql = format!(
+        "SELECT c.id AS id, c.meeting_id AS meeting_id, c.text AS text, c.start AS start, c.end AS end, c.embedding AS embedding, COALESCE(m.title,'') AS title, COALESCE(m.client,'') AS client, COALESCE(m.project,'') AS project, COALESCE(m.created_at,'') AS created_at FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE {} ORDER BY m.created_at DESC LIMIT 50000",
+        scope_clause("m")
+    );
+    let rows = bind_scope!(sqlx::query(&sql), client, project, from, to)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(rows
+        .iter()
+        .map(|row| ChunkRow {
+            id: row.get("id"),
+            meeting_id: row.get("meeting_id"),
+            text: row.get("text"),
+            start: row.get("start"),
+            end: row.get("end"),
+            embedding: row.get("embedding"),
+            title: row.get("title"),
+            client: row.get("client"),
+            project: row.get("project"),
+            created_at: row.get("created_at"),
+        })
+        .collect())
+}
+
+async fn metadata_meeting_ids(
+    pool: &SqlitePool,
+    query: &str,
+    client: Option<&str>,
+    project: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+) -> Result<Vec<String>, String> {
+    let terms = content_terms(query);
+    if terms.is_empty() {
+        return Ok(vec![]);
+    }
+    let mut sql = format!("SELECT id FROM meetings WHERE {} AND (", scope_clause("meetings"));
+    for index in 0..terms.len() {
+        if index > 0 {
+            sql.push_str(" OR ");
+        }
+        sql.push_str("(instr(lower(COALESCE(title,'')), lower(?))>0 OR instr(lower(COALESCE(client,'')), lower(?))>0 OR instr(lower(COALESCE(project,'')), lower(?))>0)");
+    }
+    sql.push(')');
+    let mut request = bind_scope!(sqlx::query_scalar(&sql), client, project, from, to);
+    for term in &terms {
+        request = request.bind(term).bind(term).bind(term);
+    }
+    request.fetch_all(pool).await.map_err(|e| e.to_string())
+}
+
+async fn recent_meeting_ids(
+    pool: &SqlitePool,
+    client: Option<&str>,
+    project: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+) -> Result<Vec<String>, String> {
+    let sql = format!(
+        "SELECT id FROM meetings WHERE {} AND (EXISTS(SELECT 1 FROM transcripts t WHERE t.meeting_id=meetings.id) OR EXISTS(SELECT 1 FROM assistant_chunks c WHERE c.meeting_id=meetings.id) OR EXISTS(SELECT 1 FROM summary_processes s WHERE s.meeting_id=meetings.id AND s.status='completed')) ORDER BY created_at DESC LIMIT 8",
+        scope_clause("meetings")
+    );
+    bind_scope!(sqlx::query_scalar(&sql), client, project, from, to)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn missing_embeddings(
+    pool: &SqlitePool,
+    client: Option<&str>,
+    project: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+) -> Result<bool, String> {
+    let sql = format!(
+        "SELECT COUNT(*) FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE {} AND (c.embedding IS NULL OR c.revision!=?)",
+        scope_clause("m")
+    );
+    let count: i64 = bind_scope!(sqlx::query_scalar(&sql), client, project, from, to)
+        .bind(EMBEDDING_REVISION)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(count > 0)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum InsightKind {
+    Summary,
+    Decisions,
+    Actions,
+    Topics,
+    Questions,
+}
+
+fn fold_accents(text: &str) -> String {
+    text.chars()
+        .map(|c| match c {
+            'á' | 'Á' => 'a',
+            'é' | 'É' => 'e',
+            'í' | 'Í' => 'i',
+            'ó' | 'Ó' => 'o',
+            'ú' | 'Ú' | 'ü' | 'Ü' => 'u',
+            other => other.to_ascii_lowercase(),
+        })
+        .collect()
+}
+
+/// Same sections the meeting view shows. Metadata and unknown headings are left out.
+fn insight_kind(title: &str) -> Option<InsightKind> {
+    let folded = fold_accents(title);
+    let title: String = folded
+        .chars()
+        .map(|c| if c.is_ascii_alphabetic() || c == ' ' { c } else { ' ' })
+        .collect();
+    let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    if title.starts_with("metadatos") || title.starts_with("metadata") {
+        return None;
+    }
+    if title.starts_with("resumen") || title.starts_with("summary") || title.starts_with("objetivo") || title.starts_with("contexto") {
+        return Some(InsightKind::Summary);
+    }
+    if title.contains("decision") {
+        return Some(InsightKind::Decisions);
+    }
+    if title.starts_with("acciones")
+        || title.starts_with("compromisos")
+        || title.starts_with("tareas")
+        || title.starts_with("action")
+        || title.starts_with("proximos pasos")
+        || title.starts_with("next steps")
+    {
+        return Some(InsightKind::Actions);
+    }
+    if title.starts_with("temas") || title.starts_with("topics") || title.starts_with("puntos clave") || title.starts_with("key points") {
+        return Some(InsightKind::Topics);
+    }
+    if title.contains("pregunta") || title.contains("riesgo") || title.contains("bloqueo") || title.contains("sin resolver") || title.contains("open question") {
+        return Some(InsightKind::Questions);
+    }
+    None
+}
+
+fn split_insight(markdown: &str) -> Vec<(InsightKind, String)> {
+    let mut sections: Vec<(InsightKind, String)> = Vec::new();
+    let mut kind: Option<InsightKind> = None;
+    let mut body = String::new();
+    let flush = |kind: &mut Option<InsightKind>, body: &mut String, sections: &mut Vec<(InsightKind, String)>| {
+        if let Some(current) = kind.take() {
+            let text = body.trim().to_string();
+            if !text.is_empty() {
+                if let Some((_, existing)) = sections.iter_mut().find(|(kept, _)| *kept == current) {
+                    existing.push('\n');
+                    existing.push_str(&text);
+                } else {
+                    sections.push((current, text));
+                }
+            }
+        }
+        body.clear();
+    };
+    for line in markdown.lines() {
+        let trimmed = line.trim();
+        if let Some(title) = trimmed.strip_prefix("## ") {
+            flush(&mut kind, &mut body, &mut sections);
+            kind = insight_kind(title);
+            continue;
+        }
+        if trimmed.starts_with("# ") || kind.is_none() {
+            continue;
+        }
+        body.push_str(line);
+        body.push('\n');
+    }
+    flush(&mut kind, &mut body, &mut sections);
+    sections
+}
+
+fn wants_insight_kind(query: &str, kind: InsightKind) -> bool {
+    let query = fold_accents(query);
+    match kind {
+        InsightKind::Summary => false,
+        InsightKind::Decisions => query.contains("decision") || query.contains("decid") || query.contains("acuerdo") || query.contains("acord"),
+        InsightKind::Actions => query.contains("accion") || query.contains("tarea") || query.contains("compromiso"),
+        InsightKind::Topics => query.contains("tema"),
+        InsightKind::Questions => query.contains("pregunta") || query.contains("riesgo") || query.contains("bloqueo"),
+    }
+}
+
+/// The first packet. Recent questions get the summary paragraph. A topical question also gets the one matching section.
+fn insight_card(markdown: &str, query: &str) -> String {
+    let sections = split_insight(markdown);
+    if sections.is_empty() {
+        return String::new();
+    }
+    let mut wanted = vec![InsightKind::Summary];
+    if !asks_for_recent_meetings(query) {
+        for kind in [InsightKind::Decisions, InsightKind::Actions, InsightKind::Topics, InsightKind::Questions] {
+            if wants_insight_kind(query, kind) {
+                wanted.push(kind);
+            }
+        }
+    }
+    let mut out = String::new();
+    for kind in wanted {
+        let Some((_, text)) = sections.iter().find(|(kept, _)| *kept == kind) else {
+            continue;
+        };
+        let label = match kind {
+            InsightKind::Summary => "Resumen",
+            InsightKind::Decisions => "Decisiones",
+            InsightKind::Actions => "Acciones",
+            InsightKind::Topics => "Temas",
+            InsightKind::Questions => "Preguntas",
+        };
+        let clip = if kind == InsightKind::Summary { 500 } else { 1_200 };
+        out.push_str(label);
+        out.push_str(": ");
+        out.push_str(&take_chars(text, clip));
+        out.push('\n');
+    }
+    out.trim().to_string()
+}
+
+async fn stored_insight(pool: &SqlitePool, meeting_id: &str, max_chars: usize) -> Result<String, String> {
+    let raw: Option<String> = sqlx::query_scalar(
+        "SELECT result FROM summary_processes WHERE meeting_id=? AND status='completed'",
+    )
+    .bind(meeting_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?
+    .flatten();
+    let Some(raw) = raw else {
+        return Ok(String::new());
+    };
+    let Ok(value) = serde_json::from_str::<Value>(&raw) else {
+        return Ok(String::new());
+    };
+    let markdown = value
+        .get("markdown")
+        .and_then(Value::as_str)
+        .or_else(|| value.pointer("/english_cache/markdown").and_then(Value::as_str))
+        .unwrap_or("")
+        .trim();
+    Ok(take_chars(markdown, max_chars))
+}
+
+fn row_source(row: &ChunkRow, text: String) -> Source {
+    Source {
+        id: row.id.clone(),
+        meeting_id: Some(row.meeting_id.clone()),
+        session_id: None,
+        title: row.title.clone(),
+        text,
+        start: row.start,
+        end: row.end,
+        date: Some(day_label(&row.created_at)),
+    }
+}
+
+fn insight_source(row: &ChunkRow, text: String) -> Source {
+    Source {
+        id: format!("{}:insight", row.meeting_id),
+        meeting_id: Some(row.meeting_id.clone()),
+        session_id: None,
+        title: row.title.clone(),
+        text,
+        start: 0.0,
+        end: None,
+        date: Some(day_label(&row.created_at)),
+    }
+}
+
+async fn meetings_from_selection(
+    pool: &SqlitePool,
+    rows: &[ChunkRow],
+    selected: &[(String, f32)],
+    query: &str,
+    limits: ChatLimits,
+) -> Result<Vec<ChatMeeting>, String> {
+    let mut meetings = Vec::new();
+    for (meeting_id, _) in selected {
+        let Some(sample) = rows.iter().find(|row| &row.meeting_id == meeting_id) else {
+            continue;
+        };
+        let markdown = stored_insight(pool, meeting_id, limits.insight_chars).await?;
+        let card = insight_card(&markdown, query);
+        // The first packet is the insight card only. The transcript stays on disk until a read.
+        let text = if card.is_empty() { "Sin insights.".into() } else { card };
+        let passages = vec![insight_source(sample, text)];
+        meetings.push(ChatMeeting {
+            id: meeting_id.clone(),
+            title: sample.title.clone(),
+            client: sample.client.clone(),
+            project: sample.project.clone(),
+            date: day_label(&sample.created_at),
+            passages,
+        });
+    }
+    meetings.sort_by(|a, b| b.date.cmp(&a.date).then_with(|| a.id.cmp(&b.id)));
+    trim_chat_meetings(&mut meetings, limits.char_budget);
+    Ok(meetings)
+}
+
+pub fn trim_chat_meetings(meetings: &mut Vec<ChatMeeting>, budget: usize) {
+    let size = |items: &[ChatMeeting]| {
+        items
+            .iter()
+            .flat_map(|meeting| meeting.passages.iter())
+            .map(|passage| passage.text.chars().count())
+            .sum::<usize>()
+    };
+    while size(meetings) > budget && meetings.len() > 1 {
+        meetings.pop();
+    }
+    while size(meetings) > budget {
+        let Some(meeting) = meetings.last_mut() else {
+            break;
+        };
+        if meeting.passages.len() > 1 {
+            meeting.passages.pop();
+            continue;
+        }
+        let Some(passage) = meeting.passages.last_mut() else {
+            break;
+        };
+        if passage.text.chars().count() <= 400 {
+            break;
+        }
+        let keep = passage.text.chars().count() / 2;
+        passage.text = take_chars(&passage.text, keep);
+    }
+}
+
+async fn next_embedding_batch(pool: &SqlitePool) -> Result<Vec<EmbedJob>, String> {
+    let rows = sqlx::query(
+        "SELECT c.id AS id, c.text AS text, COALESCE(m.title,'') AS title, COALESCE(m.client,'') AS client, COALESCE(m.project,'') AS project, COALESCE(m.created_at,'') AS created_at FROM assistant_chunks c JOIN meetings m ON m.id=c.meeting_id WHERE c.embedding IS NULL OR c.revision!=? ORDER BY m.created_at DESC LIMIT 8",
+    )
+    .bind(EMBEDDING_REVISION)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(rows
+        .iter()
+        .map(|row| EmbedJob {
+            id: row.get("id"),
+            text: row.get("text"),
+            title: row.get("title"),
+            client: row.get("client"),
+            project: row.get("project"),
+            created_at: row.get("created_at"),
+        })
+        .collect())
+}
+
+async fn query_vector(app: &tauri::AppHandle, query: &str) -> Result<Option<Vec<f32>>, String> {
+    let path = directory(app)?;
+    if !ready(&path) {
+        return Ok(None);
+    }
+    let text = query.to_string();
+    Ok(Some(
+        tauri::async_runtime::spawn_blocking(move || embed(&path, &text, true))
+            .await
+            .map_err(|e| e.to_string())??,
+    ))
+}
+
+async fn search_chat_with_vector(
+    pool: &SqlitePool,
+    query: &str,
+    vector: Option<Vec<f32>>,
+    client: Option<&str>,
+    project: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+    limits: ChatLimits,
+) -> Result<ChatSearch, String> {
+    ensure_text_index(pool).await?;
+    let rows = load_scoped_chunks(pool, client, project, from, to).await?;
+    let partial = vector.is_none() || missing_embeddings(pool, client, project, from, to).await?;
+    let lexical = lexical_ids(pool, &or_keywords(query), client, project, from, to).await?;
+    let and_hits = lexical_ids(pool, &and_keywords(query), client, project, from, to).await?;
+    let metadata = metadata_meeting_ids(pool, query, client, project, from, to).await?;
+    let recent = recent_meeting_ids(pool, client, project, from, to).await?;
+    let lexical_rank: std::collections::HashMap<&str, usize> = lexical
+        .iter()
+        .take(SHORTLIST)
+        .enumerate()
+        .map(|(rank, id)| (id.as_str(), rank))
+        .collect();
+    let and_set: std::collections::HashSet<&str> = and_hits.iter().map(String::as_str).collect();
+    let metadata_set: std::collections::HashSet<&str> = metadata.iter().map(String::as_str).collect();
+    let recent_set: std::collections::HashSet<&str> = recent.iter().map(String::as_str).collect();
+    let mut candidates = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let cosine_score = vector.as_ref().and_then(|query_vector| {
+            let blob = row.embedding.as_ref()?;
+            (blob.len() == query_vector.len() * 4).then(|| cosine(blob, query_vector))
+        });
+        let insight = is_summary_chunk(&row.id);
+        let candidate = ChatCandidate {
+            id: row.id.clone(),
+            meeting_id: row.meeting_id.clone(),
+            age_days: meeting_age_days(&row.created_at),
+            cosine: cosine_score,
+            lexical_rank: lexical_rank.get(row.id.as_str()).copied(),
+            and_match: and_set.contains(row.id.as_str()),
+            metadata: metadata_set.contains(row.meeting_id.as_str()),
+            recent_insight: insight && recent_set.contains(row.meeting_id.as_str()),
+            insight,
+        };
+        candidates.push(candidate);
+    }
+    let selected = if asks_for_recent_meetings(query) {
+        let present: std::collections::HashSet<&str> = rows.iter().map(|row| row.meeting_id.as_str()).collect();
+        recent
+            .iter()
+            .filter(|id| present.contains(id.as_str()))
+            .take(limits.max_meetings)
+            .map(|id| (id.clone(), 0.0))
+            .collect()
+    } else {
+        select_chat_meetings(&candidates, limits.max_meetings)
+    };
+    let meetings = meetings_from_selection(pool, &rows, &selected, query, limits).await?;
+    Ok(ChatSearch { meetings, partial })
+}
+
+/// Search used by the chat agent. Meetings come back newest first.
+pub async fn search_chat_meetings(
+    app: &tauri::AppHandle,
+    pool: &SqlitePool,
+    query: &str,
+    client: Option<&str>,
+    project: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+    limits: ChatLimits,
+) -> Result<ChatSearch, String> {
+    let vector = query_vector(app, query).await?;
+    search_chat_with_vector(pool, query, vector, client, project, from, to, limits).await
+}
+
+/// Read one meeting inside the conversation scope. `None` when it is outside that scope.
+pub async fn read_chat_meeting(
+    app: &tauri::AppHandle,
+    pool: &SqlitePool,
+    meeting_id: &str,
+    query: &str,
+    client: Option<&str>,
+    project: Option<&str>,
+    limits: ChatLimits,
+) -> Result<Option<ChatMeeting>, String> {
+    let vector = query_vector(app, query).await?;
+    read_chat_with_vector(pool, meeting_id, query, vector, client, project, limits).await
+}
+
+async fn read_chat_with_vector(
+    pool: &SqlitePool,
+    meeting_id: &str,
+    query: &str,
+    vector: Option<Vec<f32>>,
+    client: Option<&str>,
+    project: Option<&str>,
+    limits: ChatLimits,
+) -> Result<Option<ChatMeeting>, String> {
+    ensure_text_index(pool).await?;
+    let sql = format!(
+        "SELECT id, COALESCE(title,'') AS title, COALESCE(client,'') AS client, COALESCE(project,'') AS project, COALESCE(created_at,'') AS created_at FROM meetings WHERE id=? AND {}",
+        scope_clause("meetings")
+    );
+    let header = sqlx::query(&sql).bind(meeting_id);
+    let row = bind_scope!(header, client, project, None::<&str>, None::<&str>)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    let Some(row) = row else {
+        return Ok(None);
+    };
+    let sample = ChunkRow {
+        id: String::new(),
+        meeting_id: row.get("id"),
+        text: String::new(),
+        start: 0.0,
+        end: None,
+        embedding: None,
+        title: row.get("title"),
+        client: row.get("client"),
+        project: row.get("project"),
+        created_at: row.get("created_at"),
+    };
+    let chunks = sqlx::query(
+        "SELECT c.id AS id, c.meeting_id AS meeting_id, c.text AS text, c.start AS start, c.end AS end, c.embedding AS embedding FROM assistant_chunks c WHERE c.meeting_id=?",
+    )
+    .bind(meeting_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    let terms = content_terms(query);
+    let mut windows: Vec<(f32, ChunkRow)> = chunks
+        .iter()
+        .filter(|row| !is_summary_chunk(&row.get::<String, _>("id")))
+        .map(|row| {
+            let text: String = row.get("text");
+            let embedding: Option<Vec<u8>> = row.get("embedding");
+            let cosine_score = vector.as_ref().and_then(|query_vector| {
+                let blob = embedding.as_ref()?;
+                (blob.len() == query_vector.len() * 4).then(|| cosine(blob, query_vector))
+            });
+            let overlap = terms
+                .iter()
+                .filter(|term| text.to_lowercase().contains(term.as_str()))
+                .count() as f32;
+            let score = cosine_score.unwrap_or(0.0) + overlap * 0.05;
+            (
+                score,
+                ChunkRow {
+                    id: row.get("id"),
+                    meeting_id: sample.meeting_id.clone(),
+                    text,
+                    start: row.get("start"),
+                    end: row.get("end"),
+                    embedding: None,
+                    title: sample.title.clone(),
+                    client: sample.client.clone(),
+                    project: sample.project.clone(),
+                    created_at: sample.created_at.clone(),
+                },
+            )
+        })
+        .collect();
+    windows.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.start.total_cmp(&b.1.start)));
+    windows.truncate(2);
+    windows.sort_by(|a, b| a.1.start.total_cmp(&b.1.start));
+    let markdown = stored_insight(pool, meeting_id, limits.insight_chars).await?;
+    let mut passages = Vec::new();
+    let card = insight_card(&markdown, query);
+    if !card.is_empty() {
+        passages.push(insight_source(&sample, card));
+    }
+    for (_, row) in windows {
+        passages.push(row_source(&row, take_chars(&row.text, 400)));
+    }
+    if passages.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(ChatMeeting {
+        id: sample.meeting_id,
+        title: sample.title,
+        client: sample.client,
+        project: sample.project,
+        date: day_label(&sample.created_at),
+        passages,
+    }))
+}
+
 pub async fn retrieve(
     app: &tauri::AppHandle,
     pool: &SqlitePool,
@@ -955,5 +1746,241 @@ mod tests {
         let loose = lexical_ids(&pool, &and_keywords("qué hay sobre el presupuesto de riego"), None, None, None, None).await.unwrap();
         assert!(loose.iter().all(|id| !id.starts_with("b:")), "{loose:?}");
         assert!(loose.iter().any(|id| id.starts_with("a:s")), "{loose:?}");
+    }
+
+    fn unit(first: f32) -> Vec<f32> {
+        let mut values = vec![0f32; 384];
+        values[0] = first;
+        values[1] = (1.0 - first * first).max(0.0).sqrt();
+        values
+    }
+
+    fn candidate(
+        id: &str,
+        meeting: &str,
+        age: f32,
+        cosine: Option<f32>,
+        lexical_rank: Option<usize>,
+        and_match: bool,
+    ) -> ChatCandidate {
+        ChatCandidate {
+            id: id.into(),
+            meeting_id: meeting.into(),
+            age_days: age,
+            cosine,
+            lexical_rank,
+            and_match,
+            metadata: false,
+            recent_insight: false,
+            insight: false,
+        }
+    }
+
+    #[test]
+    fn chat_shortlist_keeps_a_recent_paraphrase_among_thousands() {
+        let mut rows = Vec::with_capacity(3_003);
+        for index in 0..3_000 {
+            rows.push(candidate(
+                &format!("n{index}:w0"),
+                &format!("n{index}"),
+                120.0,
+                Some(0.80),
+                None,
+                false,
+            ));
+        }
+        rows.push(candidate("noise:w0", "noise", 400.0, Some(0.91), None, false));
+        rows.push(candidate("old:w0", "old", 400.0, Some(0.88), Some(0), true));
+        rows.push(candidate("recent:w0", "recent", 1.0, Some(0.87), None, false));
+        let ranked = select_chat_meetings(&rows, 1);
+        assert_eq!(ranked[0].0, "recent", "{ranked:?}");
+
+        let mut stronger_old = rows;
+        if let Some(old) = stronger_old.iter_mut().find(|row| row.meeting_id == "old") {
+            old.cosine = Some(0.97);
+        }
+        let ranked = select_chat_meetings(&stronger_old, 1);
+        assert_eq!(ranked[0].0, "old", "{ranked:?}");
+    }
+
+    #[test]
+    fn chat_window_grows_with_the_model_context() {
+        assert_eq!(chat_limits_for(128_000).max_meetings, 8);
+        assert_eq!(chat_limits_for(8_192).max_meetings, 2);
+        assert!(chat_limits_for(128_000).char_budget > chat_limits_for(8_192).char_budget);
+    }
+
+    #[test]
+    fn embedded_passage_carries_meeting_metadata() {
+        let text = embed_passage("m:s0", "Riego", "Norte", "Portal", "2026-10-18T15:00:00Z", "hola");
+        assert_eq!(text, "Riego. Norte. Portal. 2026-10-18. insight. hola");
+    }
+
+    #[tokio::test]
+    async fn embedding_batch_takes_the_newest_meeting_first() {
+        let pool = crate::desktop::test_pool().await;
+        sqlx::raw_sql("INSERT INTO meetings(id,title,created_at) VALUES('old','Vieja','2020-01-01'),('new','Nueva','2026-10-20'); INSERT INTO assistant_chunks(id,meeting_id,text,start) VALUES('old:w0','old','antes',0),('new:w0','new','ahora',0);").execute(&pool).await.unwrap();
+        let batch = next_embedding_batch(&pool).await.unwrap();
+        assert_eq!(batch[0].id, "new:w0");
+    }
+
+    #[tokio::test]
+    async fn chat_search_prefers_recent_paraphrase_and_keeps_loose_words() {
+        let pool = crate::desktop::test_pool().await;
+        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        sqlx::query("INSERT INTO meetings(id,title,client,project,created_at) VALUES('recent','Entrega','Norte','Portal',?),('old','Contrato','Norte','Portal','2020-01-01'),('noise','Otra','Norte','Portal','2020-06-01')")
+            .bind(&today)
+            .execute(&pool)
+            .await
+            .unwrap();
+        let mut tx = pool.begin().await.unwrap();
+        for (id, meeting, text, cosine) in [
+            ("recent:w0", "recent", "El equipo cerró la entrega del portal", 0.87f32),
+            ("old:w0", "old", "presupuesto de riego del contrato", 0.88),
+            ("noise:w0", "noise", "notas sueltas de la oficina", 0.91),
+        ] {
+            sqlx::query("INSERT INTO assistant_chunks(id,meeting_id,text,start,embedding,revision) VALUES(?,?,?,0,?,?)")
+                .bind(id)
+                .bind(meeting)
+                .bind(text)
+                .bind(encode_vector(&unit(cosine)))
+                .bind(EMBEDDING_REVISION)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+        }
+        tx.commit().await.unwrap();
+        let limits = ChatLimits {
+            max_meetings: 1,
+            windows_per_meeting: 4,
+            insight_chars: 2_000,
+            window_chars: 800,
+            char_budget: 20_000,
+        };
+        let found = search_chat_with_vector(
+            &pool,
+            "presupuesto de riego",
+            Some(unit(1.0)),
+            Some("Norte"),
+            Some("Portal"),
+            None,
+            None,
+            limits,
+        )
+        .await
+        .unwrap();
+        assert_eq!(found.meetings.len(), 1, "{:?}", found.meetings.iter().map(|m| &m.id).collect::<Vec<_>>());
+        assert_eq!(found.meetings[0].id, "recent");
+        assert_eq!(found.meetings[0].date, today);
+
+        let loose = search_chat_with_vector(
+            &pool,
+            "presupuesto de riego inexistente",
+            None,
+            None,
+            None,
+            None,
+            None,
+            limits,
+        )
+        .await
+        .unwrap();
+        assert!(
+            loose.meetings.iter().any(|meeting| meeting.id == "old"),
+            "{:?}",
+            loose.meetings.iter().map(|m| &m.id).collect::<Vec<_>>()
+        );
+        let required = lexical_ids(
+            &pool,
+            &and_keywords("presupuesto de riego inexistente"),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(required.is_empty(), "{required:?}");
+    }
+
+    #[tokio::test]
+    async fn chat_search_finds_a_client_named_only_in_metadata() {
+        let pool = crate::desktop::test_pool().await;
+        sqlx::raw_sql("INSERT INTO meetings(id,title,client,project,created_at) VALUES('acme','Semanal','Acme','Portal','2026-10-18'),('otra','Semanal','Norte','Portal','2026-10-18'); INSERT INTO transcripts(id,meeting_id,transcript,timestamp,audio_start_time) VALUES('ta','acme','hablamos del cronograma','t',1),('to','otra','hablamos del cronograma','t',1);").execute(&pool).await.unwrap();
+        let limits = chat_limits_for(32_768);
+        let found = search_chat_with_vector(&pool, "Acme", None, None, None, None, None, limits)
+            .await
+            .unwrap();
+        assert!(found.meetings.iter().any(|meeting| meeting.id == "acme"), "{:?}", found.meetings.iter().map(|m| m.id.as_str()).collect::<Vec<_>>());
+        assert!(found.meetings.iter().all(|meeting| meeting.id != "otra"));
+        let scoped = search_chat_with_vector(&pool, "cronograma", None, Some("Norte"), Some(""), None, None, limits)
+            .await
+            .unwrap();
+        assert!(scoped.meetings.iter().all(|meeting| meeting.id == "otra"), "{:?}", scoped.meetings.iter().map(|m| &m.id).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn insight_card_sends_the_summary_and_only_the_matching_section() {
+        let markdown = "## Resumen\nSe hablo del iPhone.\n## Decisiones\n1. Lanzar el Duo.\n## Acciones\n- [ ] **Ana:** enviar el informe.\n";
+        let recent = insight_card(markdown, "cuales son mis reuniones recientes");
+        assert!(recent.contains("iPhone"), "{recent}");
+        assert!(!recent.contains("Lanzar"), "{recent}");
+        assert!(!recent.contains("Ana"), "{recent}");
+        let decisions = insight_card(markdown, "que decidimos");
+        assert!(decisions.contains("iPhone"), "{decisions}");
+        assert!(decisions.contains("Lanzar"), "{decisions}");
+        assert!(!decisions.contains("Ana"), "{decisions}");
+        assert!(insight_card("un texto largo sin secciones", "reuniones recientes").is_empty());
+    }
+
+    #[test]
+    fn recent_listing_is_detected_without_a_model() {
+        assert!(asks_for_recent_meetings("¿Cuáles son mis reuniones recientes?"));
+        assert!(asks_for_recent_meetings("cuáles son las últimas reuniones que he tenido"));
+        assert!(!asks_for_recent_meetings("presupuesto de riego"));
+    }
+
+    #[tokio::test]
+    async fn recent_question_lists_the_newest_meeting_first() {
+        let pool = crate::desktop::test_pool().await;
+        sqlx::raw_sql("INSERT INTO meetings(id,title,created_at) VALUES('new','iPhone','2026-10-20'),('mid','Sintesis','2026-10-19'),('old','Midpuls','2026-10-17'); INSERT INTO transcripts(id,meeting_id,transcript,audio_start_time) VALUES('tn','new','analisis del iphone duo',1),('tm','mid','evaluacion de herramientas para reuniones de consultoria',1),('to','old','desarrollo de reuniones de transcripcion',1); INSERT INTO summary_processes(meeting_id,status,result) VALUES('new','completed','{\"markdown\":\"## Resumen\\nSe hablo del iPhone.\\n## Decisiones\\n1. Lanzar el Duo.\"}'),('mid','completed','{\"markdown\":\"## Resumen\\nSe evaluaron herramientas.\\n## Decisiones\\n1. Adoptar sintesis.\"}');").execute(&pool).await.unwrap();
+        let mut limits = chat_limits_for(8_192);
+        limits.max_meetings = 2;
+        let found = search_chat_with_vector(&pool, "cuales son mis reuniones recientes", None, None, None, None, None, limits)
+            .await
+            .unwrap();
+        assert_eq!(found.meetings.len(), 2, "{:?}", found.meetings.iter().map(|m| &m.id).collect::<Vec<_>>());
+        assert_eq!(found.meetings[0].id, "new");
+        assert_eq!(found.meetings[0].date, "2026-10-20");
+        assert_eq!(found.meetings[1].id, "mid");
+        let newest = &found.meetings[0].passages[0].text;
+        assert!(newest.contains("iPhone"), "{newest}");
+        assert!(!newest.contains("Lanzar"), "{newest}");
+        assert!(!newest.contains("analisis del iphone"), "{newest}");
+        let topical = search_chat_with_vector(&pool, "reuniones de consultoria", None, None, None, None, None, limits)
+            .await
+            .unwrap();
+        assert!(topical.meetings.iter().all(|meeting| meeting.id != "new"), "{:?}", topical.meetings.iter().map(|m| &m.id).collect::<Vec<_>>());
+    }
+
+    #[tokio::test]
+    async fn read_outside_the_client_returns_nothing() {
+        let pool = crate::desktop::test_pool().await;
+        sqlx::raw_sql("INSERT INTO meetings(id,title,client,project,created_at) VALUES('norte','Norte','Norte','Portal','2026-10-18'),('sur','Sur','Sur','Otro','2026-10-18'); INSERT INTO transcripts(id,meeting_id,transcript,audio_start_time) VALUES('tn','norte','el plazo es viernes',1),('ts','sur','el plazo es lunes',1);").execute(&pool).await.unwrap();
+        let limits = chat_limits_for(32_768);
+        let outside = read_chat_with_vector(&pool, "sur", "plazo", None, Some("Norte"), Some("Portal"), limits)
+            .await
+            .unwrap();
+        assert!(outside.is_none());
+        let inside = read_chat_with_vector(&pool, "norte", "plazo", None, Some("Norte"), Some("Portal"), limits)
+            .await
+            .unwrap();
+        let inside = inside.expect("in-scope meeting");
+        assert_eq!(inside.id, "norte");
+        assert!(inside.passages.iter().any(|passage| passage.text.contains("viernes")));
+        let unknown = read_chat_with_vector(&pool, "missing", "plazo", None, Some("Norte"), None, limits)
+            .await
+            .unwrap();
+        assert!(unknown.is_none());
     }
 }
