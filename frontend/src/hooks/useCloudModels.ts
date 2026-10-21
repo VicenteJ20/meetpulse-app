@@ -140,7 +140,11 @@ export function useGatewayCatalog() {
 
 const versionKey = (id: string) => (id.match(/\d+(\.\d+)*/g) ?? []).map((n) => n.padStart(4, '0')).join('.');
 
-/** Chat can use a language or text model that returns text. */
+function mentionsBatch(value: string | null | undefined): boolean {
+  return /\bbatch\b/i.test(value ?? '');
+}
+
+/** Chat can use a language or text model that returns text. Batch variants are excluded. */
 export function isChatLanguageModel(model: {
   id?: string;
   name?: string;
@@ -148,6 +152,7 @@ export function isChatLanguageModel(model: {
   modelType?: string;
   outputModalities?: string[];
 }): boolean {
+  if (mentionsBatch(model.id) || mentionsBatch(model.name) || mentionsBatch(model.label)) return false;
   const type = (model.modelType ?? '').trim().toLowerCase();
   if (type !== 'language' && type !== 'text') return false;
   const outputs = (model.outputModalities ?? []).map((item) => item.toLowerCase());
