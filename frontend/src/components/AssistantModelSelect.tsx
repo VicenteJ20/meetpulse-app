@@ -3,16 +3,17 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Cloud, ShieldCheck } from 'lucide-react';
+import { ModelComplianceMarks } from '@/components/ModelComplianceMarks';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCloudModels } from '@/hooks/useCloudModels';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { cn } from '@/lib/utils';
 
-type Entry = { provider: string; id: string; label: string };
+type Entry = { provider: string; id: string; label: string; zdr?: string | null; noTraining?: string | null };
 const isCloud = (provider: string) => provider === 'vercel-gateway';
 
-// Selector compacto del modelo con el que conversa el chat. Usa el mismo catálogo que el análisis.
+// Selector compacto del chat. Solo modelos de lenguaje o texto, con ZDR y No Training.
 export function AssistantModelSelect({
   provider,
   model,
@@ -27,7 +28,7 @@ export function AssistantModelSelect({
   const { t } = useTranslation();
   const { providerApiKeys } = useConfig();
   const [local, setLocal] = useState<Entry[]>([]);
-  const cloudModels = useCloudModels('analysis');
+  const cloudModels = useCloudModels('chat');
   const hasGatewayKey = !!providerApiKeys['vercel-gateway'];
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export function AssistantModelSelect({
   const current = `${provider}:${model}`;
   const cloud = [...cloudModels];
   const localList = [...local];
-  if (model && isCloud(provider) && !cloud.some((m) => m.provider === provider && m.id === model)) cloud.unshift({ provider, id: model, label: model });
+  if (model && isCloud(provider) && cloud.length === 0) cloud.unshift({ provider, id: model, label: model });
   if (model && !isCloud(provider) && !localList.some((m) => m.provider === provider && m.id === model)) localList.unshift({ provider, id: model, label: model });
 
   return (
@@ -62,7 +63,7 @@ export function AssistantModelSelect({
         {isCloud(provider) ? <Cloud className="size-3.5 shrink-0 text-warning" /> : <ShieldCheck className="size-3.5 shrink-0 text-success" />}
         <SelectValue />
       </SelectTrigger>
-      <SelectContent align="start">
+      <SelectContent align="start" className="min-w-[22rem]">
         {localList.length > 0 && (
           <SelectGroup>
             <SelectLabel className="text-xs text-muted-foreground">{t('home.groupLocal')}</SelectLabel>
@@ -74,7 +75,12 @@ export function AssistantModelSelect({
           {cloud.map((m) => {
             const value = `${m.provider}:${m.id}`;
             return (
-              <SelectItem key={value} value={value} disabled={!hasKey(m.provider) && value !== current}>
+              <SelectItem
+                key={value}
+                value={value}
+                disabled={!hasKey(m.provider) && value !== current}
+                trailing={<ModelComplianceMarks zdr={m.zdr} noTraining={m.noTraining} zdrLabel={t('pv.zdrTitle')} noTrainingLabel={t('pv.noTrainingTitle')} />}
+              >
                 {m.label}{!hasKey(m.provider) ? ` · ${t('home.needsKey')}` : ''}
               </SelectItem>
             );

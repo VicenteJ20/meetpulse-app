@@ -6,8 +6,14 @@ import catalog from '@/config/models.json';
 import { canonicalGatewayTranscriptionModel, GATEWAY_TRANSCRIPTION_MODELS, gatewayTranscriptionChoices } from '@/lib/gateway-transcription';
 import { recommendedFirst } from '@/lib/model-review';
 
-export type CloudModel = { provider: string; id: string; label: string };
-export type CloudPurpose = 'analysis' | 'transcription';
+export type CloudModel = {
+  provider: string;
+  id: string;
+  label: string;
+  zdr?: string | null;
+  noTraining?: string | null;
+};
+export type CloudPurpose = 'analysis' | 'transcription' | 'chat';
 
 export type GatewayModel = {
   provider: 'vercel-gateway';
@@ -134,6 +140,20 @@ export function useGatewayCatalog() {
 
 const versionKey = (id: string) => (id.match(/\d+(\.\d+)*/g) ?? []).map((n) => n.padStart(4, '0')).join('.');
 
+/** Chat can use a language or text model that returns text. */
+export function isChatLanguageModel(model: {
+  id?: string;
+  name?: string;
+  label?: string;
+  modelType?: string;
+  outputModalities?: string[];
+}): boolean {
+  const type = (model.modelType ?? '').trim().toLowerCase();
+  if (type !== 'language' && type !== 'text') return false;
+  const outputs = (model.outputModalities ?? []).map((item) => item.toLowerCase());
+  return outputs.length === 0 || outputs.includes('text');
+}
+
 /** Keeps the models approved in models.json. Providers without a rule pass through unchanged. */
 export function selectApprovedModels<T extends { id: string; audio?: boolean | null; modelType?: string; tags?: string[]; inputModalities?: string[] }>(
   provider: string,
@@ -172,7 +192,8 @@ export function selectApprovedModels<T extends { id: string; audio?: boolean | n
 /**
  * Cloud models from Vercel AI Gateway.
  * Transcription is the fixed allowlist, with MAI-Transcribe-2 first.
- * Analysis keeps language models. Recommended entries from model-review.json sort first.
+ * Chat keeps language and text models. Analysis keeps language models.
+ * Recommended entries from model-review.json sort first.
  */
 export function useCloudModels(purpose: CloudPurpose): CloudModel[] {
   const { models } = useGatewayCatalog();
@@ -184,11 +205,16 @@ export function useCloudModels(purpose: CloudPurpose): CloudModel[] {
         label: model.label,
       }));
     }
-    const filtered = models.filter((model) => model.modelType === 'language');
-    return recommendedFirst(filtered, 'analysis').map((model) => ({
+    const task = purpose === 'chat' ? 'chat' : 'analysis';
+    const filtered = models.filter((model) => (
+      purpose === 'chat' ? isChatLanguageModel(model) : model.modelType === 'language'
+    ));
+    return recommendedFirst(filtered, task).map((model) => ({
       provider: 'vercel-gateway' as const,
       id: model.id,
       label: model.label,
+      zdr: model.zdr,
+      noTraining: model.noTraining,
     }));
   }, [models, purpose]);
 }

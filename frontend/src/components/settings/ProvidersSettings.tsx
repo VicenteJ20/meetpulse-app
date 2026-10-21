@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SettingsSection } from '@/components/ui/settings';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
-import { useGatewayCatalog, type GatewayModel } from '@/hooks/useCloudModels';
+import { isChatLanguageModel, useGatewayCatalog, type GatewayModel } from '@/hooks/useCloudModels';
 import { canonicalGatewayTranscriptionModel, isGatewayTranscriptionModel } from '@/lib/gateway-transcription';
 import { complianceMark, formatHourlyPrice, formatTokenPrice, reviewFor } from '@/lib/model-review';
 import type { ModelConfig } from '@/services/configService';
@@ -242,6 +242,7 @@ export function ProvidersSettings() {
                 const transcriptionInUse = transcriptModelConfig.provider === 'vercel-gateway' && canonicalGatewayTranscriptionModel(transcriptModelConfig.model) === canonicalGatewayTranscriptionModel(model.id);
                 const canTranscribe = isGatewayTranscriptionModel(model.id);
                 const canAnalyze = model.modelType === 'language';
+                const canChat = isChatLanguageModel(model);
                 const capabilities = [...model.inputModalities, ...model.outputModalities, ...model.tags].filter(Boolean);
                 return (
                   <tr key={model.id} className="border-b border-border align-top last:border-b-0">
@@ -271,7 +272,7 @@ export function ProvidersSettings() {
                             {analysisInUse ? t('st.fnAnalysis') : t('pv.useAnalysis')}{!hasKey && !analysisInUse ? ` · ${t('home.needsKey')}` : ''}
                           </Button>
                         )}
-                        {canAnalyze && (
+                        {canChat && (
                           <Button size="sm" variant={chatInUse ? 'secondary' : 'outline'} disabled={!hasKey && !chatInUse} onClick={() => void saveChat('vercel-gateway', model.id)}>
                             {chatInUse ? t('st.fnChat') : t('pv.useChat')}{!hasKey && !chatInUse ? ` · ${t('home.needsKey')}` : ''}
                           </Button>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
+import { ModelComplianceMarks } from '@/components/ModelComplianceMarks';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCloudModels } from '@/hooks/useCloudModels';
 import { gatewayTranscriptionModel } from '@/lib/gateway-transcription';
@@ -133,16 +134,18 @@ function LanguageModelSelect({
   provider,
   model,
   onSave,
+  purpose = 'analysis',
 }: {
   label: string;
   provider: string;
   model: string;
   onSave: (provider: string, model: string) => Promise<void>;
+  purpose?: 'analysis' | 'chat';
 }) {
   const { t } = useTranslation();
   const { providerApiKeys } = useConfig();
   const [local, setLocal] = useState<LocalModel[]>([]);
-  const cloudModels = useCloudModels('analysis');
+  const cloudModels = useCloudModels(purpose);
 
   // Locales: los de la IA integrada. Los de nube salen del catálogo editable.
   useEffect(() => {
@@ -178,7 +181,7 @@ function LanguageModelSelect({
   const current = `${provider}:${model}`;
   const cloud = [...cloudModels];
   const localList = [...local];
-  if (isCloudProvider(provider) && model && !cloud.some((m) => m.provider === provider && m.id === model)) {
+  if (isCloudProvider(provider) && model && !cloud.some((m) => m.provider === provider && m.id === model) && (purpose !== 'chat' || cloud.length === 0)) {
     cloud.unshift({ provider, id: model, label: model });
   } else if (!isCloudProvider(provider) && model && !localList.some((m) => m.provider === provider && m.id === model)) {
     localList.unshift({ provider, id: model, name: model });
@@ -213,7 +216,12 @@ function LanguageModelSelect({
               const hasKey = !!keyFor(m.provider);
               const value = `${m.provider}:${m.id}`;
               return (
-                <SelectItem key={value} value={value} disabled={!hasKey && value !== current}>
+                <SelectItem
+                  key={value}
+                  value={value}
+                  disabled={!hasKey && value !== current}
+                  trailing={purpose === 'chat' ? <ModelComplianceMarks zdr={m.zdr} noTraining={m.noTraining} zdrLabel={t('pv.zdrTitle')} noTrainingLabel={t('pv.noTrainingTitle')} /> : undefined}
+                >
                   {m.label}{!hasKey ? ` · ${t('home.needsKey')}` : ''}
                 </SelectItem>
               );
@@ -266,6 +274,7 @@ export function ChatModelSelect() {
       provider={chatModelConfig.provider}
       model={chatModelConfig.model}
       onSave={saveChatModel}
+      purpose="chat"
     />
   );
 }
