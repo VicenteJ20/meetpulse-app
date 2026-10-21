@@ -39,6 +39,8 @@ export type Source = {
   text: string;
   start: number;
   end?: number;
+  /** Meeting day (`YYYY-MM-DD`) on corpus citations. Absent on live transcript fragments. */
+  date?: string;
 };
 export type Message = {
   id: string;

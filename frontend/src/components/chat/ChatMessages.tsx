@@ -9,6 +9,16 @@ import { ChatMarkdown, citedNumbers, CopyButton } from "./ChatMarkdown";
 
 const mmss = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 const COLLAPSED = 3;
+const MEETING_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function sameMeeting(a: Source, b: Source) {
+  if (a.meetingId && b.meetingId) return a.meetingId === b.meetingId;
+  return a.title === b.title;
+}
+
+function meetingLabel(source: Source) {
+  return source.date && MEETING_DAY.test(source.date) ? `${source.title} · ${source.date}` : source.title;
+}
 
 // Fuentes de una respuesta: solo las citadas en el texto, agrupadas por reunión y plegadas tras las primeras.
 function SourcesList({ message, sourceClick }: { message: Message; sourceClick: (source: Source) => void }) {
@@ -32,8 +42,8 @@ function SourcesList({ message, sourceClick }: { message: Message; sourceClick: 
       <ul className="px-1.5 pb-1.5">
         {shown.map((entry, i) => (
           <Fragment key={`${entry.source.id}-${entry.number}`}>
-            {(i === 0 || shown[i - 1].source.title !== entry.source.title) && (
-              <li className="truncate px-1.5 pb-0.5 pt-2 text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground/80">{entry.source.title}</li>
+            {(i === 0 || !sameMeeting(shown[i - 1].source, entry.source)) && (
+              <li className="truncate px-1.5 pb-0.5 pt-2 text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground/80">{meetingLabel(entry.source)}</li>
             )}
             <li>
               <button
@@ -46,7 +56,9 @@ function SourcesList({ message, sourceClick }: { message: Message; sourceClick: 
                 <span className="min-w-0 flex-1 text-xs leading-snug text-foreground/90">
                   <span className="line-clamp-2">{entry.source.text}</span>
                 </span>
-                <span className="mt-0.5 shrink-0 font-mono text-[0.7rem] tabular-nums text-muted-foreground">{mmss(entry.source.start)}</span>
+                {!entry.source.id.endsWith(":insight") && (
+                  <span className="mt-0.5 shrink-0 font-mono text-[0.7rem] tabular-nums text-muted-foreground">{mmss(entry.source.start)}</span>
+                )}
               </button>
             </li>
           </Fragment>
