@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ChevronDown, Quote, Sparkles } from "lucide-react";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import { cn } from "@/lib/utils";
@@ -139,7 +139,7 @@ export function ChatDisclaimer({ className }: { className?: string }) {
 }
 
 // Hilo de la conversación. Se pega al final mientras llega contenido, salvo que la persona suba a leer.
-export function ChatThread({
+export const ChatThread = memo(function ChatThread({
   messages,
   sourceClick,
   large,
@@ -216,4 +216,4 @@ export function ChatThread({
       )}
     </div>
   );
-}
+});

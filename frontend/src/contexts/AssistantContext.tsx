@@ -157,6 +157,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [detail, setDetail] = useState<Message>();
   const [question, setQuestion] = useState("");
+  const [draftEpoch, setDraftEpoch] = useState(0);
   const [busy, setBusy] = useState("");
   const [pendingText, setPendingText] = useState("");
   const [stage, setStage] = useState<"loading" | "searching" | "analyzing" | "long">("searching");
@@ -357,27 +358,28 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     );
     if (sessionRef.current === id) setMessages(value.messages);
   }
-  async function ask(kind: "chat" | "coach") {
+  async function ask(kind: "chat" | "coach", draft?: string) {
+    const typed = (draft ?? question).trim();
     if (!session || !target || (kind === "coach" && (!isRecording || isPaused)))
-      return;
+      return false;
     if (kind === "coach" && (busy || !transcripts.some((t) => !t.is_partial)))
-      return;
-    if (kind === "chat" && (!question.trim() || busy === "chat")) return;
+      return false;
+    if (kind === "chat" && (!typed || busy === "chat")) return false;
     if (kind === "chat" && scope === "history" && !client) {
       setError(
         es ? "Selecciona cliente y proyecto." : "Select client and project.",
       );
-      return;
+      return false;
     }
     if (from && to && from > to) {
       setError(es ? "El rango de fechas no es válido." : "Invalid date range.");
-      return;
+      return false;
     }
     const key = transcripts
       .filter((t) => !t.is_partial)
       .map((t) => `${t.sequence_id ?? t.id}:${t.text}`)
       .join("|");
-    if (kind === "coach" && key === lastCoach.current) return;
+    if (kind === "coach" && key === lastCoach.current) return false;
     if (busy === "coach")
       await invoke("desktop_assistant_cancel", { requestId: request.current });
     const id = crypto.randomUUID();
@@ -385,7 +387,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     request.current = id;
     setBusy(kind);
     setError("");
-    const text = question;
+    const text = typed;
     stopped.current = false;
     // Envío optimista: el campo se vacía y el mensaje aparece al instante; si algo falla, el texto vuelve.
     if (kind === "chat") {
@@ -415,7 +417,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         },
       );
       if (request.current !== id || sessionRef.current !== activeSession)
-        return;
+        return true;
       if (kind === "coach") lastCoach.current = key;
       setPartial(result.partial);
       await reload(activeSession);
@@ -433,6 +435,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       }
       if (kind === "chat") setPendingText("");
     }
+    return true;
   }
   coachJob.current = () => {
     if (coach && isRecording && !isPaused) void ask("coach");
@@ -567,6 +570,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     };
   }, [busy, isLocalProvider]);
   const pending = busy === "chat" ? { question: pendingText, stage } : undefined;
+  const composerKey = `${target?.id ?? ""}:${draftEpoch}`;
   // Conversación nueva en esta reunión: lo anterior deja de mostrarse y de enviarse como contexto.
   async function newChat() {
     if (!session) return;
@@ -577,6 +581,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       setError("");
       setPartial(false);
       setQuestion("");
+      setDraftEpoch((value) => value + 1);
       await reload(session);
     } catch (e) {
       setError(String(e));
@@ -622,8 +627,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           error={error}
           partial={partial}
           question={question}
-          setQuestion={setQuestion}
-          ask={() => ask("chat")}
+          composerKey={composerKey}
+          ask={(text) => ask("chat", text)}
           cancel={stopChat}
           ready={!!session}
           clients={clients}
@@ -684,7 +689,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         partial={partial}
         error={error}
         question={question}
-        setQuestion={setQuestion}
+        composerKey={composerKey}
         isLocalProvider={isLocalProvider}
         requestId={request.current}
         pending={pending}

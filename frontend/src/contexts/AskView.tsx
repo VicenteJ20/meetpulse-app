@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Lock, Sparkles, Square } from "lucide-react";
@@ -20,8 +20,8 @@ type Props = {
   error: string;
   partial: boolean;
   question: string;
-  setQuestion: (value: string) => void;
-  ask: () => Promise<void>;
+  composerKey: string;
+  ask: (text: string) => Promise<boolean>;
   cancel: () => void;
   ready: boolean;
   clients: string[];
@@ -36,38 +36,60 @@ type Props = {
   onModelChange: (provider: string, model: string) => void;
 };
 
-// Chat general sobre todas las reuniones. Vacío: saludo y campo al centro; con mensajes: hilo arriba y campo abajo.
-export function AskView(props: Props) {
-  const {
-    t, host, messages, pending, error, partial, question, setQuestion, ask, cancel, ready,
-    clients, projects, client, project, setClient, setProject, sourceClick,
-    provider, model, onModelChange,
-  } = props;
-  const busy = !!pending;
-  const empty = messages.length === 0 && !pending;
-  // Con mensajes, el alcance queda fijo: evita mezclar información de otros clientes en la misma conversación.
-  const locked = messages.length > 0;
-  const threadRef = useRef<HTMLDivElement>(null);
+// El texto vive aquí, no en el provider: cada tecla no debe redibujar el hilo ni el resto de la app.
+function AskComposer({
+  t, question, ask, cancel, ready, busy, empty, locked, scopeLabel,
+  clients, projects, client, project, setClient, setProject, provider, model, onModelChange,
+}: {
+  t: (key: TranslationKey) => string;
+  question: string;
+  ask: (text: string) => Promise<boolean>;
+  cancel: () => void;
+  ready: boolean;
+  busy: boolean;
+  empty: boolean;
+  locked: boolean;
+  scopeLabel: string;
+  clients: string[];
+  projects: string[];
+  client: string;
+  project: string;
+  setClient: (client: string) => void;
+  setProject: (project: string) => void;
+  provider: string;
+  model: string;
+  onModelChange: (provider: string, model: string) => void;
+}) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [draft, setDraft] = useState(question);
+
+  useEffect(() => {
+    setDraft(question);
+  }, [question]);
 
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
-  }, [question]);
+  }, [draft]);
 
-  const scopeLabel = project ? `${client} / ${project}` : client || t("ask.scopeAll");
+  const send = () => {
+    const text = draft;
+    if (!text.trim() || !ready || busy) return;
+    setDraft("");
+    void ask(text).then((started) => {
+      if (!started) setDraft(text);
+    });
+  };
 
-  const composer = (
-    <motion.form
-      layout="position"
-      transition={{ type: "spring", stiffness: 420, damping: 38 }}
+  return (
+    <form
       onSubmit={(event) => {
         event.preventDefault();
-        void ask();
+        send();
       }}
-      className={cn("w-full", empty ? "max-w-2xl" : "max-w-3xl")}
+      className="w-full"
     >
       <div className="rounded-2xl border border-input bg-card p-3 shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
         <textarea
@@ -75,13 +97,13 @@ export function AskView(props: Props) {
           rows={empty ? 2 : 1}
           aria-label={t("assistant.askLabel")}
           placeholder={t("assistant.placeholderGlobal")}
-          value={question}
+          value={draft}
           maxLength={3000}
-          onChange={(event) => setQuestion(event.target.value)}
+          onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
-              void ask();
+              send();
             }
           }}
           className="block max-h-[180px] w-full resize-none bg-transparent px-1 text-[0.95rem] leading-6 outline-none focus-visible:ring-0 placeholder:text-muted-foreground"
@@ -117,14 +139,59 @@ export function AskView(props: Props) {
               <Square className="size-3.5 fill-current" />
             </Button>
           ) : (
-            <Button key="send" type="submit" size="icon" className="animate-pop size-8 rounded-full transition-transform duration-150 active:scale-90" aria-label={t("assistant.send")} disabled={!ready || !question.trim()}>
+            <Button key="send" type="submit" size="icon" className="animate-pop size-8 rounded-full transition-transform duration-150 active:scale-90" aria-label={t("assistant.send")} disabled={!ready || !draft.trim()}>
               <ArrowUp />
             </Button>
           )}
         </div>
       </div>
       <ChatDisclaimer className="mt-2" />
-    </motion.form>
+    </form>
+  );
+}
+
+// Chat general sobre todas las reuniones. Vacío: saludo y campo al centro; con mensajes: hilo arriba y campo abajo.
+export function AskView(props: Props) {
+  const {
+    t, host, messages, pending, error, partial, question, composerKey, ask, cancel, ready,
+    clients, projects, client, project, setClient, setProject, sourceClick,
+    provider, model, onModelChange,
+  } = props;
+  const busy = !!pending;
+  const empty = messages.length === 0 && !pending;
+  // Con mensajes, el alcance queda fijo: evita mezclar información de otros clientes en la misma conversación.
+  const locked = messages.length > 0;
+  const threadRef = useRef<HTMLDivElement>(null);
+  const scopeLabel = project ? `${client} / ${project}` : client || t("ask.scopeAll");
+
+  const composer = (
+    <motion.div
+      layout="position"
+      transition={{ type: "spring", stiffness: 420, damping: 38 }}
+      className={cn("w-full", empty ? "max-w-2xl" : "max-w-3xl")}
+    >
+      <AskComposer
+        key={composerKey}
+        t={t}
+        question={question}
+        ask={ask}
+        cancel={cancel}
+        ready={ready}
+        busy={busy}
+        empty={empty}
+        locked={locked}
+        scopeLabel={scopeLabel}
+        clients={clients}
+        projects={projects}
+        client={client}
+        project={project}
+        setClient={setClient}
+        setProject={setProject}
+        provider={provider}
+        model={model}
+        onModelChange={onModelChange}
+      />
+    </motion.div>
   );
 
   const content = (
