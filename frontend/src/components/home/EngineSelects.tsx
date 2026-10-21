@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCloudModels } from '@/hooks/useCloudModels';
+import { gatewayTranscriptionModel } from '@/lib/gateway-transcription';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { useTranscriptionModels } from '@/hooks/useTranscriptionModels';
@@ -24,7 +25,7 @@ function Labeled({ label, hint, children }: { label: string; hint?: string; chil
   );
 }
 
-// Los modelos en la nube salen en vivo del proveedor, filtrados por las reglas de src/config/models.json.
+// La transcripción en la nube ofrece solo MAI-Transcribe-2 y los dos Gemini Flash-Lite. El análisis sigue el catálogo.
 
 const PROVIDER_LABEL: Record<string, string> = { whisper: 'Whisper', parakeet: 'Parakeet', 'vercel-gateway': 'Vercel AI Gateway' };
 const PROVIDER_NAME: Record<string, string> = { 'builtin-ai': 'MeetPulse' };
@@ -39,7 +40,10 @@ export function TranscriptionEngineSelect() {
 
   useEffect(() => { void fetchModels(); }, [fetchModels]);
 
-  const current = `${transcriptModelConfig.provider === 'localWhisper' ? 'whisper' : transcriptModelConfig.provider}:${transcriptModelConfig.model}`;
+  const transcriptionModel = transcriptModelConfig.provider === 'vercel-gateway'
+    ? gatewayTranscriptionModel(transcriptModelConfig.model)
+    : transcriptModelConfig.model;
+  const current = `${transcriptModelConfig.provider === 'localWhisper' ? 'whisper' : transcriptModelConfig.provider}:${transcriptionModel}`;
   const local = availableModels.filter((m) => m.provider !== 'vercel-gateway' && m.provider !== 'gemini');
   const gatewayKey = providerApiKeys['vercel-gateway'];
 
@@ -65,10 +69,7 @@ export function TranscriptionEngineSelect() {
     }
   };
 
-  const cloud = [...cloudModels];
-  if (transcriptModelConfig.provider === 'vercel-gateway' && !cloud.some((m) => m.id === transcriptModelConfig.model)) {
-    cloud.unshift({ provider: 'vercel-gateway', id: transcriptModelConfig.model, label: transcriptModelConfig.model });
-  }
+  const cloud = cloudModels;
 
   return (
     <Labeled label={t('home.transcribeWith')}>

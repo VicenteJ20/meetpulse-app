@@ -756,6 +756,16 @@ pub async fn api_get_transcript_config<R: Runtime>(
             };
             let model = if retired {
                 crate::config::DEFAULT_PARAKEET_MODEL.to_string()
+            } else if provider == "vercel-gateway" {
+                let approved = crate::config::approved_gateway_transcription_model(&config.model);
+                if approved != config.model {
+                    log_info!(
+                        "Gateway transcription model '{}' is not allowed; using '{}'.",
+                        config.model,
+                        approved
+                    );
+                }
+                approved
             } else {
                 config.model.clone()
             };
@@ -812,6 +822,19 @@ pub async fn api_save_transcript_config<R: Runtime>(
         &provider
     );
     let pool = state.db_manager.pool();
+    let model = if provider == "vercel-gateway" {
+        let approved = crate::config::approved_gateway_transcription_model(&model);
+        if approved != model {
+            log_info!(
+                "Replacing gateway transcription model '{}' with '{}'.",
+                model,
+                approved
+            );
+        }
+        approved
+    } else {
+        model
+    };
 
     if let Err(e) = SettingsRepository::save_transcript_config(pool, &provider, &model).await {
         log_error!("Failed to save transcript config: {}", e);

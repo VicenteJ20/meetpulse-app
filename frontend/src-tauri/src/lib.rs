@@ -73,6 +73,10 @@ static LANGUAGE_PREFERENCE: std::sync::LazyLock<
     StdMutex::new(audio::transcription::TranscriptionLanguageMode::Auto)
 });
 
+// Interface language. MAI-Transcribe-2 uses this so it does not guess.
+static UI_LOCALE: std::sync::LazyLock<StdMutex<String>> =
+    std::sync::LazyLock::new(|| StdMutex::new("en".to_string()));
+
 #[derive(Debug, Deserialize)]
 struct RecordingArgs {
     save_path: String,
@@ -394,6 +398,36 @@ pub fn get_language_preference_internal() -> audio::transcription::Transcription
         .lock()
         .map(|mode| *mode)
         .unwrap_or_default()
+}
+
+fn normalize_ui_locale(locale: &str) -> Result<&'static str, String> {
+    match locale.trim().to_ascii_lowercase().as_str() {
+        "en" => Ok("en"),
+        "es" => Ok("es"),
+        other => Err(format!(
+            "Unsupported interface language '{}'. Expected en or es.",
+            other
+        )),
+    }
+}
+
+#[tauri::command]
+async fn set_ui_locale(locale: String) -> Result<(), String> {
+    let normalized = normalize_ui_locale(&locale)?;
+    let mut current = UI_LOCALE
+        .lock()
+        .map_err(|e| format!("Failed to set interface language: {}", e))?;
+    log_info!("Setting interface language to: {}", normalized);
+    *current = normalized.to_string();
+    Ok(())
+}
+
+/// Interface language (`en` or `es`) synced from the settings screen.
+pub fn get_ui_locale() -> String {
+    UI_LOCALE
+        .lock()
+        .map(|locale| locale.clone())
+        .unwrap_or_else(|_| "en".to_string())
 }
 
 pub fn run() {
@@ -730,6 +764,7 @@ pub fn run() {
             audio::recording_preferences::get_audio_backend_info,
             // Language preference commands
             set_language_preference,
+            set_ui_locale,
             // Notification system commands
             notifications::commands::get_notification_settings,
             notifications::commands::set_notification_settings,

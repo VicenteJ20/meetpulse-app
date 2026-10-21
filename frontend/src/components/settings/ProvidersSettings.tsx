@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SettingsSection } from '@/components/ui/settings';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
-import { acceptsRecordedAudio, useGatewayCatalog, type GatewayModel } from '@/hooks/useCloudModels';
+import { useGatewayCatalog, type GatewayModel } from '@/hooks/useCloudModels';
+import { canonicalGatewayTranscriptionModel, isGatewayTranscriptionModel } from '@/lib/gateway-transcription';
 import { complianceMark, formatHourlyPrice, formatTokenPrice, reviewFor } from '@/lib/model-review';
 import type { ModelConfig } from '@/services/configService';
 
@@ -94,7 +95,9 @@ export function ProvidersSettings() {
   };
 
   const saveTranscription = async (model: string) => {
-    const next = { ...transcriptModelConfig, provider: 'vercel-gateway' as const, model, apiKey: null };
+    const canonical = canonicalGatewayTranscriptionModel(model);
+    if (!canonical) return;
+    const next = { ...transcriptModelConfig, provider: 'vercel-gateway' as const, model: canonical, apiKey: null };
     setTranscriptModelConfig(next);
     try {
       await invoke('api_save_transcript_config', { provider: next.provider, model: next.model, apiKey: null });
@@ -236,8 +239,8 @@ export function ProvidersSettings() {
                 const recommended = (['transcription', 'analysis', 'chat'] as const).filter((task) => review[task]);
                 const analysisInUse = modelConfig.provider === 'vercel-gateway' && modelConfig.model === model.id;
                 const chatInUse = chatModelConfig.provider === 'vercel-gateway' && chatModelConfig.model === model.id;
-                const transcriptionInUse = transcriptModelConfig.provider === 'vercel-gateway' && transcriptModelConfig.model === model.id;
-                const canTranscribe = acceptsRecordedAudio(model);
+                const transcriptionInUse = transcriptModelConfig.provider === 'vercel-gateway' && canonicalGatewayTranscriptionModel(transcriptModelConfig.model) === canonicalGatewayTranscriptionModel(model.id);
+                const canTranscribe = isGatewayTranscriptionModel(model.id);
                 const canAnalyze = model.modelType === 'language';
                 const capabilities = [...model.inputModalities, ...model.outputModalities, ...model.tags].filter(Boolean);
                 return (

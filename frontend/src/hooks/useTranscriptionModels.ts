@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { acceptsRecordedAudio, loadGatewayCatalog } from '@/hooks/useCloudModels';
+import { loadGatewayCatalog } from '@/hooks/useCloudModels';
+import { gatewayTranscriptionChoices, gatewayTranscriptionModel } from '@/lib/gateway-transcription';
 
 export interface RawModelInfo {
   name: string;
@@ -78,26 +79,28 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
       console.error('Failed to fetch Parakeet models:', err);
     }
 
+    let gatewayCatalog: { id: string; name?: string | null; label?: string | null }[] = [];
     try {
-      const gatewayModels = await loadGatewayCatalog(false);
-      for (const model of gatewayModels) {
-        if (!acceptsRecordedAudio(model)) continue;
-        allModels.push({
-          provider: 'vercel-gateway',
-          name: model.id,
-          displayName: model.name || model.id,
-          size_mb: 0,
-        });
-      }
+      gatewayCatalog = await loadGatewayCatalog(false);
     } catch (err) {
       console.error('Failed to fetch gateway transcription models:', err);
+    }
+    for (const model of gatewayTranscriptionChoices(gatewayCatalog)) {
+      allModels.push({
+        provider: 'vercel-gateway',
+        name: model.id,
+        displayName: model.label,
+        size_mb: 0,
+      });
     }
 
     setAvailableModels(allModels);
 
     // Set default model based on user's saved configuration
     const configuredProvider = transcriptModelConfig?.provider || '';
-    const configuredModel = transcriptModelConfig?.model || '';
+    const configuredModel = configuredProvider === 'vercel-gateway'
+      ? gatewayTranscriptionModel(transcriptModelConfig?.model)
+      : (transcriptModelConfig?.model || '');
 
     // Try to match the configured model
     // Note: 'localWhisper' in config maps to 'whisper' provider in model list

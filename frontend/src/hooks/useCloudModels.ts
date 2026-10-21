@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import catalog from '@/config/models.json';
-import { recommendedFirst, type ReviewTask } from '@/lib/model-review';
+import { canonicalGatewayTranscriptionModel, GATEWAY_TRANSCRIPTION_MODELS, gatewayTranscriptionChoices } from '@/lib/gateway-transcription';
+import { recommendedFirst } from '@/lib/model-review';
 
 export type CloudModel = { provider: string; id: string; label: string };
 export type CloudPurpose = 'analysis' | 'transcription';
@@ -48,12 +49,6 @@ const RULES = catalog.providers as Record<string, ProviderRule>;
 let catalogPromise: Promise<GatewayModel[]> | null = null;
 
 const cleanId = (id: string) => id.replace(/^models\//, '');
-
-export function acceptsRecordedAudio(model: { tags?: string[]; inputModalities?: string[] }): boolean {
-  const tags = model.tags ?? [];
-  if (tags.includes('websocket-transcription') || tags.includes('websocket-realtime')) return false;
-  return (model.inputModalities ?? []).includes('audio');
-}
 
 function toGatewayModel(model: RawGatewayModel): GatewayModel | null {
   const id = cleanId(model.id || '');
@@ -145,12 +140,20 @@ export function selectApprovedModels<T extends { id: string; audio?: boolean | n
   purpose: string,
   models: T[],
 ): T[] {
+  if (provider === 'vercel-gateway' && purpose === 'transcription') {
+    const byId = new Map<string, T>();
+    for (const model of models) {
+      const canonical = canonicalGatewayTranscriptionModel(model.id);
+      if (canonical) byId.set(canonical, { ...model, id: canonical });
+    }
+    return GATEWAY_TRANSCRIPTION_MODELS.flatMap((choice) => {
+      const live = byId.get(choice.id);
+      return live ? [live] : [];
+    });
+  }
   if (provider === 'vercel-gateway') {
-    const task: ReviewTask = purpose === 'transcription' ? 'transcription' : 'analysis';
-    const filtered = models.filter((model) => (
-      purpose === 'transcription' ? acceptsRecordedAudio(model) : model.modelType === 'language'
-    ));
-    return recommendedFirst(filtered, task);
+    const filtered = models.filter((model) => model.modelType === 'language');
+    return recommendedFirst(filtered, 'analysis');
   }
   const rule = RULES[provider];
   if (!rule) return models;
@@ -167,18 +170,23 @@ export function selectApprovedModels<T extends { id: string; audio?: boolean | n
 }
 
 /**
- * Cloud models from Vercel AI Gateway. Transcription keeps recorded-audio models.
+ * Cloud models from Vercel AI Gateway.
+ * Transcription is the fixed allowlist, with MAI-Transcribe-2 first.
  * Analysis keeps language models. Recommended entries from model-review.json sort first.
  */
 export function useCloudModels(purpose: CloudPurpose): CloudModel[] {
   const { models } = useGatewayCatalog();
   return useMemo(() => {
-    const task: ReviewTask = purpose === 'transcription' ? 'transcription' : 'analysis';
-    const filtered = models.filter((model) => (
-      purpose === 'transcription' ? acceptsRecordedAudio(model) : model.modelType === 'language'
-    ));
-    return recommendedFirst(filtered, task).map((model) => ({
-      provider: 'vercel-gateway',
+    if (purpose === 'transcription') {
+      return gatewayTranscriptionChoices(models).map((model) => ({
+        provider: 'vercel-gateway' as const,
+        id: model.id,
+        label: model.label,
+      }));
+    }
+    const filtered = models.filter((model) => model.modelType === 'language');
+    return recommendedFirst(filtered, 'analysis').map((model) => ({
+      provider: 'vercel-gateway' as const,
       id: model.id,
       label: model.label,
     }));

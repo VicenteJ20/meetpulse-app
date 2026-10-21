@@ -7,6 +7,7 @@ import { SelectedDevices } from '@/components/DeviceSelection';
 import { configService, ModelConfig } from '@/services/configService';
 import { invoke } from '@tauri-apps/api/core';
 import Analytics from '@/lib/analytics';
+import { gatewayTranscriptionModel } from '@/lib/gateway-transcription';
 import { BetaFeatures, BetaFeatureKey, loadBetaFeatures, saveBetaFeatures } from '@/types/betaFeatures';
 
 export interface OllamaModel {
@@ -214,11 +215,19 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         const config = await configService.getTranscriptConfig();
         if (config) {
           console.log('[ConfigContext] Loaded saved transcript config:', config);
+          const provider = config.provider || 'parakeet';
+          const savedModel = config.model || 'parakeet-tdt-0.6b-v3-int8';
+          const model = provider === 'vercel-gateway' ? gatewayTranscriptionModel(savedModel) : savedModel;
           setTranscriptModelConfig({
-            provider: config.provider || 'parakeet',
-            model: config.model || 'parakeet-tdt-0.6b-v3-int8',
+            provider,
+            model,
             apiKey: config.apiKey || null
           });
+          if (provider === 'vercel-gateway' && model !== savedModel) {
+            void invoke('api_save_transcript_config', { provider, model, apiKey: null }).catch((error) => {
+              console.error('[ConfigContext] Failed to replace a retired gateway transcription model:', error);
+            });
+          }
         }
       } catch (error) {
         console.error('[ConfigContext] Failed to load transcript config:', error);

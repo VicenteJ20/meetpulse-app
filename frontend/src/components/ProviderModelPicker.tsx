@@ -5,6 +5,7 @@ import { ChevronRight, Mic, RefreshCw } from "lucide-react";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import modelCatalog from "@/config/models.json";
 import { selectApprovedModels } from "@/hooks/useCloudModels";
+import { gatewayTranscriptionChoices, gatewayTranscriptionModel } from "@/lib/gateway-transcription";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
@@ -97,7 +98,17 @@ export function ProviderModelPicker({
     }));
   }, [catalog, provider, purpose]);
 
+  const gatewayTranscription = provider === "vercel-gateway" && purpose === "transcription";
+  const selectedValue = gatewayTranscription ? gatewayTranscriptionModel(value) : value;
+
   const items = useMemo<ComboboxItem[]>(() => {
+    if (gatewayTranscription) {
+      return gatewayTranscriptionChoices(catalog?.models ?? []).map((model) => ({
+        value: model.id,
+        label: model.label,
+        description: model.label === model.id ? undefined : model.id,
+      }));
+    }
     const seen = new Set<string>();
     const list: ComboboxItem[] = [];
     for (const model of approved) {
@@ -116,7 +127,7 @@ export function ProviderModelPicker({
       list.unshift({ value, label: value, description: t("picker.saved") });
     }
     return list;
-  }, [approved, value, purpose, t]);
+  }, [approved, catalog?.models, gatewayTranscription, value, purpose, t]);
 
   return (
     <div className="w-full min-w-0 space-y-2">
@@ -125,14 +136,14 @@ export function ProviderModelPicker({
           className="min-w-0 flex-1"
           aria-label={t("picker.available")}
           items={items}
-          value={value}
+          value={selectedValue}
           onValueChange={onChange}
           placeholder={t("picker.select")}
           searchPlaceholder={t("picker.search")}
           emptyText={t("picker.none")}
           footer={
             catalog
-              ? `${approved.length} ${t("picker.models")} · ${catalog.cached ? (catalog.stale ? t("picker.cacheStale") : t("picker.cache")) : "API"}`
+              ? `${gatewayTranscription ? items.length : approved.length} ${t("picker.models")} · ${catalog.cached ? (catalog.stale ? t("picker.cacheStale") : t("picker.cache")) : "API"}`
               : undefined
           }
         />
@@ -145,25 +156,27 @@ export function ProviderModelPicker({
           {error}
         </p>
       )}
-      <div className="text-xs text-muted-foreground">
-        <button
-          type="button"
-          onClick={() => setManualOpen((open) => !open)}
-          aria-expanded={manualOpen}
-          className="inline-flex items-center gap-1 hover:text-foreground"
-        >
-          <ChevronRight className={manualOpen ? "size-3.5 rotate-90 transition-transform" : "size-3.5 transition-transform"} />
-          {t("picker.manual")}
-        </button>
-        {manualOpen && (
-          <Input
-            aria-label={t("picker.modelId")}
-            className="mt-2 font-mono text-xs"
-            value={value}
-            onChange={(e) => onChange(e.target.value.trimStart().replace(/^models\//, ""))}
-          />
-        )}
-      </div>
+      {!gatewayTranscription && (
+        <div className="text-xs text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => setManualOpen((open) => !open)}
+            aria-expanded={manualOpen}
+            className="inline-flex items-center gap-1 hover:text-foreground"
+          >
+            <ChevronRight className={manualOpen ? "size-3.5 rotate-90 transition-transform" : "size-3.5 transition-transform"} />
+            {t("picker.manual")}
+          </button>
+          {manualOpen && (
+            <Input
+              aria-label={t("picker.modelId")}
+              className="mt-2 font-mono text-xs"
+              value={value}
+              onChange={(e) => onChange(e.target.value.trimStart().replace(/^models\//, ""))}
+            />
+          )}
+        </div>
+      )}
       {provider === "gemini" && purpose === "transcription" && (
         <div>
           <Button

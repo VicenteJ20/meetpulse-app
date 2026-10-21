@@ -29,10 +29,13 @@ pub struct GatewayTranscriptionProvider {
     file_endpoint: String,
     chat_endpoint: String,
     dispatch: AudioDispatch,
+    /// Set by tests. Production reads the interface language at request time.
+    ui_locale: Option<String>,
 }
 
 impl GatewayTranscriptionProvider {
     pub fn new(api_key: String, model: String) -> Result<Self, TranscriptionError> {
+        let model = crate::config::approved_gateway_transcription_model(&model);
         Self::build(
             api_key,
             model,
@@ -86,11 +89,23 @@ impl GatewayTranscriptionProvider {
             file_endpoint,
             chat_endpoint,
             dispatch,
+            ui_locale: None,
         })
+    }
+
+    /// Pins the interface language. Tests use this so they do not share process state.
+    pub(crate) fn with_ui_locale(mut self, locale: impl Into<String>) -> Self {
+        self.ui_locale = Some(locale.into());
+        self
     }
 
     async fn route(&self) -> Result<AudioRoute, TranscriptionError> {
         if let AudioDispatch::Fixed(route) = self.dispatch {
+            return Ok(route);
+        }
+        // The allowlist is routed before the live catalog so a missing modality flag
+        // cannot send MAI through chat or the Gemini models through the file endpoint.
+        if let Some(route) = forced_recorded_audio_route(&self.model) {
             return Ok(route);
         }
         let found = crate::desktop::providers::find_gateway_model(&self.model)
@@ -117,7 +132,15 @@ impl GatewayTranscriptionProvider {
             "audio": audio,
             "mediaType": "audio/wav",
         });
-        if let Some(code) = language_code(language) {
+        if is_mai_transcribe_2(&self.model) {
+            // Azure rejects a singular `locale` or `language` key on this file model.
+            // `locales` must be a one-element ISO-639-1 array.
+            body["providerOptions"] = json!({
+                "azure": {
+                    "locales": [self.interface_locale()]
+                }
+            });
+        } else if let Some(code) = language_code(language) {
             body["language"] = json!(code);
         }
         let value = self
@@ -224,10 +247,45 @@ impl GatewayTranscriptionProvider {
     }
 }
 
+fn is_mai_transcribe_2(model: &str) -> bool {
+    model
+        .trim()
+        .rsplit('/')
+        .next()
+        .unwrap_or("")
+        .eq_ignore_ascii_case("mai-transcribe-2")
+}
+
+fn interface_locale_code(value: &str) -> String {
+    if value.trim().eq_ignore_ascii_case("es") {
+        "es".to_string()
+    } else {
+        "en".to_string()
+    }
+}
+
+impl GatewayTranscriptionProvider {
+    fn interface_locale(&self) -> String {
+        match self.ui_locale.as_deref() {
+            Some(locale) => interface_locale_code(locale),
+            None => crate::get_ui_locale(),
+        }
+    }
+}
+
 fn language_code(language: Option<&str>) -> Option<&str> {
     match language.map(str::trim).filter(|value| !value.is_empty()) {
         None | Some("auto") => None,
         Some(code) => Some(code),
+    }
+}
+
+fn forced_recorded_audio_route(model: &str) -> Option<AudioRoute> {
+    let canonical = crate::config::canonical_gateway_transcription_model(model)?;
+    if canonical == crate::config::DEFAULT_GATEWAY_TRANSCRIPTION_MODEL {
+        Some(AudioRoute::File)
+    } else {
+        Some(AudioRoute::Chat)
     }
 }
 
@@ -352,6 +410,37 @@ mod tests {
         assert!(recorded_audio_route(Some(&socket)).is_err());
     }
 
+    #[test]
+    fn approved_gateway_models_use_fixed_routes_and_new_rewrites_the_rest() {
+        assert_eq!(
+            forced_recorded_audio_route("microsoft/mai-transcribe-2"),
+            Some(AudioRoute::File)
+        );
+        assert_eq!(
+            forced_recorded_audio_route("google/gemini-3.1-flash-lite"),
+            Some(AudioRoute::Chat)
+        );
+        assert_eq!(
+            forced_recorded_audio_route("google/gemini-3.5-flash-lite"),
+            Some(AudioRoute::Chat)
+        );
+        assert_eq!(
+            forced_recorded_audio_route("microsoft/mai-transcribe-2-streaming"),
+            None
+        );
+        assert_eq!(forced_recorded_audio_route("openai/whisper-1"), None);
+
+        let rewritten = GatewayTranscriptionProvider::new("test-key".into(), "openai/whisper-1".into())
+            .unwrap();
+        assert_eq!(rewritten.model, "microsoft/mai-transcribe-2");
+        let kept = GatewayTranscriptionProvider::new(
+            "test-key".into(),
+            "google/gemini-3.1-flash-lite".into(),
+        )
+        .unwrap();
+        assert_eq!(kept.model, "google/gemini-3.1-flash-lite");
+    }
+
     #[tokio::test]
     async fn thirty_seconds_is_one_wav_post() {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -417,6 +506,7 @@ mod tests {
         let payload: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(payload["mediaType"], "audio/wav");
         assert!(payload.get("language").is_none());
+        assert!(payload.get("providerOptions").is_none());
         let audio = STANDARD
             .decode(payload["audio"].as_str().unwrap())
             .unwrap();
@@ -424,5 +514,98 @@ mod tests {
         assert_eq!(u32::from_le_bytes(audio[24..28].try_into().unwrap()), 16_000);
         assert_eq!(audio.len(), 44 + 16_000 * 30 * 2);
         assert!(!headers.contains("test-key\""));
+    }
+
+    #[test]
+    fn mai_transcribe_2_match_ignores_the_streaming_model() {
+        assert!(is_mai_transcribe_2("microsoft/mai-transcribe-2"));
+        assert!(is_mai_transcribe_2(" MAI-Transcribe-2 "));
+        assert!(!is_mai_transcribe_2("microsoft/mai-transcribe-2-streaming"));
+        assert!(!is_mai_transcribe_2("openai/whisper-1"));
+    }
+
+    async fn posted_transcription_body(
+        model: &str,
+        locale: &str,
+        language: Option<String>,
+    ) -> Value {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut bytes = Vec::new();
+            let mut chunk = [0u8; 8192];
+            loop {
+                let n = stream.read(&mut chunk).await.unwrap();
+                if n == 0 {
+                    break;
+                }
+                bytes.extend_from_slice(&chunk[..n]);
+                if let Some(header_end) = bytes.windows(4).position(|window| window == b"\r\n\r\n") {
+                    let headers = String::from_utf8_lossy(&bytes[..header_end]).to_string();
+                    let length = headers
+                        .lines()
+                        .find_map(|line| {
+                            let (name, value) = line.split_once(':')?;
+                            name.eq_ignore_ascii_case("content-length")
+                                .then(|| value.trim().parse::<usize>().ok())
+                                .flatten()
+                        })
+                        .unwrap_or(0);
+                    if bytes.len() >= header_end + 4 + length {
+                        let body = bytes[header_end + 4..header_end + 4 + length].to_vec();
+                        let response_body = r#"{"text":"ok"}"#;
+                        let response = format!(
+                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                            response_body.len(),
+                            response_body
+                        );
+                        stream.write_all(response.as_bytes()).await.unwrap();
+                        return body;
+                    }
+                }
+            }
+            panic!("request ended before the body");
+        });
+
+        let provider = GatewayTranscriptionProvider::with_endpoints(
+            "test-key".into(),
+            model.into(),
+            format!("http://{address}/v4/ai/transcription-model"),
+            format!("http://{address}/v1/chat/completions"),
+        )
+        .unwrap()
+        .with_ui_locale(locale);
+        provider
+            .transcribe(vec![0.0; 1_600], language)
+            .await
+            .unwrap();
+        let body = task.await.unwrap();
+        serde_json::from_slice(&body).unwrap()
+    }
+
+    #[tokio::test]
+    async fn mai_transcribe_2_sends_the_spanish_interface_locale() {
+        let payload =
+            posted_transcription_body("microsoft/mai-transcribe-2", "es", Some("en".into())).await;
+        assert_eq!(payload["providerOptions"]["azure"]["locales"], json!(["es"]));
+        assert!(payload["providerOptions"]["azure"].get("locale").is_none());
+        assert!(payload["providerOptions"]["azure"].get("language").is_none());
+        assert!(payload.get("language").is_none());
+    }
+
+    #[tokio::test]
+    async fn mai_transcribe_2_sends_the_english_interface_locale() {
+        let payload =
+            posted_transcription_body("microsoft/mai-transcribe-2", "en", None).await;
+        assert_eq!(payload["providerOptions"]["azure"]["locales"], json!(["en"]));
+    }
+
+    #[tokio::test]
+    async fn other_gateway_models_do_not_send_azure_locales() {
+        let payload =
+            posted_transcription_body("openai/whisper-1", "es", Some("en".into())).await;
+        assert!(payload.get("providerOptions").is_none());
+        assert_eq!(payload["language"], "en");
     }
 }

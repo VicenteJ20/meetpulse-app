@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { Cloud, Eye, EyeOff, Lock, ShieldCheck, Unlock } from 'lucide-react';
 import { ModelManager } from './WhisperModelManager';
 import { ParakeetModelManager } from './ParakeetModelManager';
+import { DEFAULT_GATEWAY_TRANSCRIPTION_MODEL, gatewayTranscriptionModel } from '@/lib/gateway-transcription';
 
 
 export interface TranscriptModelProps {
@@ -120,7 +121,21 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
 
     const chooseEngine = (provider: TranscriptModelProps['provider']) => {
         setUiProvider(provider);
-        if (provider !== 'localWhisper' && provider !== 'parakeet' && provider !== 'vercel-gateway') {
+        if (provider === 'vercel-gateway') {
+            const model = transcriptModelConfig.provider === 'vercel-gateway'
+                ? gatewayTranscriptionModel(transcriptModelConfig.model)
+                : DEFAULT_GATEWAY_TRANSCRIPTION_MODEL;
+            const nextConfig: TranscriptModelProps = {
+                ...transcriptModelConfig,
+                provider,
+                model,
+                apiKey: null,
+            };
+            setTranscriptModelConfig(nextConfig);
+            void persistTranscriptConfig(nextConfig);
+            return;
+        }
+        if (provider !== 'localWhisper' && provider !== 'parakeet') {
             fetchApiKey(provider);
             const nextConfig: TranscriptModelProps = {
                 ...transcriptModelConfig,
@@ -180,7 +195,8 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                         value={transcriptModelConfig.model}
                         apiKey={apiKey}
                         onChange={(model) => {
-                            const config = { ...transcriptModelConfig, provider: uiProvider, model };
+                            const nextModel = uiProvider === 'vercel-gateway' ? gatewayTranscriptionModel(model) : model;
+                            const config = { ...transcriptModelConfig, provider: uiProvider, model: nextModel };
                             setTranscriptModelConfig(config);
                             void persistTranscriptConfig(config);
                         }}

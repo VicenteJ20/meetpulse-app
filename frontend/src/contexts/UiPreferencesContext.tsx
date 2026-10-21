@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { catalogs, TranslationKey } from '@/i18n/catalogs';
 import { withAssistant } from '@/config/brand';
 
@@ -12,6 +13,12 @@ const THEME_KEY = 'meetpulse-theme';
 
 function systemLocale(): UiLocale {
   return typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en';
+}
+
+function syncUiLocale(locale: UiLocale) {
+  void invoke('set_ui_locale', { locale }).catch((error) => {
+    console.error('[UiPreferences] Failed to sync interface language to Rust:', error);
+  });
 }
 
 function resolveTheme(theme: ThemePreference): 'light' | 'dark' {
@@ -40,7 +47,9 @@ export function UiPreferencesProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     const storedLocale = window.localStorage.getItem(LOCALE_KEY);
     const storedTheme = window.localStorage.getItem(THEME_KEY);
-    setLocaleState(storedLocale === 'es' || storedLocale === 'en' ? storedLocale : systemLocale());
+    const locale = storedLocale === 'es' || storedLocale === 'en' ? storedLocale : systemLocale();
+    setLocaleState(locale);
+    syncUiLocale(locale);
     setThemeState(storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system' ? storedTheme : 'system');
   }, []);
 
@@ -65,6 +74,7 @@ export function UiPreferencesProvider({ children }: { children: React.ReactNode 
   const setLocale = useCallback((next: UiLocale) => {
     window.localStorage.setItem(LOCALE_KEY, next);
     setLocaleState(next);
+    syncUiLocale(next);
   }, []);
 
   const setTheme = useCallback((next: ThemePreference) => {
