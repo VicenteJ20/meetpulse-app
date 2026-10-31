@@ -1,11 +1,11 @@
 # MeetPulse Desktop workspace
 
-The desktop app now opens directly into a local workspace. Wiki remains implemented but is disabled by `desktopCapabilities.wikiEnabled` in `frontend/src/config/capabilities.ts`. Enabling it requires changing that code setting and rebuilding; the desktop does not expose a Wiki toggle. Existing credentials and Wiki publication metadata are preserved.
+The desktop app opens directly into a local workspace. There is no account or sign-in: everything lives on the device.
 
 ## Meetings and assistant
 
 - One collapsible sidebar holds meetings grouped by client and project, content search, date filters and tags. Unclassified meetings remain available.
-- Recording preparation accepts a title, client and project. These local names do not use Wiki slug restrictions.
+- Recording preparation accepts a title, client and project. These are free-form local names.
 - Saved meetings offer Analysis, Transcript and optional Split view. Details and context can be edited without taking permanent reading space.
 - Assistant opens a resizable panel with Chat and Coach. Chat supports the current meeting or a selected client/project/date range, with clickable source timestamps.
 - Coach is off for each new recording. Enable it to review new finalized chunks every 30, 60 or 120 seconds, or update manually. Its suggestions include evidence, questions and next steps. Closing the panel keeps an enabled Coach running; pausing the recording pauses reviews.
@@ -35,7 +35,6 @@ From `frontend`:
 ```powershell
 corepack pnpm run build
 node node_modules/typescript/bin/tsc --noEmit
-node --test tests/desktop/wiki-policy.test.mjs
 node tests/desktop/browser-smoke.cjs
 python tests/desktop/verify_reports.py
 ```
