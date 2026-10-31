@@ -64,7 +64,7 @@ export function AudioLevelMeter({
     <div className={`flex items-center space-x-2 ${className}`}>
       {/* Device activity indicator */}
       <div className={`w-2 h-2 rounded-full ${
-        isActive ? 'bg-green-400 animate-pulse' : 'bg-muted-foreground/30'
+        isActive ? 'bg-success animate-pulse' : 'bg-muted-foreground/30'
       }`} title={`${deviceName} - ${isActive ? 'Active' : 'Inactive'}`} />
 
       {/* Level meter container */}
@@ -89,11 +89,11 @@ export function AudioLevelMeter({
         {/* Level markers */}
         <div className="absolute inset-0 flex justify-between items-center px-1 pointer-events-none">
           {/* 25% marker */}
-          <div className="w-px h-full bg-gray-400 opacity-30" style={{ marginLeft: '25%' }} />
+          <div className="w-px h-full bg-muted-foreground/40 opacity-30" style={{ marginLeft: '25%' }} />
           {/* 50% marker */}
-          <div className="w-px h-full bg-gray-400 opacity-30" style={{ marginLeft: '50%' }} />
+          <div className="w-px h-full bg-muted-foreground/40 opacity-30" style={{ marginLeft: '50%' }} />
           {/* 75% marker */}
-          <div className="w-px h-full bg-gray-400 opacity-30" style={{ marginLeft: '75%' }} />
+          <div className="w-px h-full bg-muted-foreground/40 opacity-30" style={{ marginLeft: '75%' }} />
         </div>
       </div>
 
@@ -124,8 +124,8 @@ export function CompactAudioLevelMeter({
   const rmsPercent = Math.round(logRms * 100);
 
   const getLevelColor = (level: number) => {
-    if (level < 0.3) return 'bg-green-400';
-    if (level < 0.7) return 'bg-yellow-400';
+    if (level < 0.3) return 'bg-success';
+    if (level < 0.7) return 'bg-warning';
     return 'bg-red-400';
   };
 
@@ -133,7 +133,7 @@ export function CompactAudioLevelMeter({
     <div className={`flex items-center space-x-1 ${className}`}>
       {/* Activity dot */}
       <div className={`w-1.5 h-1.5 rounded-full ${
-        isActive ? 'bg-green-400' : 'bg-muted-foreground/30'
+        isActive ? 'bg-success' : 'bg-muted-foreground/30'
       }`} />
 
       {/* Mini meter */}

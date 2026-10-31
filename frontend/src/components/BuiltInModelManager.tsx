@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { Download, RefreshCw, BadgeAlert, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatSummaryModelSizeLabelFromMb } from '@/lib/onboarding-summary-model';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 interface ModelInfo {
   name: string;
@@ -21,6 +22,9 @@ interface ModelInfo {
   context_size: number;
   description: string;
   gguf_file: string;
+  lifecycle?: 'current' | 'legacy' | 'retiring';
+  successor?: string | null;
+  retire_after?: string | null;
 }
 
 interface DownloadProgressInfo {
@@ -29,17 +33,31 @@ interface DownloadProgressInfo {
   speedMbps: number;
 }
 
+export interface ModelAssignment {
+  id: string;
+  label: string;
+  activeLabel: string;
+  model: string;
+  onSelect: (model: string) => void;
+}
+
 interface BuiltInModelManagerProps {
   selectedModel: string;
   onModelSelect: (model: string) => void;
   layout?: 'inline' | 'dialog';
+  /** When set, each downloaded model can be assigned to a task instead of a single click. */
+  assignments?: ModelAssignment[];
+  autoSelect?: boolean;
 }
 
 export function BuiltInModelManager({
   selectedModel,
   onModelSelect,
   layout = 'inline',
+  assignments,
+  autoSelect = true,
 }: BuiltInModelManagerProps) {
+  const { t } = useTranslation();
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [hasFetched, setHasFetched] = useState<boolean>(false);
@@ -50,11 +68,12 @@ export function BuiltInModelManager({
   const fetchModels = async () => {
     try {
       setIsLoading(true);
-      const data = (await invoke('builtin_ai_list_models')) as ModelInfo[];
+      const raw = (await invoke('builtin_ai_list_models')) as ModelInfo[];
+      // Los vigentes primero; los anteriores siguen disponibles al final.
+      const data = [...raw].sort((a, b) => Number((a.lifecycle ?? 'current') !== 'current') - Number((b.lifecycle ?? 'current') !== 'current'));
       setModels(data);
 
-      // Auto-select first available model if none selected
-      if (data.length > 0 && !selectedModel) {
+      if (autoSelect && data.length > 0 && !selectedModel.trim()) {
         const firstAvailable = data.find((m) => m.status.type === 'available');
         if (firstAvailable) {
           onModelSelect(firstAvailable.name);
@@ -295,6 +314,8 @@ export function BuiltInModelManager({
           const isNotDownloaded = model.status.type === 'not_downloaded';
           const isCorrupted = model.status.type === 'corrupted';
           const isError = model.status.type === 'error';
+          const activeAssignments = assignments?.filter((item) => item.model === model.name) ?? [];
+          const isChosen = selectedModel === model.name || activeAssignments.length > 0;
 
           return (
             <div
@@ -304,15 +325,14 @@ export function BuiltInModelManager({
                 modelIsDownloading
                   ? 'bg-card border-border'
                   : 'bg-card',
-                selectedModel === model.name
+                isChosen
                   ? 'ring-2 ring-gray-800 border-gray-800'
                   : 'border-border hover:border-border',
-                isAvailable && !modelIsDownloading && 'cursor-pointer'
+                !assignments && isAvailable && !modelIsDownloading && 'cursor-pointer'
               )}
               onClick={() => {
-                if (isAvailable && !modelIsDownloading) {
-                  onModelSelect(model.name);
-                }
+                if (assignments || !isAvailable || modelIsDownloading) return;
+                onModelSelect(model.name);
               }}
             >
             <div className="space-y-3">
@@ -323,15 +343,25 @@ export function BuiltInModelManager({
                     {isAvailable && (
                       <>
                         <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-success">
-                          <span className="h-2 w-2 rounded-full bg-green-600"></span>
+                          <span className="h-2 w-2 rounded-full bg-success"></span>
                           Ready
                         </span>
-                        {selectedModel === model.name && (
+                        {!assignments && selectedModel === model.name && (
                           <span className="shrink-0 rounded bg-brand/15 px-2 py-0.5 text-xs font-medium text-brand">
                             Selected
                           </span>
                         )}
+                        {activeAssignments.map((item) => (
+                          <span key={item.id} className="shrink-0 rounded bg-brand/15 px-2 py-0.5 text-xs font-medium text-brand">
+                            {item.activeLabel}
+                          </span>
+                        ))}
                       </>
+                    )}
+                    {model.lifecycle && model.lifecycle !== 'current' && (
+                      <span className="shrink-0 rounded bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
+                        {model.lifecycle === 'retiring' ? t('builtin.retiring') : t('builtin.legacy')}
+                      </span>
                     )}
                     {isCorrupted && (
                       <span className="flex shrink-0 items-center gap-1 rounded bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive">
@@ -419,7 +449,7 @@ export function BuiltInModelManager({
                     </>
                   )}
                   {/* Available - Show small trash icon (only if not currently selected) */}
-                  {isAvailable && !modelIsDownloading && selectedModel !== model.name && (
+                  {isAvailable && !modelIsDownloading && !isChosen && (
                     <button
                       className="p-2 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-destructive"
                       onClick={(e) => {
@@ -434,6 +464,19 @@ export function BuiltInModelManager({
                 </div>
               </div>
               <div className="text-sm text-muted-foreground">
+                {model.lifecycle && model.lifecycle !== 'current' && model.successor && (
+                  <p className="mb-1 flex flex-wrap items-center gap-x-2 text-warning">
+                    <span>
+                      {t('builtin.replacedBy').replace('{model}', models.find((m) => m.name === model.successor)?.display_name ?? model.successor)}
+                      {model.retire_after ? ` ${t('builtin.until').replace('{date}', model.retire_after)}` : ''}
+                    </span>
+                    {models.some((m) => m.name === model.successor && m.status.type === 'available') && (
+                      <button type="button" className="font-medium underline-offset-2 hover:underline" onClick={(event) => { event.stopPropagation(); onModelSelect(model.successor as string); }}>
+                        {t('builtin.switch')}
+                      </button>
+                    )}
+                  </p>
+                )}
                 {model.description && (
                   <p className="mb-1">{model.description}</p>
                 )}
@@ -449,6 +492,27 @@ export function BuiltInModelManager({
                 <div className="text-xs text-muted-foreground">
                   <span>{formatSummaryModelSizeLabelFromMb(model.size_mb)} • {model.context_size} tokens</span>
                 </div>
+                {assignments && isAvailable && !modelIsDownloading && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {assignments.map((item) => {
+                      const active = item.model === model.name;
+                      return (
+                        <Button
+                          key={item.id}
+                          type="button"
+                          size="sm"
+                          variant={active ? 'secondary' : 'outline'}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            item.onSelect(model.name);
+                          }}
+                        >
+                          {active ? item.activeLabel : item.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
                 </div>
               </div>
 
@@ -477,7 +541,7 @@ export function BuiltInModelManager({
                   </div>
                   <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-gray-800 to-gray-900 rounded-full transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-gray-800 to-foreground rounded-full transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     />
                   </div>

@@ -55,8 +55,8 @@ export function PermissionWarning({
     <div className="max-w-md mb-4 space-y-3">
       {/* Combined Permission Warning - Show when either permission is missing */}
       {(!hasMicrophone || !hasSystemAudio) && (
-        <Alert variant="destructive" className="border-amber-400 bg-warning/10">
-          <AlertTriangle className="h-5 w-5 text-amber-600" />
+        <Alert variant="destructive" className="border-warning bg-warning/10">
+          <AlertTriangle className="h-5 w-5 text-warning" />
           <AlertTitle className="text-warning font-semibold">
             <div className="flex items-center gap-2">
               {!hasMicrophone && <Mic className="h-4 w-4" />}
@@ -69,7 +69,7 @@ export function PermissionWarning({
             {isMacOS && !hasMicrophone && (
               <button
                 onClick={openMicrophoneSettings}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-warning hover:bg-amber-700 rounded-md transition-colors"
               >
                 <Mic className="h-4 w-4" />
                 Open Microphone Settings
@@ -78,7 +78,7 @@ export function PermissionWarning({
             {isMacOS && !hasSystemAudio && (
               <button
                 onClick={openScreenRecordingSettings}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand hover:bg-brand/90 rounded-md transition-colors"
               >
                 <Speaker className="h-4 w-4" />
                 Open Screen Recording Settings

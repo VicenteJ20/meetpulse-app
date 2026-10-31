@@ -79,3 +79,25 @@ target/
 
 frontend/src-tauri/binaries/
 .pnpm-store
+
+# --- Security: never commit secrets or local tooling state ---
+.env.*
+!.env.example
+*.key
+*.key.pub
+*.p12
+*.pfx
+*.pem
+*.p8
+*.keystore
+*.jks
+*.sig
+temp.env
+secrets/
+.tauri/
+frontend/.next-harness/
+frontend/.next-validation/
+.agents/
+.grok/
+.claude/settings.local.json
+*.exe

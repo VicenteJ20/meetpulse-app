@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeetPulse v2 - Carga</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="screens.css">
+</head>
+<body>
+<div style="display:flex;flex-direction:column;height:100dvh">
+  <div class="stage-bar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <strong style="font-weight:600">Estados de carga</strong>
+      <div class="seg" data-seg="state" role="radiogroup" aria-label="Estado a mostrar">
+        <button role="radio" data-value="startup">Inicio de la app</button>
+        <button role="radio" data-value="processing">Procesando reunión</button>
+        <button role="radio" data-value="error">Error al cargar</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="hint">Demo: los tiempos están acelerados.</span>
+      <button class="btn btn-sm" id="replay"><i class="ph ph-arrow-counter-clockwise"></i>Repetir</button>
+      <button class="icon-btn" data-theme-toggle></button>
+      <a class="btn btn-sm" href="home.html">Volver</a>
+    </div>
+  </div>
+  <div id="stage" class="stage"></div>
+</div>
+<script src="../shared/data.js"></script>
+<script src="../shared/ui.js"></script>
+<script src="loading.js"></script>
+</body>
+</html>

@@ -8,7 +8,7 @@ use crate::config::{DEFAULT_WHISPER_MODEL, DEFAULT_PARAKEET_MODEL};
 use crate::parakeet_engine::ParakeetEngine;
 use crate::state::AppState;
 use crate::whisper_engine::WhisperEngine;
-use crate::audio::transcription::{GeminiTranscriptionProvider, TranscriptionProvider};
+use crate::audio::transcription::{GatewayTranscriptionProvider, TranscriptionProvider};
 use anyhow::{anyhow, Result};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -111,11 +111,11 @@ pub async fn start_retranscription<R: Runtime>(
     RETRANSCRIPTION_CANCELLED.store(false, Ordering::SeqCst);
 
     let use_parakeet = provider.as_deref() == Some("parakeet");
-    let use_gemini = provider.as_deref() == Some("gemini");
+    let use_gateway = provider.as_deref() == Some("vercel-gateway");
     let result = run_retranscription(app.clone(), meeting_id.clone(), meeting_folder_path, language, model, provider).await;
 
     // Unload the engine after the batch job (success, failure, or cancellation)
-    if !use_gemini {
+    if !use_gateway {
         super::common::unload_engine_after_batch(use_parakeet).await;
     }
 
@@ -194,8 +194,8 @@ async fn run_retranscription<R: Runtime>(
 
     // Determine which provider to use (default to whisper)
     let use_parakeet = provider.as_deref() == Some("parakeet");
-    let use_gemini = provider.as_deref() == Some("gemini");
-    if !use_parakeet && !use_gemini && !matches!(provider.as_deref(), None | Some("whisper") | Some("localWhisper")) {
+    let use_gateway = provider.as_deref() == Some("vercel-gateway");
+    if !use_parakeet && !use_gateway && !matches!(provider.as_deref(), None | Some("whisper") | Some("localWhisper")) {
         return Err(anyhow!("Unsupported retranscription provider: {}", provider.unwrap_or_default()));
     }
 
@@ -315,7 +315,7 @@ async fn run_retranscription<R: Runtime>(
     emit_progress(&app, &meeting_id, "transcribing", 25, "Loading transcription engine...");
 
     // Initialize the appropriate engine once (not per-segment)
-    let whisper_engine = if !use_parakeet && !use_gemini {
+    let whisper_engine = if !use_parakeet && !use_gateway {
         Some(get_or_init_whisper(&app, model.as_deref()).await?)
     } else {
         None
@@ -325,17 +325,17 @@ async fn run_retranscription<R: Runtime>(
     } else {
         None
     };
-    let mut gemini_model_name = String::new();
-    let gemini_provider = if use_gemini {
+    let mut gateway_model_name = String::new();
+    let gateway_provider = if use_gateway {
         let config = crate::api::api::api_get_transcript_config(app.clone(), app.clone().state(), None)
             .await.map_err(|e| anyhow!(e))?
-            .ok_or_else(|| anyhow!("Gemini transcription configuration not found"))?;
+            .ok_or_else(|| anyhow!("Vercel AI Gateway transcription configuration not found"))?;
         let api_key = config.api_key.filter(|key| !key.trim().is_empty())
-            .ok_or_else(|| anyhow!("Gemini API key is required"))?;
+            .ok_or_else(|| anyhow!("Vercel AI Gateway API key is required"))?;
         let selected_model = model.clone().filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| config.model.clone());
-        gemini_model_name = selected_model.clone();
-        Some(GeminiTranscriptionProvider::new(api_key, selected_model)
+        gateway_model_name = selected_model.clone();
+        Some(GatewayTranscriptionProvider::new(api_key, selected_model)
             .map_err(|e| anyhow!(e.to_string()))?)
     } else {
         None
@@ -363,9 +363,6 @@ async fn run_retranscription<R: Runtime>(
         }
     }
 
-    if use_gemini {
-        processable_segments = group_segments_for_gemini(&processable_segments);
-    }
     let processable_count = processable_segments.len();
     info!("Processing {} segments (after splitting)", processable_count);
 
@@ -373,13 +370,13 @@ async fn run_retranscription<R: Runtime>(
     let checkpoint_path = folder_path.join(".gemini-retranscription-checkpoint.json");
     let mut all_transcripts: Vec<(String, f64, f64)> = Vec::new(); // (text, start_ms, end_ms)
     let mut completed_chunks = 0usize;
-    if use_gemini {
+    if use_gateway {
         if let Ok(contents) = std::fs::read_to_string(&checkpoint_path) {
             if let Ok(checkpoint) = serde_json::from_str::<GeminiRetranscriptionCheckpoint>(&contents) {
-                if checkpoint.model == gemini_model_name && checkpoint.language == language {
+                if checkpoint.model == gateway_model_name && checkpoint.language == language {
                     completed_chunks = checkpoint.completed_chunks.min(processable_count);
                     all_transcripts = checkpoint.transcripts;
-                    info!("Resuming Gemini retranscription after {} completed chunks", completed_chunks);
+                    info!("Resuming AI Gateway retranscription after {} completed chunks", completed_chunks);
                 }
             }
         }
@@ -418,10 +415,10 @@ async fn run_retranscription<R: Runtime>(
         }
 
         // Transcribe this segment
-        let (text, conf) = if use_gemini {
-            let result = gemini_provider.as_ref().unwrap()
+        let (text, conf) = if use_gateway {
+            let result = gateway_provider.as_ref().unwrap()
                 .transcribe(segment.samples.clone(), language.clone()).await
-                .map_err(|e| anyhow!("Gemini transcription failed on chunk {}: {}", i, e))?;
+                .map_err(|e| anyhow!("AI Gateway transcription failed on chunk {}: {}", i, e))?;
             (result.text, result.confidence.unwrap_or(0.85))
         } else if use_parakeet {
             let engine = parakeet_engine.as_ref().unwrap();
@@ -449,9 +446,9 @@ async fn run_retranscription<R: Runtime>(
             );
             all_transcripts.push((text, segment.start_timestamp_ms, segment.end_timestamp_ms));
             total_confidence += conf;
-            if use_gemini {
+            if use_gateway {
                 let checkpoint = GeminiRetranscriptionCheckpoint {
-                    model: gemini_model_name.clone(),
+                    model: gateway_model_name.clone(),
                     language: language.clone(),
                     completed_chunks: i + 1,
                     transcripts: all_transcripts.clone(),
@@ -554,7 +551,7 @@ async fn run_retranscription<R: Runtime>(
 
     emit_progress(&app, &meeting_id, "complete", 100, "Retranscription complete");
 
-    if use_gemini && checkpoint_path.exists() {
+    if use_gateway && checkpoint_path.exists() {
         if let Err(error) = std::fs::remove_file(&checkpoint_path) {
             warn!("Failed to remove completed Gemini checkpoint: {}", error);
         }
@@ -575,9 +572,9 @@ fn write_gemini_checkpoint(path: &Path, checkpoint: &GeminiRetranscriptionCheckp
     Ok(())
 }
 
-/// Group VAD segments into requests of at most five minutes. Gaps are restored
-/// as silence, so Gemini receives natural context while chunk timestamps remain
-/// anchored to the original recording.
+/// Group VAD segments into requests of at most five minutes. Kept for the
+/// existing grouping test; gateway retranscription sends one segment per request.
+#[cfg(test)]
 fn group_segments_for_gemini(
     segments: &[crate::audio::vad::SpeechSegment],
 ) -> Vec<crate::audio::vad::SpeechSegment> {

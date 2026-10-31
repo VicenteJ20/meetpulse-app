@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { OnboardingContainer } from '../OnboardingContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
-
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 export function SetupOverviewStep() {
   const { goNext } = useOnboarding();
+  const { t } = useTranslation();
   const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
@@ -19,7 +20,7 @@ export function SetupOverviewStep() {
     checkPlatform();
   }, []);
 
-  const steps = [{ number: 1, title: 'Download Transcription Engine' }];
+  const steps = [{ number: 1, title: t('onboarding.transcriptionEngine') }];
 
   const handleContinue = () => {
     goNext();
@@ -27,8 +28,8 @@ export function SetupOverviewStep() {
 
   return (
     <OnboardingContainer
-      title="Setup Overview"
-      description="MeetPulse needs the local transcription engine to record and transcribe meetings."
+      title={t('onboarding.setupTitle')}
+      description={t('onboarding.setupDescription')}
       step={2}
       totalSteps={isMac ? 4 : 3}
     >
@@ -44,7 +45,7 @@ export function SetupOverviewStep() {
                 >
                   <div className="flex-1 ml-1">
                     <h3 className="font-medium text-foreground flex items-center gap-2">
-                        Step {step.number} :  {step.title}
+                        {t('onboarding.step')} {step.number}: {step.title}
 
                         </h3>
                   </div>
@@ -59,20 +60,10 @@ export function SetupOverviewStep() {
         <div className="w-full max-w-xs space-y-4">
           <Button
             onClick={handleContinue}
-            className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white"
+            className="w-full h-11 bg-brand hover:bg-brand/90 text-brand-foreground"
           >
-            Let's Go
+            {t('onboarding.letsGo')}
           </Button>
-          <div className="text-center">
-            <a
-              href="https://github.com/Zackriya-Solutions/meeting-minutes"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-muted-foreground hover:underline"
-            >
-              Report issues on GitHub
-            </a>
-          </div>
         </div>
       </div>
     </OnboardingContainer>

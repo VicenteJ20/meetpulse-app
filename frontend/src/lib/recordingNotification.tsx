@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Radio, ShieldCheck, X } from 'lucide-react';
 import { toast } from 'sonner';
-import Analytics from '@/lib/analytics';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export async function showRecordingNotification(): Promise<void> {
   try {
@@ -33,7 +33,6 @@ function RecordingConsentToast({ toastId }: { toastId: string | number }) {
       await store.set('show_recording_notification', false);
       await store.save();
     }
-    Analytics.trackButtonClick('recording_notification_acknowledged', 'toast');
     toast.dismiss(toastId);
   };
 
@@ -59,11 +58,9 @@ function RecordingConsentToast({ toastId }: { toastId: string | number }) {
             </button>
           </div>
           <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={dontShowAgain}
-              onChange={event => setDontShowAgain(event.target.checked)}
-              className="h-4 w-4 rounded border-input accent-[hsl(var(--brand))]"
+              onCheckedChange={checked => setDontShowAgain(checked === true)}
             />
             <span className="select-none">{t('recording.notice.dontShowAgain')}</span>
           </label>

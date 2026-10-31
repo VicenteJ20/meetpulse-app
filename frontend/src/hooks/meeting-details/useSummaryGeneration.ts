@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { aboutMePrompt } from '@/lib/aboutMe';
 import { Transcript, Summary } from '@/types';
 import { ModelConfig } from '@/components/ModelSettingsModal';
 import { CurrentMeeting, useSidebar } from '@/components/Sidebar/SidebarProvider';
@@ -60,6 +61,7 @@ interface UseSummaryGenerationProps {
   updateMeetingTitle: (title: string) => void;
   setAiSummary: (summary: Summary | null) => void;
   onOpenModelSettings?: () => void;
+  onSummaryCompleted?: (payload: { title?: string; markdown?: string }) => Promise<void> | void;
 }
 
 export function useSummaryGeneration({
@@ -72,6 +74,7 @@ export function useSummaryGeneration({
   updateMeetingTitle,
   setAiSummary,
   onOpenModelSettings,
+  onSummaryCompleted,
 }: UseSummaryGenerationProps) {
   const [summaryStatus, setSummaryStatus] = useState<SummaryStatus>('idle');
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -154,7 +157,7 @@ export function useSummaryGeneration({
         meetingId: meeting.id,
         chunkSize: 40000,
         overlap: 1000,
-        customPrompt: customPrompt,
+        customPrompt: [aboutMePrompt(), customPrompt].filter(Boolean).join('\n\n'),
         templateId: selectedTemplate,
         summaryLanguage,
       }) as any;
@@ -292,6 +295,12 @@ export function useSummaryGeneration({
               modelConfig.model,
               true
             );
+            if (onSummaryCompleted) {
+              await onSummaryCompleted({
+                title: meetingName,
+                markdown: pollingResult.data.markdown,
+              });
+            }
             return;
           }
 
@@ -366,6 +375,9 @@ export function useSummaryGeneration({
           if (onMeetingUpdated) {
             await onMeetingUpdated();
           }
+          if (onSummaryCompleted) {
+            await onSummaryCompleted({ title: meetingName });
+          }
         }
       });
     } catch (error) {
@@ -396,6 +408,7 @@ export function useSummaryGeneration({
     setAiSummary,
     updateMeetingTitle,
     onMeetingUpdated,
+    onSummaryCompleted,
   ]);
 
   // Helper function to fetch ALL transcripts for summary generation
@@ -446,7 +459,7 @@ export function useSummaryGeneration({
 
     return {
       transcriptText: allTranscripts
-        .map(t => `${formatTime(t.audio_start_time, t.timestamp)} ${t.text}`)
+        .map(t => `${formatTime(t.audio_start_time, t.timestamp)}${t.speaker === 'me' ? ' [Usuario]' : t.speaker === 'team' ? ' [Equipo]' : ''} ${t.text}`)
         .join('\n'),
       transcriptTexts: allTranscripts.map(t => t.text),
     };
@@ -602,6 +615,17 @@ export function useSummaryGeneration({
         console.error('Error validating built-in AI model:', error);
         toast.error('Failed to validate built-in AI model', {
           description: error instanceof Error ? error.message : String(error),
+          duration: 5000,
+        });
+        return;
+      }
+    }
+
+    if (modelConfig.provider === 'vercel-gateway') {
+      const key = await invokeTauri<string>('api_get_api_key', { provider: 'vercel-gateway' }).catch(() => '');
+      if (!key.trim()) {
+        toast.error('Vercel AI Gateway API key is required', {
+          description: 'Add it in Settings, on the AI models page.',
           duration: 5000,
         });
         return;

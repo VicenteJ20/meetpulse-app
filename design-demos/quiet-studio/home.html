@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeetPulse v2 - Inicio</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="screens.css">
+<link rel="stylesheet" href="assistant.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" data-current="home" aria-label="Principal"></nav>
+  <main class="home scroll">
+    <div class="home-in">
+      <header class="home-top">
+        <div>
+          <h1>Nueva grabación</h1>
+          <p class="home-sub">Todo se guarda en este equipo. Tú eliges qué motores usan la nube.</p>
+        </div>
+        <button class="ask-bar" data-open-palette><i class="ph ph-sparkle"></i><span>Pregunta o busca en tus reuniones</span><kbd>Ctrl K</kbd></button>
+      </header>
+
+      <section class="recorder" aria-label="Preparar grabación">
+        <div class="rec-main">
+          <div class="rec-fields">
+            <div class="field"><label for="f1">Título</label><input id="f1" placeholder="Planificación sprint 15"></div>
+            <div class="field"><label for="f2">Cliente</label><input id="f2" placeholder="Bodegas Calderón"></div>
+            <div class="field"><label for="f3">Proyecto</label><input id="f3" placeholder="Portal de pedidos"></div>
+          </div>
+          <div class="rec-row">
+            <button class="btn btn-rec" data-goto="live.html"><i class="ph-fill ph-microphone"></i>Grabar</button>
+            <button class="btn" data-import><i class="ph ph-upload-simple"></i>Importar audio</button>
+            <div class="meter rec-meter" data-meter="34" aria-label="Nivel del micrófono"></div>
+          </div>
+          <div class="rec-engines">
+            <div class="eng"><span class="hint">Transcribir con</span><div data-model-picker data-purpose="stt" data-slot="stt" data-placement="top"></div></div>
+            <div class="eng"><span class="hint">Resumir con</span><div data-model-picker data-slot="summary" data-placement="top"></div></div>
+            <a class="flow" data-flow href="settings.html?tab=models"></a>
+          </div>
+          <div class="rec-opts">
+            <label class="opt"><span class="switch"><input type="checkbox" id="opt-coach" role="switch"><span class="track"></span></span><span><b>Coach en vivo</b><em>Insights mientras hablan</em></span></label>
+            <label class="opt"><span class="switch"><input type="checkbox" id="opt-chat" role="switch" checked><span class="track"></span></span><span><b>Chat</b><em>Disponible durante la reunión</em></span></label>
+          </div>
+        </div>
+        <div class="rec-side">
+          <h2>Listo para grabar</h2>
+          <ul data-readiness></ul>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head"><h2>Reuniones recientes</h2><a class="btn btn-ghost btn-sm" href="library.html">Ver la biblioteca<i class="ph ph-arrow-right"></i></a></div>
+        <div class="mt-list" data-recent></div>
+      </section>
+    </div>
+  </main>
+</div>
+<script src="../shared/data.js"></script>
+<script src="data-v2.js"></script>
+<script src="../shared/ui.js"></script>
+<script src="shell.js"></script>
+<script>
+  (function(){var c=document.getElementById("opt-coach"),k=document.getElementById("opt-chat");
+    try{c.checked=localStorage.getItem("mp-coach")==="1";var ch=localStorage.getItem("mp-chat");k.checked=ch===null?true:ch==="1";}catch(e){}
+    c.addEventListener("change",function(){try{localStorage.setItem("mp-coach",c.checked?"1":"0")}catch(e){}});
+    k.addEventListener("change",function(){try{localStorage.setItem("mp-chat",k.checked?"1":"0")}catch(e){}});})();
+</script>
+</body>
+</html>

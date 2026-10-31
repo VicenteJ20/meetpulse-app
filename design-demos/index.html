@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeetPulse - Demos de diseño</title>
+<script src="shared/theme-init.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#F8F8F9,#0E0E10);--surface:light-dark(#fff,#161618);--line:light-dark(#E4E4E7,#2A2A2E);--text:light-dark(#18181B,#EDEDEF);--text-2:light-dark(#52525B,#A6A6AE);--text-3:light-dark(#71717A,#85858D);--accent:light-dark(#18181B,#EDEDEF)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:980px;margin:0 auto;padding:48px 24px 80px}
+header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+h1{font-size:clamp(26px,4vw,38px);letter-spacing:-.035em;line-height:1.1}
+.lead{color:var(--text-2);margin-top:10px;max-width:60ch}
+.tbtn{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font:inherit;cursor:pointer}
+.tbtn:hover{border-color:var(--text-3)}
+ol{list-style:none;padding:0;margin-top:36px;border-top:1px solid var(--line)}
+.opt{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:20px;align-items:center;padding:26px 0;border-bottom:1px solid var(--line)}
+.letter{font:600 28px/1 ui-monospace,Consolas,monospace;color:var(--text-3)}
+.opt h2{font-size:1.25em;letter-spacing:-.02em}
+.opt p{color:var(--text-2);margin-top:4px;max-width:58ch}
+.sw{display:flex;gap:6px;margin-top:12px;align-items:center;flex-wrap:wrap;color:var(--text-3);font-size:.84em}
+.sw i{width:22px;height:22px;border-radius:5px;border:1px solid var(--line);display:inline-block}
+.sw span{margin-left:8px}
+.links{display:flex;gap:8px;flex-wrap:wrap}
+.lnk{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--text);text-decoration:none;font-weight:500}
+.lnk.p{background:var(--text);color:var(--bg);border-color:var(--text)}
+.lnk:hover{border-color:var(--text-3)}
+.note{margin-top:28px;color:var(--text-3);font-size:.9em;max-width:70ch}
+.chosen{margin-top:32px;padding:22px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.chosen h2{font-size:1.2em;letter-spacing:-.02em}
+.chosen p{color:var(--text-2);margin-top:4px;max-width:62ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-top:16px}
+.card{display:grid;gap:2px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--text);transition:border-color .15s,background .15s}
+.card:hover{border-color:#0071e3;background:light-dark(#f2f8ff,#0f2a47)}
+.card b{font-weight:600}.card span{color:var(--text-3);font-size:.88em}
+.arch{margin-top:40px;font-size:1em;color:var(--text-3);font-weight:600}
+.arch+ol{margin-top:8px}
+@media(max-width:720px){.chosen{padding:16px}}
+@media(max-width:720px){.opt{grid-template-columns:1fr}.links{margin-top:4px}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Tres direcciones para MeetPulse</h1>
+      <p class="lead">Demos navegables con datos de ejemplo. Cada una tiene Inicio y Reunión (transcripción, insights, chat y selector de modelo). Claro por defecto; el tema sigue al sistema y se puede cambiar.</p>
+    </div>
+    <button class="tbtn" data-theme-toggle data-label></button>
+  </header>
+  <section class="chosen">
+    <h2>Dirección elegida: Quiet Studio v2</h2>
+    <p>Mismo layout de Quiet Studio con acento azul del sistema. Incluye las pantallas nuevas: configuración con claves de API, carga, grabación en vivo con coach y chat opcionales.</p>
+    <div class="grid">
+      <a class="card" href="quiet-studio/home.html"><b>Inicio</b><span>Grabación, motores local o nube, coach y chat</span></a>
+      <a class="card" href="quiet-studio/library.html"><b>Biblioteca</b><span>Reuniones, filtros, selección y acciones de todas</span></a>
+      <a class="card" href="quiet-studio/ask.html"><b>Preguntar</b><span>Chat general sobre todas tus reuniones, con fuentes</span></a>
+      <a class="card" href="quiet-studio/home.html?palette"><b>Paleta de comandos</b><span>Ctrl+K: buscar, ir a, preguntar</span></a>
+      <a class="card" href="quiet-studio/live.html"><b>En vivo</b><span>Modo micrófono: transcripción, coach y chat</span></a>
+      <a class="card" href="quiet-studio/meeting.html"><b>Reunión guardada</b><span>Transcripción, insights y chat</span></a>
+      <a class="card" href="quiet-studio/settings.html"><b>Ajustes</b><span>General, audio, transcripción local o nube, coach, datos</span></a>
+      <a class="card" href="quiet-studio/settings.html?tab=models"><b>Modelos y API keys</b><span>Local o nube, Gemini incluido, flujo de datos</span></a>
+      <a class="card" href="quiet-studio/loading.html"><b>Pantallas de carga</b><span>Inicio, procesando y error</span></a>
+    </div>
+  </section>
+  <h2 class="arch">Exploración anterior</h2>
+  <ol>
+    <li class="opt">
+      <span class="letter">A</span>
+      <div>
+        <h2>Quiet Studio</h2>
+        <p>Tres paneles con hairlines, zinc y un solo acento esmeralda. Calmado, preciso, pensado para trabajar horas.</p>
+        <div class="sw"><i style="background:#FAFAFA"></i><i style="background:#18181B"></i><i style="background:#047857"></i><span>Geist y Geist Mono. Radio 10/7. Densidad media.</span></div>
+      </div>
+      <div class="links"><a class="lnk p" href="a-quiet-studio/meeting.html">Reunión</a><a class="lnk" href="a-quiet-studio/home.html">Inicio</a></div>
+    </li>
+    <li class="opt">
+      <span class="letter">B</span>
+      <div>
+        <h2>Ink &amp; Cobalt</h2>
+        <p>Editorial: una vista a la vez con pestañas, tipografía grande y lectura cómoda. Transcripción con hablantes en el margen.</p>
+        <div class="sw"><i style="background:#F7F8FB"></i><i style="background:#0B1020"></i><i style="background:#2547E8"></i><span>Onest y JetBrains Mono. Radio 8/6. Densidad baja.</span></div>
+      </div>
+      <div class="links"><a class="lnk p" href="b-ink-cobalt/meeting.html">Reunión</a><a class="lnk" href="b-ink-cobalt/home.html">Inicio</a></div>
+    </li>
+    <li class="opt">
+      <span class="letter">C</span>
+      <div>
+        <h2>Night Console</h2>
+        <p>Cabina densa: línea de tiempo con onda y temas, transcripción en filas, insights compactos y chat tipo terminal.</p>
+        <div class="sw"><i style="background:#EDEFF3"></i><i style="background:#10141B"></i><i style="background:#C2410C"></i><span>IBM Plex Sans y Mono. Radio 3/2. Densidad alta.</span></div>
+      </div>
+      <div class="links"><a class="lnk p" href="c-night-console/meeting.html">Reunión</a><a class="lnk" href="c-night-console/home.html">Inicio</a></div>
+    </li>
+  </ol>
+  <p class="note">Qué probar: clic en un tiempo o en una cita del chat salta a ese momento; el selector de modelo (local, nube, descarga, falta clave); "Simular en vivo"; marcar acciones; buscar en la transcripción con Ctrl+K. Nombre y logo son provisionales. Todo es mock.</p>
+</main>
+<script src="shared/data.js"></script>
+<script src="shared/ui.js"></script>
+</body>
+</html>

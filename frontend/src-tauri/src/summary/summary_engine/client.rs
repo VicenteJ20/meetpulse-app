@@ -137,6 +137,17 @@ pub async fn generate_with_builtin(
     user_prompt: &str,
     cancellation_token: Option<&CancellationToken>,
 ) -> Result<String> {
+    generate_text_with_builtin(app_data_dir, model_name, system_prompt, user_prompt, cancellation_token, None).await
+}
+
+pub async fn generate_text_with_builtin(
+    app_data_dir: &PathBuf,
+    model_name: &str,
+    system_prompt: &str,
+    user_prompt: &str,
+    cancellation_token: Option<&CancellationToken>,
+    max_tokens: Option<u32>,
+) -> Result<String> {
     // Check cancellation at start
     if let Some(token) = cancellation_token {
         if token.is_cancelled() {
@@ -182,7 +193,7 @@ pub async fn generate_with_builtin(
     let sampling = model_def.sampling.sanitize_for_llama_helper();
     let request = Request::Generate {
         prompt: formatted_prompt,
-        max_tokens: Some(models::DEFAULT_MAX_TOKENS),
+        max_tokens: Some(max_tokens.map(|n|n.min(model_def.context_size) as i32).unwrap_or(models::DEFAULT_MAX_TOKENS)),
         context_size: Some(model_def.context_size),
         model_path: Some(model_path.to_string_lossy().to_string()),
         temperature: Some(sampling.temperature),

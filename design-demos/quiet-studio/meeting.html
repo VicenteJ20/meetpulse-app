@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeetPulse v2 - Reunión</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="screens.css">
+<link rel="stylesheet" href="assistant.css">
+</head>
+<body>
+<div class="shell" data-pane="insights">
+  <nav class="rail" data-current="library" aria-label="Principal"></nav>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="crumbs"><a href="library.html">Biblioteca</a><i class="ph ph-caret-right"></i><a href="library.html">Bodegas Calderón</a><i class="ph ph-caret-right"></i><a href="library.html">Portal de pedidos</a></div>
+        <h1>Planificación sprint 14</h1>
+        <div class="meta">
+          <span><i class="ph ph-calendar-blank"></i>vie 16 oct, 15:00</span>
+          <span><i class="ph ph-clock"></i>47 min</span>
+          <span><i class="ph ph-check-circle"></i>Guardado en este PC</span>
+          <span><i class="ph ph-text-align-left"></i>Transcrita con Whisper small, local</span>
+          <a class="flow" data-flow href="settings.html?tab=models"></a>
+        </div>
+      </div>
+      <div class="top-actions">
+        <div class="menu-wrap" data-menu>
+          <button class="btn" data-menu-btn aria-haspopup="menu" aria-expanded="false"><i class="ph ph-export"></i><span>Exportar</span><i class="ph ph-caret-down"></i></button>
+          <div class="menu" role="menu" hidden>
+            <button role="menuitem" data-noop="Demo: se descargaría el PDF."><i class="ph ph-file-pdf"></i><span>PDF con resumen y acciones<span class="m-sub">Listo para compartir</span></span></button>
+            <button role="menuitem" data-noop="Demo: se descargaría el Markdown."><i class="ph ph-markdown-logo"></i><span>Markdown<span class="m-sub">Resumen y transcripción</span></span></button>
+            <hr>
+            <button role="menuitem" data-noop="Demo: resumen copiado."><i class="ph ph-copy"></i>Copiar resumen</button>
+            <button role="menuitem" data-noop="Demo: transcripción copiada."><i class="ph ph-copy"></i>Copiar transcripción</button>
+          </div>
+        </div>
+        <div class="menu-wrap" data-menu>
+          <button class="icon-btn" data-menu-btn aria-haspopup="menu" aria-expanded="false" title="Más acciones" aria-label="Más acciones"><i class="ph ph-dots-three"></i></button>
+          <div class="menu" role="menu" hidden>
+            <button role="menuitem" id="retxBtn"><i class="ph ph-arrows-clockwise"></i><span>Volver a transcribir…<span class="m-sub">Con otro motor, local o en la nube</span></span></button>
+            <button role="menuitem" id="spkBtn"><i class="ph ph-user-sound"></i><span>Nombrar a los participantes<span class="m-sub">Reemplaza “Participantes”</span></span></button>
+            <button role="menuitem" data-noop="Demo: se abriría la carpeta de la reunión."><i class="ph ph-folder-open"></i>Abrir carpeta</button>
+            <hr>
+            <button role="menuitem" data-noop="Demo: pediría confirmación antes de eliminar."><i class="ph ph-trash" style="color:var(--rec-text)"></i><span style="color:var(--rec-text)">Eliminar reunión</span></button>
+          </div>
+        </div>
+        <button class="icon-btn" data-chat-toggle aria-pressed="true" title="Mostrar u ocultar el asistente (Ctrl+J)" aria-label="Asistente"><i class="ph ph-sparkle"></i></button>
+      </div>
+    </header>
+
+    <div class="mtabs" role="tablist" aria-label="Paneles">
+      <button data-pane-btn="transcript" aria-selected="false">Transcripción</button>
+      <button data-pane-btn="insights" aria-selected="true">Insights</button>
+      <button data-pane-btn="chat" aria-selected="false">Preguntar</button>
+    </div>
+
+    <div class="panes" data-chat="on">
+      <!-- Transcripción -->
+      <section class="pane pane-transcript" aria-label="Transcripción">
+        <div class="pane-head">
+          <h2>Transcripción</h2>
+          <label class="search"><i class="ph ph-magnifying-glass"></i><input data-search type="text" placeholder="Buscar en la reunión" aria-label="Buscar en la transcripción"><span class="search-count" data-search-count></span><kbd>/</kbd></label>
+          <button class="icon-btn" data-font="-1" title="Texto más pequeño" aria-label="Texto más pequeño"><i class="ph ph-text-aa"></i></button>
+          <button class="icon-btn" data-font="1" title="Texto más grande" aria-label="Texto más grande"><i class="ph ph-text-a-underline"></i></button>
+        </div>
+        <div class="player-bar player">
+          <button class="play" data-play aria-label="Reproducir"></button>
+          <span class="mono"><span data-player-time>00:00</span> / <span data-player-dur>47:12</span></span>
+          <div class="wave" data-wave="70" role="slider" aria-label="Posición de audio"></div>
+          <button class="speed" data-speed title="Velocidad">1x</button>
+        </div>
+        <div class="t-scroll scroll" data-transcript-scroll>
+          <div data-transcript data-mode="grouped"></div>
+        </div>
+      </section>
+
+      <!-- Insights -->
+      <section class="pane pane-insights" aria-label="Insights" data-tabs="main" data-initial="insights">
+        <div class="pane-head">
+          <div class="tabs" role="tablist">
+            <button role="tab" data-tab="insights">Insights</button>
+            <button role="tab" data-tab="notes">Notas</button>
+          </div>
+          <span class="grow"></span>
+          <select class="select" id="tplSel" style="min-width:0;width:168px;height:30px;font-size:.9em" aria-label="Plantilla del resumen">
+            <option>Reunión general</option><option>Daily</option><option>1:1</option><option>Entrevista</option><option>Kickoff de proyecto</option>
+          </select>
+          <div data-model-picker data-slot="summary" data-placement="bottom" data-align="right"></div>
+          <button class="icon-btn" id="regenBtn" title="Regenerar el resumen" aria-label="Regenerar el resumen"><i class="ph ph-arrows-clockwise"></i></button>
+        </div>
+        <div class="pane-body scroll">
+          <div data-tab-panel="insights"><div data-insights id="insBox"></div></div>
+          <div data-tab-panel="notes" hidden>
+            <div class="notes" contenteditable="true" spellcheck="false" aria-label="Notas de la reunión">
+              <h4>Seguimiento personal</h4>
+              <p>Llamar a Matías el miércoles para confirmar que llegaron las credenciales del ambiente de pruebas.</p>
+              <p>Preparar la medición con 12 000 productos antes del jueves y compartir los tiempos en el canal del proyecto.</p>
+              <h4>Para la demo con bodega</h4>
+              <p>Mostrar pedidos recurrentes y el nuevo botón Duplicar pedido. Evitar el módulo de facturación hasta que el alcance esté cerrado.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Asistente (mismo componente que el panel global) -->
+      <aside class="pane pane-chat" aria-label="Preguntar" data-assistant-pane></aside>
+    </div>
+  </div>
+</div>
+<script src="../shared/data.js"></script>
+<script src="data-v2.js"></script>
+<script src="../shared/ui.js"></script>
+<script src="shell.js"></script>
+<script>
+  (function () {
+    var $ = function (s, r) { return (r || document).querySelector(s); };
+    MP.revealTranscript = function () { $(".shell").dataset.pane = "transcript"; document.querySelectorAll("[data-pane-btn]").forEach(function (b) { b.setAttribute("aria-selected", String(b.dataset.paneBtn === "transcript")); }); };
+    $("[data-chat-toggle]").addEventListener("click", function () { MP.toggleAsk(); });
+
+    // Ir a un momento desde una fuente del asistente: meeting.html#t=760
+    function fromHash() { var m = /t=(\d+)/.exec(location.hash); if (m) setTimeout(function () { MP.revealTranscript(); MP.seek(Number(m[1]), { flash: true }); }, 250); }
+    addEventListener("hashchange", fromHash); fromHash();
+
+    // Regenerar con otra plantilla o modelo
+    var box = $("#insBox");
+    function regen(msg) {
+      box.innerHTML = '<div style="display:grid;gap:12px;padding:6px 0"><span class="sk" style="width:30%;height:14px"></span><span class="sk" style="width:96%;height:16px"></span><span class="sk" style="width:90%;height:16px"></span><span class="sk" style="width:70%;height:16px"></span><span class="sk" style="width:25%;height:14px;margin-top:18px"></span><span class="sk" style="width:80%"></span><span class="sk" style="width:64%"></span><span class="sk" style="width:72%"></span></div>';
+      setTimeout(function () { MP.renderInsights(box, {}); MP.toast(msg); }, 1300);
+    }
+    $("#regenBtn").addEventListener("click", function () { regen("Resumen regenerado con " + MP.models.cur("summary").name + "."); });
+    $("#tplSel").addEventListener("change", function (e) { regen("Plantilla “" + e.target.value + "” aplicada."); });
+
+    function modal(html) {
+      var b = document.createElement("div"); b.className = "modal-back"; b.innerHTML = '<div class="modal" role="dialog" aria-modal="true" style="width:min(460px,100%)">' + html + "</div>";
+      document.body.appendChild(b);
+      b.addEventListener("click", function (e) { if (e.target === b || e.target.closest("[data-x]")) b.remove(); });
+      addEventListener("keydown", function esc(e) { if (e.key === "Escape") { b.remove(); removeEventListener("keydown", esc); } });
+      return b;
+    }
+
+    // Volver a transcribir con otro motor (local o nube)
+    $("#retxBtn").addEventListener("click", function () {
+      var b = modal('<h3>Volver a transcribir</h3><p>Elige el motor. La transcripción actual solo se reemplaza cuando termine todo.</p>' +
+        '<div style="margin-top:14px"><div class="hint" style="margin-bottom:6px">Motor de transcripción</div><div data-model-picker data-purpose="stt" data-slot="retx" data-placement="bottom"></div></div>' +
+        '<div id="retxNote" style="margin-top:14px"></div>' +
+        '<div class="acts"><button class="btn" data-x>Cancelar</button><button class="btn btn-primary" id="retxGo">Transcribir de nuevo</button></div>');
+      MP.initModelPickers();
+      function note() {
+        var m = MP.models.cur("retx"), el = $("#retxNote", b); if (!el) return;
+        el.innerHTML = m.kind === "cloud"
+          ? '<div class="notice warn"><i class="ph ph-cloud-arrow-up"></i><span>El audio de la reunión (47 min, 128 MB) se enviará a <b>' + m.provider + '</b>. Hazlo solo si tu política de privacidad lo permite.</span></div>'
+          : '<div class="notice"><i class="ph ph-shield-check"></i><span>Se transcribe en este equipo. Estimado: unos 6 minutos con ' + m.name + '.</span></div>';
+      }
+      document.addEventListener("mp:models", note); note();
+      $("#retxGo", b).addEventListener("click", function () { location.href = "loading.html?state=processing"; });
+    });
+
+    // Nombrar participantes (el audio del sistema llega mezclado, se nombra el grupo)
+    function renameSpeakers() {
+      var cur = ($(".group[data-who='others'] .who") || {}).textContent || "Participantes";
+      var b = modal('<h3>Nombrar a los participantes</h3><p>El audio del sistema llega mezclado, así que no separamos personas. Puedes darle un nombre al grupo.</p>' +
+        '<div class="key-field" style="margin-top:14px"><label for="spkName">Nombre del grupo</label><input class="input" id="spkName" value="' + cur + '" maxlength="40"></div>' +
+        '<div class="acts"><button class="btn" data-x>Cancelar</button><button class="btn btn-primary" id="spkOk">Guardar</button></div>');
+      $("#spkName", b).focus(); $("#spkName", b).select();
+      function ok() { var v = $("#spkName", b).value.trim() || "Participantes"; document.querySelectorAll(".group[data-who='others'] .who").forEach(function (w) { w.textContent = v; }); b.remove(); MP.toast("Nombre actualizado."); }
+      $("#spkOk", b).addEventListener("click", ok);
+      $("#spkName", b).addEventListener("keydown", function (e) { if (e.key === "Enter") ok(); });
+    }
+    $("#spkBtn").addEventListener("click", renameSpeakers);
+    document.addEventListener("click", function (e) { var w = e.target.closest(".group[data-who='others'] .who"); if (w) renameSpeakers(); });
+  })();
+</script>
+</body>
+</html>

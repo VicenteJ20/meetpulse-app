@@ -34,7 +34,7 @@ export function AudioBackendSelector({
 
         // Get backend info (includes name and description)
         const backendInfo = await invoke<BackendInfo[]>('get_audio_backend_info');
-        setBackends(backendInfo);
+        setBackends(Array.isArray(backendInfo) ? backendInfo : []);
 
         // Get current backend if not provided via props
         if (!propBackend) {
@@ -104,7 +104,7 @@ export function AudioBackendSelector({
             <Info className="h-4 w-4" />
           </button>
           {showTooltip && (
-            <div className="absolute z-10 left-6 top-0 w-64 p-3 text-xs bg-gray-900 text-white rounded-lg shadow-lg">
+            <div className="absolute z-10 left-6 top-0 w-64 p-3 text-xs bg-popover text-popover-foreground border border-border rounded-lg shadow-lg">
               <p className="font-semibold mb-1">Audio Capture Methods:</p>
               <ul className="space-y-1">
                 {backends.map((backend) => (
@@ -113,7 +113,7 @@ export function AudioBackendSelector({
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-gray-300">
+              <p className="mt-2 text-muted-foreground">
                 Try different backends to find which works best for your system.
               </p>
             </div>
@@ -138,7 +138,7 @@ export function AudioBackendSelector({
               key={backend.id}
               className={`flex items-start p-3 border rounded-lg transition-all ${
                 currentBackend === backend.id
-                  ? 'border-blue-500 bg-brand/10'
+                  ? 'border-brand bg-accent/60'
                   : 'border-border hover:border-border bg-card'
               } ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
@@ -149,7 +149,7 @@ export function AudioBackendSelector({
                 checked={currentBackend === backend.id}
                 onChange={() => handleBackendChange(backend.id)}
                 disabled={isDisabled}
-                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-border"
+                className="mt-1 h-4 w-4 accent-[hsl(var(--brand))]"
               />
               <div className="ml-3 flex-1">
                 <div className="flex items-center justify-between">
@@ -157,7 +157,7 @@ export function AudioBackendSelector({
                     {backend.name}
                   </span>
                   {currentBackend === backend.id && (
-                    <span className="text-xs font-medium text-blue-600 bg-brand/15 px-2 py-0.5 rounded">
+                    <span className="text-xs font-medium text-brand bg-accent px-2 py-0.5 rounded">
                       Active
                     </span>
                   )}

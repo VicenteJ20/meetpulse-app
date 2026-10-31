@@ -1,62 +1,56 @@
+import { Check, Loader2 } from 'lucide-react';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
+
 interface StatusOverlaysProps {
-  // Status flags
-  isProcessing: boolean;      // Processing transcription after recording stops
-  isSaving: boolean;          // Saving transcript to database
-
-  // Layout
-  sidebarCollapsed: boolean;  // For responsive margin calculation
+  isStopping: boolean;
+  isProcessing: boolean;
+  isSaving: boolean;
 }
 
-// Internal reusable component for individual status overlays
-interface StatusOverlayProps {
-  show: boolean;
-  message: string;
-  sidebarCollapsed: boolean;
-}
+const steps = ['stopping', 'processing', 'saving'] as const;
+type Step = (typeof steps)[number];
 
-function StatusOverlay({ show, message, sidebarCollapsed }: StatusOverlayProps) {
-  if (!show) return null;
+export function StatusOverlays({ isStopping, isProcessing, isSaving }: StatusOverlaysProps) {
+  const { t } = useTranslation();
+  const active: Step | null = isStopping ? 'stopping' : isProcessing ? 'processing' : isSaving ? 'saving' : null;
+  if (!active) return null;
+
+  const labels: Record<Step, string> = {
+    stopping: t('loading.stopping'),
+    processing: t('loading.finalizing'),
+    saving: t('loading.saving'),
+  };
+  const activeIndex = steps.indexOf(active);
 
   return (
-    <div className="fixed bottom-4 left-0 right-0 z-10">
-      <div
-        className="flex justify-center pl-8 transition-[margin] duration-300"
-        style={{
-          marginLeft: sidebarCollapsed ? '4rem' : '16rem'
-        }}
-      >
-        <div className="w-2/3 max-w-[750px] flex justify-center">
-          <div className="bg-card rounded-lg shadow-lg px-4 py-2 flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
-            <span className="text-sm text-foreground">{message}</span>
-          </div>
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={labels[active]}
+      className="recording-status-overlay pointer-events-none fixed bottom-6 left-14 right-0 z-30 flex justify-center px-6"
+    >
+      <div className="w-full max-w-2xl rounded-2xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur">
+        <div className="mb-3 flex items-center justify-center gap-2.5">
+          <Loader2 className="size-4 animate-spin text-brand" />
+          <span className="text-sm font-medium text-foreground">{labels[active]}</span>
         </div>
+        <ol className="grid grid-cols-3 gap-2" aria-label={t('loading.progress')}>
+          {steps.map((step, index) => {
+            const complete = index < activeIndex;
+            const current = index === activeIndex;
+            return (
+              <li
+                key={step}
+                aria-current={current ? 'step' : undefined}
+                className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs ${current ? 'bg-accent font-medium text-accent-foreground' : complete ? 'text-success' : 'text-muted-foreground'}`}
+              >
+                {complete && <Check className="size-3.5" aria-hidden="true" />}
+                {labels[step]}
+              </li>
+            );
+          })}
+        </ol>
       </div>
     </div>
-  );
-}
-
-// Main exported component - renders multiple status overlays
-export function StatusOverlays({
-  isProcessing,
-  isSaving,
-  sidebarCollapsed
-}: StatusOverlaysProps) {
-  return (
-    <>
-      {/* Processing status overlay - shown after recording stops while finalizing transcription */}
-      <StatusOverlay
-        show={isProcessing}
-        message="Finalizing transcription..."
-        sidebarCollapsed={sidebarCollapsed}
-      />
-
-      {/* Saving status overlay - shown while saving transcript to database */}
-      <StatusOverlay
-        show={isSaving}
-        message="Saving transcript..."
-        sidebarCollapsed={sidebarCollapsed}
-      />
-    </>
   );
 }

@@ -1,13 +1,15 @@
 'use client';
 
-import { useRef, useEffect, memo } from "react";
+import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { useRef, useEffect, useState, memo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAutoScroll } from "@/hooks/useAutoScroll";
 import { useTranscriptStreaming } from "@/hooks/useTranscriptStreaming";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { RecordingStatusBar } from "./RecordingStatusBar";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import { Mic, Users, Volume2 } from "lucide-react";
+import { aboutMeInitials } from "@/lib/aboutMe";
 import { TranscriptSegmentData } from "@/types";
 import { estimateTranscriptSegmentHeight } from "@/lib/transcriptLayout";
 
@@ -43,13 +45,13 @@ const VIRTUALIZATION_THRESHOLD = 1;
 
 // Helper function to format seconds as recording-relative time [MM:SS]
 function formatRecordingTime(seconds: number | undefined): string {
-    if (seconds === undefined) return '[--:--]';
+    if (seconds === undefined) return '--:--';
 
     const totalSeconds = Math.floor(seconds);
     const minutes = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
 
-    return `[${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`;
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
 // Helper function to remove filler words and repetitions
@@ -73,6 +75,7 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence,
     isStreaming,
     showConfidence,
+    speakerLabel,
 }: {
     id: string;
     timestamp: number;
@@ -80,15 +83,30 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence?: number;
     isStreaming: boolean;
     showConfidence: boolean;
+    speakerLabel?: { text: string; source: string; me: boolean; first: boolean; initials: string };
 }) {
     const displayText = cleanStopWords(text) || (text.trim() === '' ? '[Silence]' : text);
 
     return (
-        <div id={`segment-${id}`} className="pb-3">
-            <div className="flex items-start gap-2">
+        <div id={`segment-${id}`}>
+            {speakerLabel && (
+                <div className={`flex items-center gap-2 pb-1 text-sm font-semibold ${speakerLabel.first ? 'pt-2' : 'mt-4 border-t border-border pt-5'}`}>
+                    <span className={`grid size-[26px] place-items-center rounded-full text-[0.62rem] font-semibold ${speakerLabel.me ? 'bg-accent text-brand' : 'bg-muted text-muted-foreground'}`}>
+                        {speakerLabel.me
+                            ? (speakerLabel.initials || <Mic className="size-3.5" />)
+                            : <Users className="size-3.5" />}
+                    </span>
+                    {speakerLabel.text}
+                    <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                        {speakerLabel.me ? <Mic className="size-3" /> : <Volume2 className="size-3" />}
+                        {speakerLabel.source}
+                    </span>
+                </div>
+            )}
+            <div className={`grid grid-cols-[3.25rem_minmax(0,1fr)] gap-3 rounded-lg py-1.5 transition-colors duration-300 ${isStreaming ? 'bg-muted/60' : ''}`}>
                 <Tooltip>
-                    <TooltipTrigger>
-                        <span className="mt-1 min-w-[50px] flex-shrink-0 text-xs text-muted-foreground">
+                    <TooltipTrigger asChild>
+                        <span className="pt-[0.42rem] font-mono text-xs tabular-nums text-muted-foreground">
                             {formatRecordingTime(timestamp)}
                         </span>
                     </TooltipTrigger>
@@ -98,17 +116,7 @@ const TranscriptSegment = memo(function TranscriptSegment({
                         )}
                     </TooltipContent>
                 </Tooltip>
-                <div className="min-w-0 flex-1">
-                    <div
-                        className={`rounded-lg border px-3 py-2 transition-colors duration-300 ${
-                            isStreaming
-                                ? 'border-border bg-muted/70'
-                                : 'border-transparent bg-transparent'
-                        }`}
-                    >
-                        <p className="break-words text-base leading-relaxed text-foreground">{displayText}</p>
-                    </div>
-                </div>
+                <p className="break-words text-[1rem] leading-[1.65] text-foreground">{displayText}</p>
             </div>
         </div>
     );
@@ -144,7 +152,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
     });
 
     // Custom hook for auto-scrolling (supports both virtualized and non-virtualized)
-    useAutoScroll({
+    const { autoScroll, scrollToBottom } = useAutoScroll({
         scrollRef,
         segments,
         isRecording,
@@ -153,6 +161,39 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
         virtualizationThreshold: VIRTUALIZATION_THRESHOLD,
         disableAutoScroll,
     });
+
+    const { t } = useTranslation();
+    // El rótulo solo se muestra cuando cambia quien habla
+    const labelFor = (segment: TranscriptSegmentData, previous?: TranscriptSegmentData) =>
+        segment.speaker && segment.speaker !== previous?.speaker
+            ? {
+                text: t(segment.speaker === 'me' ? 'transcript.me' : 'transcript.team'),
+                source: t(segment.speaker === 'me' ? 'transcript.micSource' : 'transcript.systemSource'),
+                me: segment.speaker === 'me',
+                first: !previous,
+                initials: aboutMeInitials(),
+            }
+            : undefined;
+    const [sourceTime, setSourceTime] = useState<number | null>(() => {
+        if (typeof window === 'undefined') return null;
+        const raw = new URLSearchParams(window.location.search).get('sourceTime');
+        return raw !== null && Number.isFinite(Number(raw)) ? Number(raw) : null;
+    });
+    const [highlight, setHighlight] = useState('');
+    useEffect(() => {
+        const onSource = (event: Event) => setSourceTime((event as CustomEvent<{start: number}>).detail.start);
+        window.addEventListener('meetpulse-source', onSource);
+        return () => window.removeEventListener('meetpulse-source', onSource);
+    }, []);
+    useEffect(() => {
+        if (sourceTime === null || !segments.length) return;
+        if (hasMore && segments[segments.length - 1].timestamp < sourceTime) { if (!isLoadingMore) onLoadMore?.(); return; }
+        const index = segments.reduce((best, segment, i) => Math.abs(segment.timestamp - sourceTime) < Math.abs(segments[best].timestamp - sourceTime) ? i : best, 0);
+        virtualizer.scrollToIndex(index, { align: 'center' }); setHighlight(segments[index].id); setSourceTime(null);
+
+    }, [sourceTime, segments.length, hasMore, isLoadingMore, onLoadMore, virtualizer]);
+
+    useEffect(() => { if (!highlight) return; const timer = setTimeout(() => setHighlight(''), 6000); return () => clearTimeout(timer); }, [highlight]);
 
     // Streaming text effect hook (typewriter animation for new transcripts)
     const { streamingSegmentId, getDisplayText } = useTranscriptStreaming(
@@ -222,17 +263,9 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
 
     return (
         <div ref={scrollRef} className="flex flex-col h-full overflow-y-auto px-4 py-2">
-            {/* Recording Status Bar - Sticky at top, always visible when recording */}
-            <AnimatePresence>
-                {isRecording && (
-                    <div className="sticky top-0 z-10 bg-background pb-2">
-                        <RecordingStatusBar isPaused={isPaused} />
-                    </div>
-                )}
-            </AnimatePresence>
-
             {/* Content - add padding when recording to prevent overlap */}
             <div className={isRecording ? 'pt-2' : ''}>
+            {isRecording && !autoScroll && <button className="sticky top-2 z-10 mx-auto block rounded-full bg-brand px-4 py-2 text-sm text-brand-foreground shadow" onClick={scrollToBottom}>{t('live.backLive')}</button>}
             {segments.length === 0 ? (
                 // Empty state
                 <motion.div
@@ -246,16 +279,15 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                 <div className={`w-3 h-3 rounded-full ${isPaused ? 'bg-warning' : 'bg-brand animate-pulse'}`}></div>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                                {isPaused ? 'Recording paused' : 'Listening for speech...'}
+                                {isPaused ? t('live.pausedTitle') : t('live.waiting')}
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                {isPaused ? 'Click resume to continue recording' : 'Speak to see live transcription'}
+                                {isPaused ? t('live.pausedText') : t('live.waitingText')}
                             </p>
                         </>
                     ) : (
                         <>
-                            <p className="text-lg font-semibold">Welcome to MeetPulse!</p>
-                            <p className="text-xs mt-1">Start recording to see live transcription</p>
+                            <p className="text-sm">{t('live.welcome')}</p>
                         </>
                     )}
                 </motion.div>
@@ -276,6 +308,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                             return (
                                 <div
                                     key={segment.id}
+                                    className={highlight === segment.id ? "transcript-source-highlight" : ""}
                                     data-index={virtualRow.index}
                                     ref={virtualizer.measureElement}
                                     style={{
@@ -293,6 +326,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        speakerLabel={labelFor(segment, segments[segments.indexOf(segment) - 1])}
                                     />
                                 </div>
                             );
@@ -349,6 +383,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        speakerLabel={labelFor(segment, segments[segments.indexOf(segment) - 1])}
                                     />
                                 </motion.div>
                             );

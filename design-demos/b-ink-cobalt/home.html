@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ink &amp; Cobalt - Inicio</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell">
+  <header class="nav">
+    <div class="nav-in">
+      <a class="wordmark" href="home.html" title="Nombre y logo provisionales"><i class="ph-fill ph-waveform"></i>MeetPulse</a>
+      <nav class="nav-links" aria-label="Principal">
+        <a href="home.html" aria-current="page">Inicio</a>
+        <a href="meeting.html">Reuniones</a>
+        <a href="#" data-noop="Demo: ajustes.">Ajustes</a>
+      </nav>
+      <div class="nav-right">
+        <button class="nav-search" data-noop="Demo: aquí se abriría la búsqueda global."><i class="ph ph-magnifying-glass"></i><span>Buscar en todo</span><kbd>Ctrl K</kbd></button>
+        <button class="btn btn-ghost" data-theme-toggle data-label></button>
+      </div>
+    </div>
+  </header>
+  <main class="home scroll">
+    <div class="home-in">
+      <section class="home-hero">
+        <div>
+          <h1>Graba. Lee. Pregunta.</h1>
+          <p>Transcripción y resumen que se quedan en este equipo.</p>
+        </div>
+        <div class="recorder">
+          <div class="rec-fields">
+            <div class="field"><label for="f1">Título</label><input id="f1" placeholder="Planificación sprint 15"></div>
+            <div class="field"><label for="f2">Cliente</label><input id="f2" placeholder="Bodegas Calderón"></div>
+            <div class="field"><label for="f3">Proyecto</label><input id="f3" placeholder="Portal de pedidos"></div>
+          </div>
+          <div class="rec-row">
+            <button class="btn btn-rec" data-record><i class="ph-fill ph-microphone"></i>Grabar</button>
+            <button class="btn" data-import><i class="ph ph-upload-simple"></i>Importar audio</button>
+            <div class="meter rec-meter" data-meter="48" aria-label="Nivel del micrófono"></div>
+          </div>
+          <ul class="checks" data-readiness></ul>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title"><h2>Reuniones recientes</h2><a class="btn btn-ghost" href="meeting.html">Ver todas<i class="ph ph-arrow-right"></i></a></div>
+        <div class="mt-list" data-recent></div>
+      </section>
+    </div>
+  </main>
+</div>
+<script src="../shared/data.js"></script>
+<script src="../shared/ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiet Studio - Reunión</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell" data-pane="insights">
+  <nav class="rail" aria-label="Principal">
+    <span class="logo-slot" title="Logo provisional"><i class="ph-fill ph-waveform"></i></span>
+    <a class="icon-btn" href="home.html" title="Inicio" aria-label="Inicio"><i class="ph ph-house"></i></a>
+    <a class="icon-btn" href="meeting.html" title="Reuniones" aria-label="Reuniones" aria-selected="true"><i class="ph ph-notebook"></i></a>
+    <button class="icon-btn" data-noop="Demo: aquí se abriría la búsqueda global." title="Buscar (Ctrl+K)" aria-label="Buscar"><i class="ph ph-magnifying-glass"></i></button>
+    <button class="icon-btn" data-record title="Nueva grabación" aria-label="Nueva grabación"><i class="ph ph-microphone"></i></button>
+    <span class="spacer"></span>
+    <button class="icon-btn" data-theme-toggle></button>
+    <button class="icon-btn" data-noop="Demo: ajustes." title="Ajustes" aria-label="Ajustes"><i class="ph ph-gear-six"></i></button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="crumbs"><a href="home.html">Bodegas Calderón</a><i class="ph ph-caret-right"></i><a href="home.html">Portal de pedidos</a></div>
+        <h1>Planificación sprint 14</h1>
+        <div class="meta">
+          <span><i class="ph ph-calendar-blank"></i>vie 16 oct, 15:00</span>
+          <span><i class="ph ph-clock"></i>47 min</span>
+          <span><i class="ph ph-check-circle"></i>Guardado en este PC</span>
+          <span class="live-badge" data-live-badge hidden>Grabando en vivo</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="btn" data-live-toggle><i class="ph-fill ph-record"></i><span>Simular en vivo</span></button>
+        <button class="btn" data-noop="Demo: exportación a PDF."><i class="ph ph-file-pdf"></i><span>Exportar PDF</span></button>
+        <button class="icon-btn" data-chat-toggle aria-pressed="true" title="Mostrar u ocultar el asistente" aria-label="Asistente"><i class="ph ph-sidebar-simple"></i></button>
+      </div>
+    </header>
+
+    <div class="mtabs" role="tablist" aria-label="Paneles">
+      <button data-pane-btn="transcript" aria-selected="false">Transcripción</button>
+      <button data-pane-btn="insights" aria-selected="true">Insights</button>
+      <button data-pane-btn="chat" aria-selected="false">Asistente</button>
+    </div>
+
+    <div class="panes" data-chat="on">
+      <!-- Transcripción -->
+      <section class="pane pane-transcript" aria-label="Transcripción">
+        <div class="pane-head">
+          <h2>Transcripción</h2>
+          <label class="search"><i class="ph ph-magnifying-glass"></i><input data-search type="text" placeholder="Buscar en la reunión" aria-label="Buscar en la transcripción"><span class="search-count" data-search-count></span><kbd>Ctrl K</kbd></label>
+          <button class="icon-btn" data-font="-1" title="Texto más pequeño" aria-label="Texto más pequeño"><i class="ph ph-text-aa"></i></button>
+          <button class="icon-btn" data-font="1" title="Texto más grande" aria-label="Texto más grande"><i class="ph ph-text-a-underline"></i></button>
+        </div>
+        <div class="player-bar player">
+          <button class="play" data-play aria-label="Reproducir"></button>
+          <span class="mono"><span data-player-time>00:00</span> / <span data-player-dur>47:12</span></span>
+          <div class="wave" data-wave="70" role="slider" aria-label="Posición de audio"></div>
+          <button class="speed" data-speed title="Velocidad">1x</button>
+        </div>
+        <div class="t-scroll scroll" data-transcript-scroll>
+          <div data-transcript data-mode="grouped"></div>
+          <div class="listening" data-listening hidden><span class="pulse"></span>Escuchando…</div>
+          <button class="back-live" data-back-live hidden><i class="ph ph-arrow-down"></i>Volver al vivo</button>
+        </div>
+      </section>
+
+      <!-- Insights -->
+      <section class="pane pane-insights" aria-label="Insights" data-tabs="main" data-initial="insights">
+        <div class="pane-head">
+          <div class="tabs" role="tablist">
+            <button role="tab" data-tab="insights">Insights</button>
+            <button role="tab" data-tab="notes">Notas</button>
+          </div>
+          <span class="grow"></span>
+          <span class="hint gen">Generado con</span>
+          <div data-model-picker data-placement="bottom" data-align="right"></div>
+        </div>
+        <div class="pane-body scroll">
+          <div data-tab-panel="insights"><div data-insights></div></div>
+          <div data-tab-panel="notes" hidden>
+            <div class="notes" contenteditable="true" spellcheck="false" aria-label="Notas de la reunión">
+              <h4>Seguimiento personal</h4>
+              <p>Llamar a Matías el miércoles para confirmar que llegaron las credenciales del ambiente de pruebas.</p>
+              <p>Preparar la medición con 12 000 productos antes del jueves y compartir los tiempos en el canal del proyecto.</p>
+              <h4>Para la demo con bodega</h4>
+              <p>Mostrar pedidos recurrentes y el nuevo botón Duplicar pedido. Evitar el módulo de facturación hasta que el alcance esté cerrado.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Asistente -->
+      <aside class="pane pane-chat" aria-label="Asistente">
+        <div class="pane-head">
+          <h2>Asistente</h2>
+          <span class="mc-tag" data-kind="local" style="background:var(--surface-3);color:var(--text-2)">Esta reunión</span>
+          <span class="grow"></span>
+          <button class="icon-btn" data-chat-clear title="Nueva conversación" aria-label="Nueva conversación"><i class="ph ph-note-pencil"></i></button>
+        </div>
+        <div class="chat-list scroll" data-chat-list aria-live="polite"></div>
+        <div class="chat-bottom">
+          <div class="suggest-row" data-suggest></div>
+          <form class="composer" data-chat-form>
+            <textarea data-chat-input rows="1" placeholder="Pregunta sobre decisiones, acciones o cualquier momento" aria-label="Mensaje"></textarea>
+            <div class="composer-bar">
+              <div data-model-picker data-placement="top"></div>
+              <span class="hint" data-model-privacy style="display:none"></span>
+              <button class="send" type="submit" aria-label="Enviar"><i class="ph-fill ph-arrow-up"></i></button>
+            </div>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+<script src="../shared/data.js"></script>
+<script src="../shared/ui.js"></script>
+<script>
+  MP.revealTranscript = function () { document.querySelector(".shell").dataset.pane = "transcript"; document.querySelectorAll("[data-pane-btn]").forEach(function (b) { b.setAttribute("aria-selected", String(b.dataset.paneBtn === "transcript")); }); };
+  document.querySelector("[data-chat-toggle]").addEventListener("click", function (e) {
+    var p = document.querySelector(".panes"), on = p.dataset.chat === "on";
+    p.dataset.chat = on ? "off" : "on"; e.currentTarget.setAttribute("aria-pressed", String(!on));
+  });
+</script>
+</body>
+</html>

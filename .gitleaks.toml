@@ -1,0 +1,15 @@
+title = "MeetPulse gitleaks"
+
+[extend]
+useDefault = true
+
+# Formato [allowlist] (singular): es el que entiende gitleaks 8.21, que usa el CI.
+[allowlist]
+description = "Valores públicos por diseño"
+regexTarget = "match"
+regexes = [
+  # Claves de proyecto de PostHog (solo escritura) heredadas del código original; siguen en el historial.
+  '''phc_[A-Za-z0-9]{40,}''',
+  # Clave pública del updater (minisign); es pública por diseño, la privada nunca está en el repo.
+  '''dW50cnVzdGVkIGNvbW1lbnQ6[A-Za-z0-9+/=]+''',
+]

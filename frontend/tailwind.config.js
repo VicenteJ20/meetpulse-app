@@ -4,13 +4,25 @@ module.exports = {
     content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/contexts/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
   	extend: {
   		fontFamily: {
   			sans: [
-  				'var(--font-source-sans-3)'
+  				'var(--font-geist-sans)',
+  				'system-ui',
+  				'-apple-system',
+  				'Segoe UI',
+  				'sans-serif'
+  			],
+  			mono: [
+  				'var(--font-geist-mono)',
+  				'ui-monospace',
+  				'Cascadia Mono',
+  				'Consolas',
+  				'monospace'
   			]
   		},
   		colors: {
@@ -56,6 +68,8 @@ module.exports = {
 				DEFAULT: 'hsl(var(--recording))',
 				foreground: 'hsl(var(--recording-foreground))'
 			},
+			success: 'hsl(var(--success))',
+			warning: 'hsl(var(--warning))',
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',
@@ -93,5 +107,5 @@ module.exports = {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 }

@@ -1,9 +1,7 @@
 "use client";
-import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Summary, SummaryResponse } from '@/types';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Summary, SummaryResponse, Transcript } from '@/types';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
-import Analytics from '@/lib/analytics';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { TranscriptPanel } from '@/components/MeetingDetails/TranscriptPanel';
@@ -17,11 +15,15 @@ import { useTemplates } from '@/hooks/meeting-details/useTemplates';
 import { useCopyOperations } from '@/hooks/meeting-details/useCopyOperations';
 import { useMeetingOperations } from '@/hooks/meeting-details/useMeetingOperations';
 import { useConfig } from '@/contexts/ConfigContext';
-import { getWikiConfig } from '@/services/wiki-config';
-import { WikiApi, WikiApiError, listWikiTenants, type WikiTenant } from '@/services/wiki-api';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CalendarDays } from 'lucide-react';
+import { AssistantButton, LiveAssistantDockHost, useAssistant, useAssistantTarget } from '@/contexts/AssistantContext';
+import { ResizeHandle } from '@/components/ui/resize-handle';
+import { PdfExports } from '@/components/MeetingDetails/PdfExports';
+import { CalendarDays, ChevronRight } from 'lucide-react';
+import { Segmented } from '@/components/ui/segmented';
+import { MeetingMetaPopover } from '@/components/MeetingDetails/MeetingMetaPopover';
+import { DataFlowChip } from '@/components/DataFlowChip';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { useRouter } from 'next/navigation';
 
 export default function PageContent({
   meeting,
@@ -58,19 +60,41 @@ export default function PageContent({
     transcriptsCount: meeting.transcripts?.length
   });
 
+  const { locale } = useTranslation();
+  const [view, setView] = useState<'analysis' | 'transcript' | 'split'>('split');
+  const { open: assistantOpen } = useAssistant();
+  // Ancho de las columnas de transcripción y chat: se recuerda por dispositivo.
+  const [columns, setColumns] = useState({ transcript: 460, chat: 380 });
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('meetpulse-meeting-columns') || '{}');
+      setColumns(current => ({ transcript: Number(saved.transcript) || current.transcript, chat: Number(saved.chat) || current.chat }));
+    } catch {}
+  }, []);
+  const resizeColumn = (key: 'transcript' | 'chat', value: number) => setColumns(current => {
+    const next = { ...current, [key]: value };
+    try { localStorage.setItem('meetpulse-meeting-columns', JSON.stringify(next)); } catch {}
+    return next;
+  });
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1200px)');
+    const wantsSource = new URLSearchParams(window.location.search).has('sourceTime');
+    const adapt = () => setView(current => query.matches ? 'split' : current === 'split' ? (wantsSource ? 'transcript' : 'analysis') : current);
+    adapt();
+    query.addEventListener('change', adapt);
+    const showSource = () => setView(query.matches ? 'split' : 'transcript');
+    window.addEventListener('meetpulse-source', showSource);
+    return () => { query.removeEventListener('change', adapt); window.removeEventListener('meetpulse-source', showSource); };
+  }, []);
   // State
   const [customPrompt, setCustomPrompt] = useState<string>(meeting.additional_context || '');
   const [client, setClient] = useState<string>(meeting.client || '');
   const [project, setProject] = useState<string>(meeting.project || '');
   const [isRecording] = useState(false);
   const [summaryResponse] = useState<SummaryResponse | null>(null);
-  const [isSavingToWiki, setIsSavingToWiki] = useState(false);
-  const [isSavedToWiki, setIsSavedToWiki] = useState(false);
-  const [wikiTenantPickerOpen, setWikiTenantPickerOpen] = useState(false);
-  const [wikiTenants, setWikiTenants] = useState<WikiTenant[]>([]);
-  const [selectedWikiTenant, setSelectedWikiTenant] = useState('');
-  const { serverAddress, refetchMeetings } = useSidebar();
+  const { serverAddress, refetchMeetings, meetings } = useSidebar();
   const { t, formatDate } = useTranslation();
+  const router = useRouter();
 
   useEffect(() => {
     setClient(meeting.client || '');
@@ -83,8 +107,8 @@ export default function PageContent({
       try {
         await invoke('api_save_meeting_metadata', {
           meetingId: meeting.id,
-          client,
-          project,
+          client: client.trim(),
+          project: project.trim(),
           additionalContext: customPrompt,
         });
         // Keep the client/project hierarchy in Meeting Notes in sync as soon
@@ -97,6 +121,7 @@ export default function PageContent({
     return () => window.clearTimeout(timeout);
   }, [meeting.id, client, project, customPrompt, refetchMeetings]);
 
+  useAssistantTarget({ id: `saved-${meeting.id}`, meetingId: meeting.id, title: meeting.title, folderPath: meeting.folder_path, context: JSON.stringify({ client, project, additionalContext: customPrompt }) });
   const analysisContext = [
     client.trim() ? `Client: ${client.trim()}` : '',
     project.trim() ? `Project: ${project.trim()}` : '',
@@ -152,6 +177,17 @@ export default function PageContent({
     }
   };
 
+  const getAnalysisMarkdown = useCallback(async () => {
+    const editor = meetingData.blockNoteSummaryRef.current;
+    const current = await editor?.getMarkdown?.();
+    const summary = meetingData.aiSummary as unknown as { markdown?: string; summary_json?: unknown[] } | null;
+    // Empty is meaningful after the user deletes the document; never resurrect saved text.
+    if (editor && (typeof summary?.markdown === 'string' || Array.isArray(summary?.summary_json))) return current || '';
+    if (current) return current;
+    if (typeof summary?.markdown === 'string') return summary.markdown;
+    return Object.values(meetingData.aiSummary || {}).filter(section => section && typeof section === 'object' && 'title' in section && Array.isArray(section.blocks)).map(section => `## ${section.title}\n\n${section.blocks.map(block => block.content || '').join('\n\n')}`).join('\n\n');
+  }, [meetingData.aiSummary, meetingData.blockNoteSummaryRef]);
+
   const summaryGeneration = useSummaryGeneration({
     meeting,
     transcripts: meetingData.transcripts,
@@ -162,6 +198,9 @@ export default function PageContent({
     updateMeetingTitle: meetingData.updateMeetingTitle,
     setAiSummary: meetingData.setAiSummary,
     onOpenModelSettings: handleOpenModelSettings,
+    onSummaryCompleted: async ({ title }) => {
+      if (title) meetingData.updateMeetingTitle(title);
+    },
   });
 
   const copyOperations = useCopyOperations({
@@ -176,53 +215,8 @@ export default function PageContent({
     meeting,
   });
 
-  const openWikiTenantPicker = async () => {
-    try {
-      const tenants = await listWikiTenants();
-      if (!tenants.length) { toast.error('Create or join a Wiki tenant before saving notes.'); return; }
-      const configured = getWikiConfig().tenantId;
-      setWikiTenants(tenants);
-      setSelectedWikiTenant(tenants.some(tenant => tenant.tenant_id === configured) ? configured : tenants[0].tenant_id);
-      setWikiTenantPickerOpen(true);
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Unable to load Wiki tenants'); }
-  };
-
-  const handleSaveToWiki = async () => {
-    if (!selectedWikiTenant) return;
-    const config = { ...getWikiConfig(), tenantId: selectedWikiTenant };
-    if (!client.trim() || !project.trim()) { toast.error('Add both client and project before saving this note to Wiki'); return; }
-    setIsSavingToWiki(true);
-    try {
-      await meetingData.saveAllChanges();
-      let markdown = await meetingData.blockNoteSummaryRef.current?.getMarkdown?.() || '';
-      if (!markdown && meetingData.aiSummary && 'markdown' in meetingData.aiSummary) {
-        markdown = (meetingData.aiSummary as any).markdown || '';
-      }
-      if (!markdown) { toast.error('Add a summary before saving this note to Wiki'); return; }
-      const participants = Array.isArray((meeting as any).participants) && (meeting as any).participants.length
-        ? (meeting as any).participants.map(String)
-        : ['Not specified'];
-      await new WikiApi(config).ingest({
-        clientId: client.trim(),
-        projectId: project.trim(),
-        title: meetingData.meetingTitle.trim() || meeting.title,
-        dateTime: meeting.created_at || new Date().toISOString(),
-        participants,
-        markdown,
-      });
-      setIsSavedToWiki(true);
-      toast.success('Note saved to Wiki');
-    } catch (error) {
-      if (error instanceof WikiApiError && error.status === 409) toast.info('This note is already saved in Wiki');
-      else toast.error(error instanceof Error ? error.message : 'Failed to save note to Wiki');
-    } finally {
-      setIsSavingToWiki(false);
-    }
-  };
-
   // Track page view
   useEffect(() => {
-    Analytics.trackPageView('meeting_details');
   }, []);
 
   // Auto-generate summary when flag is set
@@ -251,29 +245,77 @@ export default function PageContent({
 
   return (
     <>
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="flex h-screen flex-col bg-background"
-    >
-      <header className="flex shrink-0 items-center justify-between gap-5 border-b border-border bg-card/90 px-5 py-3 backdrop-blur">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-3">
-            <h1 className="truncate text-lg font-semibold tracking-[-0.02em]">{meetingData.meetingTitle || meeting.title}</h1>
-            {(client || project) && <span className="hidden truncate rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground lg:inline">{[client, project].filter(Boolean).join(' / ')}</span>}
+    <div className="flex h-dvh min-h-0 flex-col bg-background">
+      <header className="flex shrink-0 flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-border bg-card px-4 pb-3.5 pt-4 sm:px-6">
+        <div className="min-w-0 flex-1">
+          <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+            <button type="button" onClick={() => router.push('/library')} className="hover:text-foreground hover:underline">
+              {t('meeting.library')}
+            </button>
+            {client.trim() && (<><ChevronRight className="size-3 shrink-0" /><span className="truncate">{client}</span></>)}
+            {project.trim() && (<><ChevronRight className="size-3 shrink-0" /><span className="truncate">{project}</span></>)}
+          </nav>
+          <input
+            value={meetingData.meetingTitle || meeting.title}
+            onChange={(event) => meetingData.handleTitleChange(event.target.value)}
+            aria-label="Title"
+            className="mt-0.5 w-full truncate rounded-md border border-transparent bg-transparent px-0 text-2xl font-semibold leading-tight tracking-[-0.03em] outline-none transition-colors hover:border-input focus:border-brand focus:px-2 sm:text-[1.65rem]"
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays className="size-3.5" />
+              {meeting.created_at ? formatDate(meeting.created_at, { dateStyle: 'medium', timeStyle: 'short' }) : t('meeting.details')}
+            </span>
+            <span role="status" className="inline-flex items-center gap-1.5">
+              {meetingData.isSaving ? t('meeting.saving') : meetingData.isSummaryDirty || meetingData.isTitleDirty ? t('meeting.unsaved') : t('meeting.savedLocal')}
+            </span>
+            <MeetingMetaPopover
+              client={client}
+              project={project}
+              context={customPrompt}
+              clientOptions={Array.from(new Set(meetings.map(item => item.client).filter(Boolean))) as string[]}
+              projectOptions={Array.from(new Set(meetings.filter(item => item.client === client).map(item => item.project).filter(Boolean))) as string[]}
+              tags={meeting.tags || []}
+              onClientChange={setClient}
+              onProjectChange={setProject}
+              onContextChange={setCustomPrompt}
+            />
+            <DataFlowChip />
           </div>
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{meeting.created_at ? formatDate(meeting.created_at, { dateStyle: 'medium', timeStyle: 'short' }) : t('meeting.details')}</p>
         </div>
-        <div className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">{t('meeting.summary')}</div>
+        <div className="flex shrink-0 items-center gap-2">
+          <PdfExports
+            meeting={{ ...meeting, title: meetingData.meetingTitle || meeting.title, client, project }}
+            getAnalysis={getAnalysisMarkdown}
+            onCopySummary={() => void copyOperations.handleCopySummary()}
+            onCopyTranscript={() => void copyOperations.handleCopyTranscript()}
+          />
+          <AssistantButton />
+        </div>
       </header>
-      <div className="flex flex-1 overflow-hidden">
-        <TranscriptPanel
+
+      {/* En ventanas angostas se muestra un panel a la vez */}
+      <div className="shrink-0 border-b border-border bg-card px-4 py-2 xl:hidden">
+        <Segmented
+          aria-label="View"
+          value={view === 'transcript' ? 'transcript' : 'analysis'}
+          onValueChange={setView}
+          options={[
+            { value: 'analysis', label: t('meeting.summary') },
+            { value: 'transcript', label: t('meeting.transcript') },
+          ]}
+        />
+      </div>
+
+      <div className="meeting-workspace" data-view={view} data-chat={assistantOpen ? 'on' : 'off'} style={{ '--col-t': `${columns.transcript}px`, '--col-c': `${columns.chat}px` } as React.CSSProperties}>
+        <div className="meeting-transcript"><TranscriptPanel
           transcripts={meetingData.transcripts}
           customPrompt={customPrompt}
           onPromptChange={setCustomPrompt}
           client={client}
           project={project}
+          clientOptions={Array.from(new Set(meetings.map(item => item.client).filter(Boolean))) as string[]}
+          projectOptions={Array.from(new Set(meetings.filter(item => item.client === client).map(item => item.project).filter(Boolean))) as string[]}
           tags={meeting.tags || []}
           onClientChange={setClient}
           onProjectChange={setProject}
@@ -281,7 +323,6 @@ export default function PageContent({
           onOpenMeetingFolder={meetingOperations.handleOpenMeetingFolder}
           isRecording={isRecording}
           disableAutoScroll={true}
-          // Pagination props for efficient loading
           usePagination={true}
           segments={segments}
           hasMore={hasMore}
@@ -289,12 +330,13 @@ export default function PageContent({
           totalCount={totalCount}
           loadedCount={loadedCount}
           onLoadMore={onLoadMore}
-          // Retranscription props
           meetingId={meeting.id}
           meetingFolderPath={meeting.folder_path}
           onRefetchTranscripts={onRefetchTranscripts}
         />
-        <SummaryPanel
+        </div>
+        <ResizeHandle data-handle="transcript" side="start" min={300} max={900} value={columns.transcript} onChange={value => resizeColumn('transcript', value)} label={t('meeting.resizeTranscript')} />
+        <div className="meeting-analysis"><SummaryPanel
           meeting={meeting}
           meetingTitle={meetingData.meetingTitle}
           onTitleChange={meetingData.handleTitleChange}
@@ -328,29 +370,11 @@ export default function PageContent({
           onTemplateSelect={templates.handleTemplateSelection}
           isModelConfigLoading={false}
           onOpenModelSettings={handleRegisterModalOpen}
-          onSaveToWiki={openWikiTenantPicker}
-          isSavingToWiki={isSavingToWiki}
-          isSavedToWiki={isSavedToWiki}
-        />
+        /></div>
+        <ResizeHandle data-handle="chat" side="end" min={300} max={640} value={columns.chat} onChange={value => resizeColumn('chat', value)} label={t('meeting.resizeChat')} />
+        <LiveAssistantDockHost isOpen={assistantOpen} />
       </div>
-    </motion.div>
-    <Dialog open={wikiTenantPickerOpen} onOpenChange={setWikiTenantPickerOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Save note to Wiki</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Choose the workspace that should receive this meeting note.</p>
-          <select value={selectedWikiTenant} onChange={event => setSelectedWikiTenant(event.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground">
-            {wikiTenants.map(tenant => <option key={tenant.tenant_id} value={tenant.tenant_id}>{tenant.display_name || tenant.tenant_id} · {tenant.role === 'owner' ? t('wiki.owner') : t('wiki.guest')}</option>)}
-          </select>
-        </div>
-        <DialogFooter>
-          <button onClick={() => setWikiTenantPickerOpen(false)} className="rounded-md border px-3 py-2 text-sm">Cancel</button>
-          <button onClick={() => { setWikiTenantPickerOpen(false); handleSaveToWiki(); }} disabled={!selectedWikiTenant || isSavingToWiki} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">Save to selected Wiki</button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </div>
     </>
   );
 }

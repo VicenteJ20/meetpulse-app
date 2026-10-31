@@ -1,0 +1,722 @@
+"use client";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  ReactNode,
+} from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useRouter } from "next/navigation";
+import { MessageSquare } from "lucide-react";
+import { useTranscripts } from "@/contexts/TranscriptContext";
+import { useRecordingState } from "@/contexts/RecordingStateContext";
+import { useConfig } from "@/contexts/ConfigContext";
+import { useSidebar } from "@/components/Sidebar/SidebarProvider";
+import { useTranslation } from "@/contexts/UiPreferencesContext";
+import { Button } from "@/components/ui/button";
+import { loadAssistantDefaults } from "@/lib/assistantDefaults";
+import { loadAboutMe } from "@/lib/aboutMe";
+import Analytics from "@/lib/analytics";
+import { AssistantPanel } from "./AssistantPanel";
+import { AskView } from "./AskView";
+
+export type Target = {
+  id: string;
+  meetingId?: string;
+  title: string;
+  folderPath?: string;
+  context?: string;
+  allMeetings?: boolean;
+  initialQuestion?: string;
+};
+export type Source = {
+  id: string;
+  meetingId?: string;
+  sessionId?: string;
+  title: string;
+  text: string;
+  start: number;
+  end?: number;
+  /** Meeting day (`YYYY-MM-DD`) on corpus citations. Absent on live transcript fragments. */
+  date?: string;
+};
+export type Message = {
+  id: string;
+  role: string;
+  kind: string;
+  text: string;
+  sources: Source[];
+  scope: string;
+  dismissed: boolean;
+};
+export type Prefs = { provider?: string; model?: string; cadence?: number };
+export type SearchStatus = {
+  ready: boolean;
+  downloading: boolean;
+  paused: boolean;
+  downloaded: number;
+  totalBytes: number;
+  indexing: boolean;
+  indexed: number;
+  total: number;
+  missingMeetings: number;
+  error?: string;
+};
+const Context = createContext<{
+  setTarget: (target: Target | null) => void;
+  open: boolean;
+  toggle: () => void;
+  activeTab: "coach" | "chat";
+  toggleChat: () => void;
+  coach: boolean;
+  toggleCoach: () => void;
+  setLiveDockHost: (host: HTMLDivElement | null) => void;
+} | null>(null);
+export function useAssistant() {
+  const value = useContext(Context);
+  if (!value) throw new Error("AssistantProvider missing");
+  return value;
+}
+export function useAssistantTarget(target: Target) {
+  const { setTarget } = useAssistant();
+  useEffect(() => {
+    setTarget(target);
+  }, [
+    target.id,
+    target.title,
+    target.context,
+    target.folderPath,
+    target.meetingId,
+    target.allMeetings,
+    target.initialQuestion,
+    setTarget,
+  ]);
+  // Al salir de la pantalla (Preguntar o una reunión) el chat no debe quedar abierto en otras vistas.
+  useEffect(() => () => setTarget(null), [setTarget]);
+}
+export function AssistantButton() {
+  const { open, toggle, coach } = useAssistant();
+  const { t } = useTranslation();
+  return (
+    <Button
+      size="sm"
+      variant={open ? "default" : "outline"}
+      onClick={toggle}
+      aria-expanded={open}
+      aria-controls="meeting-assistant"
+    >
+      <MessageSquare size={16} />
+      {t("assistant.title")}
+      {coach && (
+        <span
+          aria-label="Coach active"
+          className="h-2 w-2 rounded-full bg-success"
+        />
+      )}
+    </Button>
+  );
+}
+
+export function LiveAssistantDockHost({ isOpen, className }: { isOpen: boolean; className?: string }) {
+  const { setLiveDockHost } = useAssistant();
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLiveDockHost(hostRef.current);
+    return () => setLiveDockHost(null);
+  }, [setLiveDockHost]);
+
+  return (
+    <div
+      ref={hostRef}
+      className={className ? `live-dock-host ${className}` : "live-dock-host"}
+      data-dock={isOpen ? "on" : "off"}
+      aria-label={isOpen ? "Assistant dock" : undefined}
+    />
+  );
+}
+
+export function AssistantProvider({ children }: { children: ReactNode }) {
+  const { locale, t } = useTranslation();
+  const es = locale === "es";
+  const router = useRouter();
+  const { transcripts, currentMeetingId, meetingTitle } = useTranscripts();
+  const { isRecording, isPaused } = useRecordingState();
+  const { chatModelConfig, saveChatModel } = useConfig();
+  const { meetings } = useSidebar();
+  const [savedTarget, setTarget] = useState<Target | null>(null);
+  const [open, setOpen] = useState(false);
+  const [liveDockHost, setLiveDockHost] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(360);
+  const [tab, setTab] = useState<"coach" | "chat">("chat");
+  const [coach, setCoach] = useState(false);
+  const [session, setSession] = useState("");
+  const [prefs, setPrefs] = useState<Prefs>({});
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [detail, setDetail] = useState<Message>();
+  const [question, setQuestion] = useState("");
+  const [draftEpoch, setDraftEpoch] = useState(0);
+  const [busy, setBusy] = useState("");
+  const [pendingText, setPendingText] = useState("");
+  const [stage, setStage] = useState<"loading" | "searching" | "analyzing" | "long">("searching");
+  const stopped = useRef(false);
+  const [error, setError] = useState("");
+  const [scope, setScope] = useState("current");
+  const [client, setClient] = useState("");
+  const [project, setProject] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [autoIndex, setAutoIndex] = useState(true);
+  const [search, setSearch] = useState<SearchStatus>();
+  const [partial, setPartial] = useState(false);
+  const request = useRef("");
+  const version = useRef(0);
+  const sessionRef = useRef("");
+  const sync = useRef<Promise<unknown>>(Promise.resolve());
+  const lastCoach = useRef("");
+  const sent = useRef(new Map<string, string>());
+  const coachJob = useRef<() => void>(() => {});
+  const live = (isRecording || isPaused) && currentMeetingId;
+  const target: Target | null = live
+    ? {
+        id: currentMeetingId!,
+        title: meetingTitle || (es ? "Reunión en vivo" : "Live meeting"),
+        context:
+          typeof window !== "undefined"
+            ? localStorage.getItem("meetpulse-recording-context") || ""
+            : "",
+      }
+    : savedTarget;
+  const defaultCadence = typeof window !== "undefined" ? loadAssistantDefaults().cadence : 60;
+  useEffect(() => {
+    setScope(target?.allMeetings ? "all" : "current");
+    setClient("");
+    setProject("");
+    setQuestion(target?.initialQuestion ?? "");
+    if (target?.allMeetings) {
+      setTab("chat");
+      setOpen(true);
+    }
+  }, [target?.id, target?.allMeetings, target?.initialQuestion]);
+  useEffect(() => {
+    if (!target) setOpen(false);
+  }, [!!target]);
+  const startedFor = useRef("");
+  useEffect(() => {
+    if (!isRecording || !currentMeetingId || startedFor.current === currentMeetingId) return;
+    startedFor.current = currentMeetingId;
+    const defaults = loadAssistantDefaults();
+    // Se aplica tras el reinicio de estado que ocurre al cambiar de reunión.
+    const timer = setTimeout(() => {
+      if (defaults.chatOnStart) setOpen(true);
+      if (defaults.coachOnStart) {
+        setTab("coach");
+        setOpen(true);
+        setCoach(true);
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [isRecording, currentMeetingId]);
+  // Chat y coach comparten un modelo global. No sigue al modelo de análisis ni al de transcripción.
+  const provider = chatModelConfig.provider;
+  const model = chatModelConfig.model;
+  useEffect(() => {
+    const shell = document.querySelector<HTMLElement>(".app-shell");
+    if (shell) {
+      shell.dataset.assistantOpen = String(open && !!target && !liveDockHost);
+      shell.style.setProperty("--assistant-width", `${width}px`);
+    }
+  }, [open, width, !!target, liveDockHost]);
+  useEffect(() => {
+    setCoach(false);
+    lastCoach.current = "";
+    sent.current.clear();
+    setDetail(undefined);
+    setError("");
+    setSession("");
+    sessionRef.current = "";
+    setMessages([]);
+    setPrefs({});
+    setBusy("");
+    if (request.current)
+      void invoke("desktop_assistant_cancel", { requestId: request.current });
+    request.current = "";
+    const current = ++version.current;
+    if (!target) return;
+    void invoke<{ id: string; preferences: Prefs; messages: Message[] }>(
+      "desktop_assistant_session",
+      {
+        id: target.id,
+        meetingId: target.meetingId ?? null,
+        title: target.title,
+        folderPath: target.folderPath ?? null,
+        context: target.context ?? null,
+      },
+    )
+      .then((value) => {
+        if (current !== version.current) return;
+        sessionRef.current = value.id;
+        setSession(value.id);
+        setPrefs(value.preferences);
+        if (target.allMeetings) {
+          setMessages(value.messages);
+          return;
+        }
+        // El chat de una reunión siempre abre en limpio; el coach conserva sus sugerencias.
+        setMessages(value.messages.filter((m) => m.kind !== "chat"));
+        return invoke("desktop_assistant_new_chat", { sessionId: value.id });
+      })
+      .catch((e) => {
+        if (current === version.current) setError(String(e));
+      });
+    return () => {
+      ++version.current;
+    };
+  }, [target?.id, target?.meetingId]);
+  useEffect(() => {
+    if (!session || !target) return;
+    void invoke("desktop_assistant_session", {
+      id: session,
+      meetingId: target.meetingId ?? null,
+      title: target.title,
+      folderPath: target.folderPath ?? null,
+      context: target.context ?? null,
+    }).catch((e) => setError(String(e)));
+  }, [session, target?.title, target?.context, target?.folderPath]);
+  async function syncLive() {
+    if (!session || !live) return sync.current;
+    const fragments = transcripts
+      .filter((t) => !t.is_partial)
+      .map((t) => ({
+        id: String(t.sequence_id ?? t.id),
+        text: t.text,
+        start: t.audio_start_time ?? t.chunk_start_time ?? 0,
+        end: t.audio_end_time ?? null,
+      }))
+      .filter((f) => sent.current.get(f.id) !== JSON.stringify(f));
+    if (!fragments.length) return sync.current;
+    const activeSession = session;
+    fragments.forEach((f) => sent.current.set(f.id, JSON.stringify(f)));
+    sync.current = sync.current
+      .catch(() => {})
+      .then(() =>
+        invoke("desktop_assistant_sync", {
+          sessionId: activeSession,
+          fragments,
+          recording: isRecording,
+        }),
+      )
+      .catch((e) => {
+        if (sessionRef.current === activeSession) sent.current.clear();
+        throw e;
+      });
+    return sync.current;
+  }
+  useEffect(() => {
+    if (!session || !live) return;
+    const timer = setTimeout(() => {
+      void syncLive().catch((e) => setError(String(e)));
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [session, transcripts, live, isRecording]);
+  useEffect(() => {
+    void invoke("desktop_assistant_recording_state", {
+      recording: isRecording,
+    }).catch(() => {});
+  }, [isRecording]);
+  useEffect(() => {
+    if (!isRecording) {
+      setCoach(false);
+      if (session)
+        void invoke("desktop_assistant_sync", {
+          sessionId: session,
+          fragments: [],
+          recording: false,
+        });
+    }
+  }, [isRecording, session]);
+  useEffect(
+    () => () => {
+      if (request.current)
+        void invoke("desktop_assistant_cancel", { requestId: request.current });
+    },
+    [],
+  );
+  async function reload(id: string) {
+    if (!target) return;
+    const value = await invoke<{ messages: Message[] }>(
+      "desktop_assistant_session",
+      {
+        id,
+        meetingId: target.meetingId ?? null,
+        title: target.title,
+        folderPath: target.folderPath ?? null,
+        context: null,
+      },
+    );
+    if (sessionRef.current === id) setMessages(value.messages);
+  }
+  async function ask(kind: "chat" | "coach", draft?: string) {
+    const typed = (draft ?? question).trim();
+    if (!session || !target || (kind === "coach" && (!isRecording || isPaused)))
+      return false;
+    if (kind === "coach" && (busy || !transcripts.some((t) => !t.is_partial)))
+      return false;
+    if (kind === "chat" && (!typed || busy === "chat")) return false;
+    if (kind === "chat" && scope === "history" && !client) {
+      setError(
+        es ? "Selecciona cliente y proyecto." : "Select client and project.",
+      );
+      return false;
+    }
+    if (from && to && from > to) {
+      setError(es ? "El rango de fechas no es válido." : "Invalid date range.");
+      return false;
+    }
+    const key = transcripts
+      .filter((t) => !t.is_partial)
+      .map((t) => `${t.sequence_id ?? t.id}:${t.text}`)
+      .join("|");
+    if (kind === "coach" && key === lastCoach.current) return false;
+    if (busy === "coach")
+      await invoke("desktop_assistant_cancel", { requestId: request.current });
+    const id = crypto.randomUUID();
+    const activeSession = session;
+    request.current = id;
+    setBusy(kind);
+    setError("");
+    const text = typed;
+    stopped.current = false;
+    const askStartedAt = Date.now();
+    let askOutcome: "completed" | "stopped" | "failed" = "failed";
+    // Solo metadatos: nunca el texto de la pregunta ni la respuesta.
+    void Analytics.track("assistant_question_asked", {
+      kind,
+      scope: kind === "chat" ? scope : "live",
+      provider,
+      model,
+      question_length: String(text.length),
+      has_date_range: String(Boolean(from || to)),
+    });
+    // Envío optimista: el campo se vacía y el mensaje aparece al instante; si algo falla, el texto vuelve.
+    if (kind === "chat") {
+      setPendingText(text);
+      setQuestion("");
+    }
+    try {
+      await syncLive();
+      const result = await invoke<{ messages: Message[]; partial: boolean }>(
+        "desktop_assistant_ask",
+        {
+          request: {
+            requestId: id,
+            sessionId: activeSession,
+            kind,
+            question: kind === "chat" ? text : "",
+            client: kind === "chat" && scope === "history" ? client : null,
+            project: kind === "chat" && scope === "history" && project ? project : null,
+            allMeetings: kind === "chat" && scope === "all",
+            from: from || null,
+            to: to || null,
+            locale,
+            provider,
+            model,
+            aboutMe: loadAboutMe().trim() || null,
+          },
+        },
+      );
+      if (request.current !== id || sessionRef.current !== activeSession)
+        return true;
+      askOutcome = "completed";
+      if (kind === "coach") lastCoach.current = key;
+      setPartial(result.partial);
+      await reload(activeSession);
+    } catch (e) {
+      askOutcome = stopped.current ? "stopped" : "failed";
+      if (kind === "chat") setQuestion((current) => current || text);
+      if (request.current === id) {
+        // Detener no es un error: se devuelve el texto al campo y se avisa en silencio.
+        if (!stopped.current) setError(String(e));
+        await reload(activeSession).catch(() => {});
+      }
+    } finally {
+      void Analytics.track("assistant_answer_finished", {
+        kind,
+        outcome: askOutcome,
+        provider,
+        model,
+        duration_seconds: ((Date.now() - askStartedAt) / 1000).toFixed(1),
+      });
+      if (request.current === id) {
+        request.current = "";
+        setBusy("");
+      }
+      if (kind === "chat") setPendingText("");
+    }
+    return true;
+  }
+  coachJob.current = () => {
+    if (coach && isRecording && !isPaused) void ask("coach");
+  };
+  useEffect(() => {
+    if (!coach) return;
+    const timer = setInterval(
+      () => coachJob.current(),
+      (prefs.cadence || defaultCadence) * 1000,
+    );
+    return () => clearInterval(timer);
+  }, [coach, prefs.cadence, defaultCadence, session]);
+  const pollSearch = useCallback(async () => {
+    try {
+      setSearch(await invoke<SearchStatus>("desktop_search_status"));
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    void pollSearch();
+    if (autoIndex)
+      void invoke("desktop_search_index", { cancel: false }).catch((e) =>
+        setError(String(e)),
+      );
+    const timer = setInterval(() => void pollSearch(), 4000);
+    return () => clearInterval(timer);
+  }, [open, pollSearch, autoIndex]);
+  useEffect(() => {
+    if (
+      autoIndex &&
+      search?.ready &&
+      !search.indexing &&
+      !search.error &&
+      !isRecording &&
+      (search.indexed < search.total || search.missingMeetings > 0)
+    )
+      void invoke("desktop_search_index", { cancel: false }).catch((e) =>
+        setError(String(e)),
+      );
+  }, [
+    autoIndex,
+    search?.ready,
+    search?.indexing,
+    search?.error,
+    search?.indexed,
+    search?.total,
+    search?.missingMeetings,
+    isRecording,
+  ]);
+  async function searchAction(command: string, args: Record<string, unknown>) {
+    try {
+      if (command === "desktop_search_index")
+        setAutoIndex(args.cancel !== true);
+      await invoke(command, args);
+      await pollSearch();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+  async function savePrefs(next: Prefs) {
+    setPrefs(next);
+    try {
+      await invoke("desktop_assistant_preferences", {
+        sessionId: session,
+        preferences: next,
+      });
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+  function sourceClick(source: Source) {
+    if (source.meetingId) {
+      router.push(
+        `/meeting-details?id=${encodeURIComponent(source.meetingId)}&sourceTime=${source.start}`,
+      );
+      window.dispatchEvent(
+        new CustomEvent("meetpulse-source", { detail: source }),
+      );
+    } else
+      window.dispatchEvent(
+        new CustomEvent("meetpulse-source", { detail: source }),
+      );
+  }
+  const selectedScope =
+    scope === "current" ? "current" : scope === "all" ? "all meetings" : project ? `${client} / ${project}` : client;
+  const isAskPage = !!target?.allMeetings && !live;
+  // Fuera de una grabación no hay coach: el panel solo muestra el chat, aunque la pestaña interna haya quedado en "coach".
+  const effectiveTab = isRecording ? tab : "chat";
+  // En Preguntar la conversación entera se muestra completa: su alcance queda fijado por el primer mensaje.
+  const shown = messages.filter((m) =>
+    isAskPage
+      ? m.kind === "chat" && !m.dismissed
+      : m.kind === effectiveTab && !m.dismissed && (effectiveTab === "coach" || m.scope === selectedScope),
+  );
+  const firstChatScope = isAskPage ? messages.find((m) => m.kind === "chat")?.scope : undefined;
+  useEffect(() => {
+    if (!firstChatScope) return;
+    if (firstChatScope === "all meetings") {
+      setScope("all");
+      setClient("");
+      setProject("");
+    } else {
+      const [savedClient, ...rest] = firstChatScope.split(" / ");
+      setScope("history");
+      setClient(savedClient);
+      setProject(rest.join(" / "));
+    }
+  }, [firstChatScope, session]);
+  const isLocalProvider = provider === "builtin-ai";
+  const clients = Array.from(
+    new Set(meetings.map((m) => m.client).filter((c): c is string => !!c)),
+  );
+  const projects = Array.from(
+    new Set(
+      meetings
+        .filter((m) => m.client === client)
+        .map((m) => m.project)
+        .filter((p): p is string => !!p),
+    ),
+  );
+  // Etapas de espera: dan señales de vida aunque el modelo tarde (sobre todo los locales).
+  useEffect(() => {
+    if (busy !== "chat") return;
+    setStage(isLocalProvider ? "loading" : "searching");
+    const first = setTimeout(() => setStage("analyzing"), isLocalProvider ? 4000 : 1500);
+    const long = setTimeout(() => setStage("long"), 12000);
+    return () => {
+      clearTimeout(first);
+      clearTimeout(long);
+    };
+  }, [busy, isLocalProvider]);
+  const pending = busy === "chat" ? { question: pendingText, stage } : undefined;
+  const composerKey = `${target?.id ?? ""}:${draftEpoch}`;
+  // Conversación nueva en esta reunión: lo anterior deja de mostrarse y de enviarse como contexto.
+  async function newChat() {
+    if (!session) return;
+    if (request.current) stopChat();
+    try {
+      await invoke("desktop_assistant_new_chat", { sessionId: session });
+      setDetail(undefined);
+      setError("");
+      setPartial(false);
+      setQuestion("");
+      setDraftEpoch((value) => value + 1);
+      await reload(session);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+  const stopChat = () => {
+    stopped.current = true;
+    if (request.current) void invoke("desktop_assistant_cancel", { requestId: request.current });
+  };
+
+
+  return (
+    <Context.Provider
+      value={{
+        setTarget,
+        open,
+        toggle: () => setOpen((v) => !v),
+        activeTab: tab,
+        toggleChat: () => {
+          if (open && tab === "chat") setOpen(false);
+          else {
+            setTab("chat");
+            setDetail(undefined);
+            setOpen(true);
+          }
+        },
+        coach,
+        toggleCoach: () => {
+          setTab("coach");
+          setOpen(true);
+          setCoach((v) => !v);
+        },
+        setLiveDockHost,
+      }}
+    >
+      {children}
+      {isAskPage && liveDockHost ? (
+        <AskView
+          t={t}
+          host={liveDockHost}
+          messages={shown}
+          pending={pending}
+          error={error}
+          partial={partial}
+          question={question}
+          composerKey={composerKey}
+          ask={(text) => ask("chat", text)}
+          cancel={stopChat}
+          ready={!!session}
+          clients={clients}
+          projects={projects}
+          client={client}
+          project={project}
+          setClient={(value) => { setClient(value); setScope(value ? "history" : "all"); }}
+          setProject={setProject}
+          sourceClick={sourceClick}
+          provider={provider}
+          model={model}
+          onModelChange={(nextProvider, nextModel) => void saveChatModel(nextProvider, nextModel)}
+        />
+      ) : (
+      <AssistantPanel
+        t={t}
+        target={target}
+        open={open}
+        onClose={() => setOpen(false)}
+        host={liveDockHost}
+        width={width}
+        setWidth={setWidth}
+        tab={tab}
+        setTab={setTab}
+        coach={coach}
+        setCoach={setCoach}
+        onNewChat={() => void newChat()}
+        search={search}
+        provider={provider}
+        model={model}
+        onModelChange={(nextProvider, nextModel) => void saveChatModel(nextProvider, nextModel)}
+        prefs={prefs}
+        savePrefs={savePrefs}
+        defaultCadence={defaultCadence}
+        isRecording={isRecording}
+        isPaused={isPaused}
+        session={session}
+        busy={busy}
+        ask={ask}
+        lastCoach={lastCoach}
+        scope={scope}
+        setScope={setScope}
+        clients={clients}
+        projects={projects}
+        client={client}
+        setClient={setClient}
+        project={project}
+        setProject={setProject}
+        from={from}
+        setFrom={setFrom}
+        to={to}
+        setTo={setTo}
+        detail={detail}
+        setDetail={setDetail}
+        reload={reload}
+        sourceClick={sourceClick}
+        shown={shown}
+        partial={partial}
+        error={error}
+        question={question}
+        composerKey={composerKey}
+        isLocalProvider={isLocalProvider}
+        requestId={request.current}
+        pending={pending}
+        stopChat={stopChat}
+      />
+      )}
+    </Context.Provider>
+  );
+}

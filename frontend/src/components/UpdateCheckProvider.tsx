@@ -4,18 +4,21 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { useUpdateCheck } from '@/hooks/useUpdateCheck';
 import { UpdateInfo } from '@/services/updateService';
 import { UpdateDialog } from './UpdateDialog';
+import { toast } from 'sonner';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { setUpdateDialogCallback, showUpdateNotification } from './UpdateNotification';
 
 interface UpdateCheckContextType {
   updateInfo: UpdateInfo | null;
   isChecking: boolean;
-  checkForUpdates: (force?: boolean) => Promise<void>;
+  checkForUpdates: (force?: boolean) => Promise<UpdateInfo | null>;
   showUpdateDialog: () => void;
 }
 
 const UpdateCheckContext = createContext<UpdateCheckContextType | undefined>(undefined);
 
 export function UpdateCheckProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const [showDialog, setShowDialog] = useState(false);
 
   const handleShowDialog = useCallback(() => {
@@ -41,14 +44,19 @@ export function UpdateCheckProvider({ children }: { children: React.ReactNode })
 
   // Listen for tray menu events
   useEffect(() => {
-    const handleTrayCheck = () => {
-      checkForUpdates(true); // Force check from tray
-      setShowDialog(true);
+    const handleTrayCheck = async () => {
+      try {
+        const info = await checkForUpdates(true); // Force check from tray
+        if (info?.available) setShowDialog(true);
+        else if (info) toast.success(t('upd.upToDate'));
+      } catch {
+        toast.error(t('about.updateFailed'));
+      }
     };
 
     window.addEventListener('check-updates-from-tray', handleTrayCheck);
     return () => window.removeEventListener('check-updates-from-tray', handleTrayCheck);
-  }, [checkForUpdates]);
+  }, [checkForUpdates, t]);
 
   return (
     <UpdateCheckContext.Provider

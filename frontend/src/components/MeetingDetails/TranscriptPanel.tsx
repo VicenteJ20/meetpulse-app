@@ -1,12 +1,13 @@
 "use client";
 
+import { SuggestInput } from '@/components/ui/suggest-input';
 import { Transcript, TranscriptSegmentData } from '@/types';
 import { TranscriptView } from '@/components/TranscriptView';
 import { VirtualizedTranscriptView } from '@/components/VirtualizedTranscriptView';
 import { TranscriptButtonGroup } from './TranscriptButtonGroup';
-import { useMemo } from 'react';
-import { ChevronDown, FileText } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
+import { publishMeetingTranscript } from '@/lib/meeting-transcript-bus';
 
 interface TranscriptPanelProps {
   transcripts: Transcript[];
@@ -14,6 +15,8 @@ interface TranscriptPanelProps {
   onPromptChange: (value: string) => void;
   client: string;
   project: string;
+  clientOptions?: string[];
+  projectOptions?: string[];
   tags: string[];
   onClientChange: (value: string) => void;
   onProjectChange: (value: string) => void;
@@ -43,6 +46,8 @@ export function TranscriptPanel({
   onPromptChange,
   client,
   project,
+  clientOptions = [],
+  projectOptions = [],
   tags,
   onClientChange,
   onProjectChange,
@@ -74,63 +79,87 @@ export function TranscriptPanel({
       endTime: t.audio_end_time,
       text: t.text,
       confidence: t.confidence,
+      speaker: t.speaker,
     }));
   }, [transcripts, usePagination, segments]);
 
+  useEffect(() => {
+    publishMeetingTranscript(convertedSegments.map((segment) => ({
+      id: segment.id,
+      text: segment.text,
+      start: segment.timestamp,
+    })));
+  }, [convertedSegments]);
+
+  useEffect(() => () => publishMeetingTranscript([]), []);
+
+  const total = usePagination ? (totalCount ?? convertedSegments.length) : convertedSegments.length;
+
   return (
-    <div className="relative hidden min-w-[320px] max-w-[560px] shrink-0 flex-col border-r border-border bg-card md:flex md:w-[38%] lg:w-[42%] xl:w-[40%]">
-      {/* Title area */}
-      <div className="border-b border-border px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <div><p className="text-sm font-semibold">{t('meeting.transcript')}</p><p className="mt-0.5 text-xs text-muted-foreground">{usePagination ? (totalCount ?? convertedSegments.length) : convertedSegments.length} segments</p></div>
-          <TranscriptButtonGroup
-            transcriptCount={usePagination ? (totalCount ?? convertedSegments.length) : (transcripts?.length || 0)}
-            onCopyTranscript={onCopyTranscript}
-            onOpenMeetingFolder={onOpenMeetingFolder}
-            meetingId={meetingId}
-            meetingFolderPath={meetingFolderPath}
-            onRefetchTranscripts={onRefetchTranscripts}
-          />
+    <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col bg-card">
+      <div className="flex min-h-[52px] shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+        <div className="shrink-0">
+          <h2 className="whitespace-nowrap text-sm font-semibold tracking-tight">{t('meeting.transcript')}</h2>
+        </div>
+        <span className="hidden whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground md:inline">{t('meeting.segments').replace('{n}', String(total))}</span>
+        <div className="ml-auto">
+        <TranscriptButtonGroup
+          transcriptCount={total}
+          onCopyTranscript={onCopyTranscript}
+          onOpenMeetingFolder={onOpenMeetingFolder}
+          meetingId={meetingId}
+          meetingFolderPath={meetingFolderPath}
+          onRefetchTranscripts={onRefetchTranscripts}
+        />
         </div>
       </div>
 
-      {!isRecording && convertedSegments.length > 0 && (
-        <details className="group border-b border-border bg-muted/25">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            {t('meeting.details')}
-            <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
-          </summary>
-          <div className="space-y-3 px-4 pb-4">
-            <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1.5 text-xs font-medium text-muted-foreground">{t('meeting.client')}<input type="text" placeholder={t('meeting.client')} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground" value={client} onChange={event => onClientChange(event.target.value)} /></label>
-              <label className="space-y-1.5 text-xs font-medium text-muted-foreground">{t('meeting.project')}<input type="text" placeholder={t('meeting.project')} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground" value={project} onChange={event => onProjectChange(event.target.value)} /></label>
-            </div>
-            <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">{t('meeting.context')}<textarea placeholder={t('meeting.contextPlaceholder')} className="min-h-[76px] w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground" value={customPrompt} onChange={event => onPromptChange(event.target.value)} /></label>
-            <div><p className="mb-2 text-xs font-medium text-muted-foreground">{t('meeting.tags')}</p>{tags.length > 0 ? <div className="flex flex-wrap gap-1.5">{tags.map(tag => <span key={tag} className="rounded-full border border-brand/20 bg-brand/8 px-2.5 py-1 text-xs text-brand">{tag}</span>)}</div> : <p className="text-xs text-muted-foreground">{t('meeting.noTags')}</p>}</div>
-          </div>
-        </details>
-      )}
-
-      {/* Transcript content - use virtualized view for better performance */}
       <div className="flex-1 overflow-hidden pb-4">
-        <VirtualizedTranscriptView
-          segments={convertedSegments}
-          isRecording={isRecording}
-          isPaused={false}
-          isProcessing={false}
-          isStopping={false}
-          enableStreaming={false}
-          showConfidence={true}
-          disableAutoScroll={disableAutoScroll}
-          hasMore={hasMore}
-          isLoadingMore={isLoadingMore}
-          totalCount={totalCount}
-          loadedCount={loadedCount}
-          onLoadMore={onLoadMore}
-        />
+          <VirtualizedTranscriptView
+            segments={convertedSegments}
+            isRecording={isRecording}
+            isPaused={false}
+            isProcessing={false}
+            isStopping={false}
+            enableStreaming={false}
+            showConfidence={true}
+            disableAutoScroll={disableAutoScroll}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+            totalCount={totalCount}
+            loadedCount={loadedCount}
+            onLoadMore={onLoadMore}
+          />
       </div>
-
     </div>
+  );
+}
+
+function MeetingMetadataField({
+  label,
+  value,
+  options,
+  listId,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  listId: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+      {label}
+      <SuggestInput
+        placeholder={label}
+        value={value}
+        onValueChange={onChange}
+        options={options}
+      />
+
+    </label>
   );
 }

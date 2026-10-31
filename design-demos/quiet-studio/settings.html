@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeetPulse v2 - Ajustes</title>
+<script src="../shared/theme-init.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="screens.css">
+<link rel="stylesheet" href="assistant.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" data-current="settings" aria-label="Principal"></nav>
+
+  <div class="settings" data-tabs="main" data-initial="general">
+    <nav class="set-nav" aria-label="Secciones de ajustes">
+      <h1>Ajustes</h1>
+      <button role="tab" data-tab="general"><i class="ph ph-sliders-horizontal"></i>General</button>
+      <button role="tab" data-tab="audio"><i class="ph ph-microphone"></i>Audio y grabación</button>
+      <button role="tab" data-tab="transcription"><i class="ph ph-text-align-left"></i>Transcripción</button>
+      <div class="sep"></div>
+      <button role="tab" data-tab="models"><i class="ph ph-cpu"></i>Modelos de IA</button>
+      <button role="tab" data-tab="coach"><i class="ph ph-lightbulb"></i>Coach y chat</button>
+      <div class="sep"></div>
+      <button role="tab" data-tab="privacy"><i class="ph ph-shield-check"></i>Datos y privacidad</button>
+    </nav>
+
+    <div class="set-body scroll">
+
+      <!-- General -->
+      <section class="set-panel" data-tab-panel="general">
+        <header><h2>General</h2><p>Idioma, apariencia y cómo se comporta la aplicación al iniciar.</p></header>
+        <div class="set-group">
+          <h3>Apariencia</h3>
+          <div class="set-row"><div><div class="lbl">Tema</div><div class="desc">Sistema sigue el modo claro u oscuro de Windows.</div></div>
+            <div class="ctl"><div class="seg" data-seg="theme" role="radiogroup" aria-label="Tema"><button role="radio" data-value="system"><i class="ph ph-circle-half"></i>Sistema</button><button role="radio" data-value="light"><i class="ph ph-sun"></i>Claro</button><button role="radio" data-value="dark"><i class="ph ph-moon"></i>Oscuro</button></div></div></div>
+          <div class="set-row"><div><div class="lbl">Idioma de la interfaz</div></div>
+            <div class="ctl"><select class="select" aria-label="Idioma de la interfaz"><option>Español</option><option>English</option></select></div></div>
+        </div>
+        <div class="set-group">
+          <h3>Inicio</h3>
+          <div class="set-row"><div><div class="lbl">Abrir MeetPulse al iniciar sesión</div><div class="desc">Queda en segundo plano, listo para grabar.</div></div><div class="ctl"><label class="switch"><input type="checkbox" role="switch" aria-label="Abrir al iniciar sesión"><span class="track"></span></label></div></div>
+          <div class="set-row"><div><div class="lbl">Buscar actualizaciones automáticamente</div><div class="desc">Versión 0.6.0</div></div><div class="ctl"><button class="btn btn-sm" data-noop="Demo: estás en la versión más reciente.">Buscar ahora</button><label class="switch"><input type="checkbox" role="switch" checked aria-label="Buscar actualizaciones"><span class="track"></span></label></div></div>
+        </div>
+      </section>
+
+      <!-- Audio -->
+      <section class="set-panel" data-tab-panel="audio" hidden>
+        <header><h2>Audio y grabación</h2><p>Qué dispositivos se capturan y dónde se guardan las grabaciones.</p></header>
+        <div class="set-group">
+          <h3>Dispositivos</h3>
+          <div class="set-row"><div><div class="lbl">Micrófono</div><div class="desc">Lo que dices tú. Aparece como “Tú” en la transcripción.</div></div>
+            <div class="ctl"><div class="meter-h" id="setMeter" aria-label="Nivel del micrófono"></div><select class="select" aria-label="Micrófono"><option>Micrófono integrado</option><option>Auriculares USB</option></select></div></div>
+          <div class="set-row"><div><div class="lbl">Audio del sistema</div><div class="desc">Lo que dicen los demás en la llamada. Aparece como “Participantes”.</div></div>
+            <div class="ctl"><select class="select" aria-label="Audio del sistema"><option>Altavoces (captura)</option><option>Auriculares USB (captura)</option></select><label class="switch"><input type="checkbox" role="switch" checked aria-label="Capturar audio del sistema"><span class="track"></span></label></div></div>
+          <div class="notice warn" style="margin-top:6px"><i class="ph ph-bluetooth"></i><span>Los audífonos Bluetooth pueden bajar la calidad del audio mientras se graba. Si notas cortes, usa el micrófono integrado.</span></div>
+        </div>
+        <div class="set-group">
+          <h3>Archivos</h3>
+          <div class="set-row"><div><div class="lbl">Carpeta de grabaciones</div><div class="desc input-mono">C:\Users\Vicente\Documents\MeetPulse</div></div><div class="ctl"><button class="btn btn-sm" data-noop="Demo: se abriría el selector de carpeta."><i class="ph ph-folder-open"></i>Cambiar</button></div></div>
+          <div class="set-row"><div><div class="lbl">Guardar el audio original</div><div class="desc">Permite volver a transcribir o escuchar la reunión después.</div></div><div class="ctl"><label class="switch"><input type="checkbox" role="switch" checked aria-label="Guardar audio"><span class="track"></span></label></div></div>
+        </div>
+      </section>
+
+      <!-- Transcripción -->
+      <section class="set-panel" data-tab-panel="transcription" hidden>
+        <header><h2>Transcripción</h2><p>Cómo se convierte el audio en texto. Puede ocurrir en este equipo o en la nube, y puedes cambiarlo en cada reunión.</p></header>
+        <div class="set-group">
+          <h3>Motor por defecto</h3>
+          <div class="set-row"><div><div class="lbl">Motor de transcripción</div><div class="desc">Whisper y Parakeet funcionan sin conexión. Gemini transcribe en la nube.</div></div><div class="ctl"><div data-model-picker data-purpose="stt" data-slot="stt" data-placement="bottom" data-align="right"></div></div></div>
+          <div id="sttWarn" style="margin-top:6px"></div>
+          <div class="set-row"><div><div class="lbl">Idioma hablado</div><div class="desc">Automático detecta el idioma en cada reunión.</div></div><div class="ctl"><select class="select" aria-label="Idioma hablado"><option>Automático</option><option selected>Español</option><option>English</option></select></div></div>
+        </div>
+
+        <!-- Opciones de un motor en la nube -->
+        <div class="set-group" id="sttCloud" hidden>
+          <h3>Opciones de Gemini</h3>
+          <div class="set-row"><div><div class="lbl">Clave de Google</div><div class="desc">La misma clave sirve para transcribir y para el análisis.</div></div><div class="ctl"><span class="pill good" id="gKey"><i class="ph-fill ph-circle" style="font-size:.6em"></i>Conectada</span><a class="btn btn-sm" href="settings.html?tab=models">Administrar</a></div></div>
+          <div class="set-row"><div><div class="lbl">Conservar frases mixtas</div><div class="desc">Mantiene las frases en español e inglés sin traducirlas.</div></div><div class="ctl"><label class="switch"><input type="checkbox" role="switch" checked aria-label="Conservar frases mixtas"><span class="track"></span></label></div></div>
+          <div class="set-row"><div><div class="lbl">Entrega del texto</div><div class="desc">Gemini devuelve bloques de audio ya transcritos, casi en tiempo real. En vivo verás el texto por tandas.</div></div><div class="ctl"><button class="btn btn-sm" id="gTest"><i class="ph ph-waveform"></i>Probar con un audio</button></div></div>
+        </div>
+
+        <!-- Opciones de un motor local -->
+        <div class="set-group" id="sttLocal">
+          <h3>Modelos instalados en este equipo</h3>
+          <div class="tm-list" id="tmList"></div>
+          <div class="set-row"><div><div class="lbl">Aceleración</div><div class="desc">Usa la GPU si está disponible; si no, el procesador.</div></div><div class="ctl"><select class="select" aria-label="Aceleración"><option>Automática</option><option>Solo procesador</option></select></div></div>
+        </div>
+      </section>
+
+      <!-- Modelos de IA y API keys -->
+      <section class="set-panel" data-tab-panel="models" hidden>
+        <header><h2>Modelos de IA</h2><p>Qué modelo usa cada función y con qué proveedores te conectas.</p></header>
+        <div class="flow-sum" id="flowSum" aria-live="polite"></div>
+
+        <div class="set-group">
+          <h3>Modelo por función</h3>
+          <div class="use-grid">
+            <div class="use-row"><span class="p-ico"><i class="ph ph-waveform"></i></span><div><div class="lbl" style="font-weight:500">Transcripción</div><div class="desc" style="color:var(--text-3);font-size:.88em">Convierte el audio en texto. Local o en la nube.</div></div><div data-model-picker data-purpose="stt" data-slot="stt" data-placement="bottom" data-align="right"></div></div>
+            <div class="use-row"><span class="p-ico"><i class="ph ph-article"></i></span><div><div class="lbl" style="font-weight:500">Resumen</div><div class="desc" style="color:var(--text-3);font-size:.88em">Genera el resumen y las acciones al terminar.</div></div><div data-model-picker data-slot="summary" data-default="llama32-3b" data-placement="bottom" data-align="right"></div></div>
+            <div class="use-row"><span class="p-ico"><i class="ph ph-chats-circle"></i></span><div><div class="lbl" style="font-weight:500">Chat</div><div class="desc" style="color:var(--text-3);font-size:.88em">Responde preguntas sobre la reunión.</div></div><div data-model-picker data-slot="chat" data-default="claude-haiku-5-5" data-placement="bottom" data-align="right"></div></div>
+            <div class="use-row"><span class="p-ico"><i class="ph ph-lightbulb"></i></span><div><div class="lbl" style="font-weight:500">Coach</div><div class="desc" style="color:var(--text-3);font-size:.88em">Insights mientras se graba. Conviene un modelo rápido.</div></div><div data-model-picker data-slot="coach" data-default="llama32-3b" data-placement="bottom" data-align="right"></div></div>
+          </div>
+        </div>
+
+        <div class="set-group">
+          <h3>Proveedores</h3>
+          <div id="provList">
+
+            <details class="prov" data-provider="Ollama" open>
+              <summary><span class="p-ico"><i class="ph ph-cpu"></i></span><div><div class="p-name">Ollama</div><div class="p-sub">Modelos locales en este equipo</div></div><span class="pill good" data-status><i class="ph-fill ph-circle" style="font-size:.6em"></i>Conectado</span><i class="ph ph-caret-right chev"></i></summary>
+              <div class="p-body">
+                <div class="key-field"><label for="ollamaUrl">Dirección del servidor</label>
+                  <div class="key-row"><input class="input input-mono" id="ollamaUrl" value="http://localhost:11434" spellcheck="false"><button class="btn" id="ollamaDetect"><i class="ph ph-magnifying-glass"></i>Detectar</button></div>
+                  <div class="field-msg ok" id="ollamaMsg"><i class="ph-fill ph-check-circle"></i>Ollama responde. 2 modelos instalados.</div></div>
+                <div class="models-found"><span>Llama 3.2 3B</span><span>Qwen 2.5 7B</span></div>
+              </div>
+            </details>
+
+            <details class="prov" data-provider="Google">
+              <summary><span class="p-ico"><i class="ph ph-cloud"></i></span><div><div class="p-name">Google (Gemini)</div><div class="p-sub">Transcripción y análisis con Gemini 3.1 Flash-Lite</div></div><span class="pill good" data-status><i class="ph-fill ph-circle" style="font-size:.6em"></i>Conectada</span><i class="ph ph-caret-right chev"></i></summary>
+              <div class="p-body" data-keyzone data-saved="1" data-last4="c7d1" data-uses="Transcripción (audio) y análisis (texto)"></div>
+            </details>
+
+            <details class="prov" data-provider="Anthropic">
+              <summary><span class="p-ico"><i class="ph ph-cloud"></i></span><div><div class="p-name">Anthropic</div><div class="p-sub">Claude Sonnet 5.5, Claude Haiku 5.5</div></div><span class="pill good" data-status><i class="ph-fill ph-circle" style="font-size:.6em"></i>Conectada</span><i class="ph ph-caret-right chev"></i></summary>
+              <div class="p-body" data-keyzone data-saved="1" data-last4="8f2a"></div>
+            </details>
+
+            <details class="prov" data-provider="Groq">
+              <summary><span class="p-ico"><i class="ph ph-cloud"></i></span><div><div class="p-name">Groq</div><div class="p-sub">Llama 3.3 70B y otros, respuestas muy rápidas</div></div><span class="pill" data-status>Sin clave</span><i class="ph ph-caret-right chev"></i></summary>
+              <div class="p-body" data-keyzone data-saved="0" data-link="console.groq.com/keys"></div>
+            </details>
+
+            <details class="prov" data-provider="OpenRouter">
+              <summary><span class="p-ico"><i class="ph ph-cloud"></i></span><div><div class="p-name">OpenRouter</div><div class="p-sub">Un solo acceso a muchos modelos</div></div><span class="pill" data-status>Sin clave</span><i class="ph ph-caret-right chev"></i></summary>
+              <div class="p-body" data-keyzone data-saved="0" data-link="openrouter.ai/keys"></div>
+            </details>
+
+            <details class="prov" data-provider="Personalizado">
+              <summary><span class="p-ico"><i class="ph ph-plugs"></i></span><div><div class="p-name">Servidor compatible con OpenAI</div><div class="p-sub">LM Studio, vLLM u otro endpoint propio</div></div><span class="pill" data-status>No configurado</span><i class="ph ph-caret-right chev"></i></summary>
+              <div class="p-body">
+                <div class="key-field"><label for="cUrl">Dirección base</label><input class="input input-mono" id="cUrl" placeholder="http://localhost:1234/v1" spellcheck="false"></div>
+                <div class="key-field"><label for="cKey">Clave (opcional)</label><input class="input input-mono" id="cKey" type="password" placeholder="Solo si tu servidor la pide" autocomplete="off"></div>
+                <div><button class="btn" data-noop="Demo: se probaría la conexión con el servidor.">Probar conexión</button></div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- Coach y chat -->
+      <section class="set-panel" data-tab-panel="coach" hidden>
+        <header><h2>Coach y chat</h2><p>Dos ayudas opcionales durante la reunión. Siempre puedes abrirlas o cerrarlas desde la pantalla de grabación.</p></header>
+        <div class="set-group">
+          <h3>Coach en vivo</h3>
+          <div class="set-row"><div><div class="lbl">Encender el coach en reuniones nuevas</div><div class="desc">Apagado por defecto. Aunque esté apagado, puedes encenderlo a mitad de una reunión.</div></div><div class="ctl"><label class="switch"><input type="checkbox" role="switch" id="coachDefault" aria-label="Coach por defecto"><span class="track"></span></label></div></div>
+          <div class="set-row"><div><div class="lbl">Frecuencia</div><div class="desc">Cada cuánto analiza lo que se ha dicho.</div></div><div class="ctl"><div class="seg" data-seg="freq" role="radiogroup" aria-label="Frecuencia"><button role="radio" data-value="30" aria-checked="false">30 s</button><button role="radio" data-value="60" aria-checked="true">1 min</button><button role="radio" data-value="120" aria-checked="false">2 min</button><button role="radio" data-value="0" aria-checked="false">Al pedirlo</button></div></div></div>
+          <div class="set-row"><div><div class="lbl">Modelo del coach</div></div><div class="ctl"><div data-model-picker data-slot="coach" data-default="llama32-3b" data-placement="bottom" data-align="right"></div></div></div>
+          <div class="set-row" style="align-items:flex-start"><div><div class="lbl">Qué detecta</div><div class="desc">Elige los tipos de insight que quieres recibir.</div></div>
+            <div class="check-list" style="min-width:250px">
+              <label class="cb"><span class="check"><input type="checkbox" checked><span class="box"></span></span><span><span class="cb-t">Decisiones</span></span></label>
+              <label class="cb"><span class="check"><input type="checkbox" checked><span class="box"></span></span><span><span class="cb-t">Acciones y responsables</span></span></label>
+              <label class="cb"><span class="check"><input type="checkbox" checked><span class="box"></span></span><span><span class="cb-t">Preguntas sin responder</span></span></label>
+              <label class="cb"><span class="check"><input type="checkbox" checked><span class="box"></span></span><span><span class="cb-t">Riesgos y bloqueos</span></span></label>
+              <label class="cb"><span class="check"><input type="checkbox"><span class="box"></span></span><span><span class="cb-t">Sugerencias para facilitar</span><span class="cb-d" style="display:block">Por ejemplo, cuando falta una fecha o un responsable.</span></span></label>
+            </div></div>
+          <div class="notice warn" style="margin-top:6px"><i class="ph ph-gauge"></i><span>El coach analiza la transcripción mientras se graba. Con modelos locales usa más procesador o GPU, y en equipos modestos conviene un modelo más pequeño.</span></div>
+        </div>
+        <div class="set-group">
+          <h3>Chat</h3>
+          <div class="set-row"><div><div class="lbl">Mostrar el chat al empezar a grabar</div></div><div class="ctl"><label class="switch"><input type="checkbox" role="switch" id="chatDefault" checked aria-label="Mostrar el chat"><span class="track"></span></label></div></div>
+          <div class="set-row"><div><div class="lbl">Incluir mis notas como contexto</div><div class="desc">El chat también leerá las notas que escribas.</div></div><div class="ctl"><label class="switch"><input type="checkbox" role="switch" checked aria-label="Incluir notas"><span class="track"></span></label></div></div>
+          <div class="set-row"><div><div class="lbl">Idioma de las respuestas</div></div><div class="ctl"><select class="select" aria-label="Idioma de respuestas"><option>El mismo de la reunión</option><option>Español</option><option>English</option></select></div></div>
+        </div>
+      </section>
+
+      <!-- Privacidad -->
+      <section class="set-panel" data-tab-panel="privacy" hidden>
+        <header><h2>Datos y privacidad</h2><p>Qué hay guardado en este equipo, cómo se busca y cómo limpiarlo.</p></header>
+        <div class="set-group">
+          <h3>Búsqueda en tus reuniones</h3>
+          <div class="set-row"><div><div class="lbl">Buscar con significado</div><div class="desc">Permite preguntar al asistente sobre todas tus reuniones, no solo palabras exactas.</div></div><div class="ctl"><label class="switch"><input type="checkbox" role="switch" checked aria-label="Búsqueda con significado"><span class="track"></span></label></div></div>
+          <div class="set-row"><div><div class="lbl">Estado del índice</div><div class="desc" id="idxDesc">Al día. 128 reuniones, 4.310 fragmentos, actualizado hace 2 min.</div></div><div class="ctl"><button class="btn btn-sm" id="idxRebuild"><i class="ph ph-arrow-clockwise"></i>Reconstruir</button></div></div>
+          <div class="set-row"><div><div class="lbl">Indexar reuniones nuevas automáticamente</div><div class="desc">Al terminar de procesar una reunión. El índice se guarda solo en este equipo.</div></div><div class="ctl"><label class="switch"><input type="checkbox" role="switch" checked aria-label="Indexar automáticamente"><span class="track"></span></label></div></div>
+          <div class="notice" style="margin-top:6px"><i class="ph ph-info"></i><span>Cuando el asistente usa un modelo en la nube, los fragmentos encontrados se envían a ese proveedor para redactar la respuesta. Con un modelo local no sale nada.</span></div>
+        </div>
+        <div class="set-group">
+          <h3>Almacenamiento</h3>
+          <div style="padding:10px 0 4px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:1.4em;letter-spacing:-.02em">9,3 GB</b><span class="desc" style="color:var(--text-3)">en 128 reuniones</span></div>
+            <div class="store-bar" aria-hidden="true"><span style="flex:45;background:var(--accent)"></span><span style="flex:54;background:var(--text-3)"></span><span style="flex:1;background:var(--line-strong)"></span></div>
+            <div class="store-legend"><span><i style="background:var(--accent)"></i>Audio 4,2 GB</span><span><i style="background:var(--text-3)"></i>Modelos 5,1 GB</span><span><i style="background:var(--line-strong)"></i>Textos 44 MB</span></div>
+          </div>
+          <div class="set-row"><div><div class="lbl">Conservar el audio durante</div></div><div class="ctl"><select class="select" aria-label="Conservar audio"><option>Siempre</option><option>90 días</option><option>30 días</option></select></div></div>
+          <div class="set-row"><div><div class="lbl">Enviar estadísticas de uso anónimas</div><div class="desc">Nunca incluyen el contenido de tus reuniones.</div></div><div class="ctl"><label class="switch"><input type="checkbox" role="switch" aria-label="Estadísticas de uso"><span class="track"></span></label></div></div>
+        </div>
+        <div class="set-group">
+          <h3>Zona de riesgo</h3>
+          <div class="danger-zone">
+            <div class="set-row"><div><div class="lbl">Exportar todas las reuniones</div><div class="desc">Un archivo con transcripciones y resúmenes.</div></div><div class="ctl"><button class="btn btn-sm" data-noop="Demo: se exportarían las reuniones."><i class="ph ph-export"></i>Exportar</button></div></div>
+            <div class="set-row"><div><div class="lbl">Borrar todas las reuniones</div><div class="desc">Elimina audio, transcripciones y resúmenes de este equipo. No se puede deshacer.</div></div><div class="ctl"><button class="btn btn-sm btn-danger" id="wipeBtn"><i class="ph ph-trash"></i>Borrar todo</button></div></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+<script src="../shared/data.js"></script>
+<script src="data-v2.js"></script>
+<script src="../shared/ui.js"></script>
+<script src="shell.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>

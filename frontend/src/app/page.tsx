@@ -9,7 +9,6 @@ import { useRecordingState, RecordingStatus } from '@/contexts/RecordingStateCon
 import { useTranscripts } from '@/contexts/TranscriptContext';
 import { useConfig } from '@/contexts/ConfigContext';
 import { StatusOverlays } from '@/app/_components/StatusOverlays';
-import Analytics from '@/lib/analytics';
 import { SettingsModals } from './_components/SettingsModal';
 import { TranscriptPanel } from './_components/TranscriptPanel';
 import { useModalState } from '@/hooks/useModalState';
@@ -39,7 +38,7 @@ export default function Home() {
 
   // Hooks
   const { hasMicrophone, hasSystemAudio } = usePermissionCheck();
-  const { setIsMeetingActive, isCollapsed: sidebarCollapsed, refetchMeetings } = useSidebar();
+  const { setIsMeetingActive, refetchMeetings } = useSidebar();
   const { modals, messages, showModal, hideModal } = useModalState(transcriptModelConfig);
   const { isRecordingDisabled, setIsRecordingDisabled } = useRecordingStateSync(isRecording, setIsRecordingState, setIsMeetingActive);
   const { handleRecordingStart } = useRecordingStart(isRecording, setIsRecordingState, showModal);
@@ -65,7 +64,6 @@ export default function Home() {
 
   useEffect(() => {
     // Track page view
-    Analytics.trackPageView('home');
   }, []);
 
   // Startup recovery check
@@ -190,7 +188,7 @@ export default function Home() {
   // Computed values using global status
   const isProcessingStop = status === RecordingStatus.PROCESSING_TRANSCRIPTS || isProcessing;
 
-  if (!recordingState.isRecording && !isRecording && !isProcessingStop && status !== RecordingStatus.SAVING) {
+  if (!recordingState.isRecording && !isRecording && status !== RecordingStatus.STOPPING && !isProcessingStop && status !== RecordingStatus.SAVING) {
     return (
       <>
         <SettingsModals modals={modals} messages={messages} onClose={hideModal} />
@@ -248,10 +246,10 @@ export default function Home() {
         {(hasMicrophone || isRecording) &&
           status !== RecordingStatus.PROCESSING_TRANSCRIPTS &&
           status !== RecordingStatus.SAVING && (
-            <div className="fixed bottom-7 left-[4.25rem] right-0 z-20">
+            <div className={`recording-dock fixed bottom-7 left-16 right-0 z-20 ${recordingState.isRecording ? "hidden" : ""}`}>
               <div className="flex justify-center px-6">
                 <div className="w-2/3 max-w-[750px] flex justify-center">
-                  <div className="meetpulse-surface flex rounded-2xl bg-card/90 p-1 backdrop-blur">
+                  <div className="flex rounded-full border border-border bg-card/95 p-1.5 shadow-lg backdrop-blur">
                     <RecordingControls
                       isRecording={recordingState.isRecording}
                       onRecordingStop={(callApi = true) => handleRecordingStop(callApi)}
@@ -275,9 +273,9 @@ export default function Home() {
 
         {/* Status Overlays - Processing and Saving */}
         <StatusOverlays
+          isStopping={status === RecordingStatus.STOPPING}
           isProcessing={status === RecordingStatus.PROCESSING_TRANSCRIPTS && !recordingState.isRecording}
           isSaving={status === RecordingStatus.SAVING}
-          sidebarCollapsed={sidebarCollapsed}
         />
       </div>
     </motion.div>

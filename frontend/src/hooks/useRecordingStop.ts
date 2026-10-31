@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { useTranscripts } from '@/contexts/TranscriptContext';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
@@ -253,8 +254,30 @@ export function useRecordingStop(
         });
 
         try {
+          const recordingSessionId = sessionStorage.getItem('indexeddb_current_meeting_id');
+          if (recordingSessionId) {
+            let context: string | null = null;
+            try {
+              const draft = JSON.parse(localStorage.getItem('meetpulse-recording-context') || '{}');
+              context = JSON.stringify({
+                client: draft.client || null,
+                project: draft.project || null,
+                additionalContext: draft.additionalContext || null,
+              });
+            } catch {
+              // Keep optional meeting metadata empty if the saved draft is malformed.
+            }
+            await invoke('desktop_assistant_session', {
+              id: recordingSessionId,
+              meetingId: null,
+              title: meetingTitle?.trim() || savedMeetingName || 'New Meeting',
+              folderPath: folderPath || null,
+              context,
+            });
+          }
+
           const responseData = await storageService.saveMeeting(
-            savedMeetingName || meetingTitle || 'New Meeting',  // PREFER savedMeetingName (backend source)
+            meetingTitle?.trim() || savedMeetingName || 'New Meeting',
             freshTranscripts,
             folderPath
           );
@@ -329,7 +352,6 @@ export function useRecordingStop(
               label: 'View Meeting',
               onClick: () => {
                 router.push(`/meeting-details?id=${meetingId}`);
-                Analytics.trackButtonClick('view_meeting_from_toast', 'recording_complete');
               }
             },
             duration: 10000,
@@ -339,7 +361,6 @@ export function useRecordingStop(
           setTimeout(() => {
             router.push(`/meeting-details?id=${meetingId}&source=recording`);
             clearTranscripts()
-            Analytics.trackPageView('meeting_details');
 
             // Reset to IDLE after navigation
             setStatus(RecordingStatus.IDLE);

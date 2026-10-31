@@ -7,6 +7,7 @@ import { SelectedDevices } from '@/components/DeviceSelection';
 import { configService, ModelConfig } from '@/services/configService';
 import { invoke } from '@tauri-apps/api/core';
 import Analytics from '@/lib/analytics';
+import { gatewayTranscriptionModel } from '@/lib/gateway-transcription';
 import { BetaFeatures, BetaFeatureKey, loadBetaFeatures, saveBetaFeatures } from '@/types/betaFeatures';
 
 export interface OllamaModel {
@@ -52,6 +53,11 @@ interface ConfigContextType {
   transcriptModelConfig: TranscriptModelProps;
   setTranscriptModelConfig: (config: TranscriptModelProps | ((prev: TranscriptModelProps) => TranscriptModelProps)) => void;
 
+  // Chat and coach model. Independent from analysis and transcription.
+  chatModelConfig: { provider: ModelConfig['provider']; model: string };
+  setChatModelConfig: (config: { provider: ModelConfig['provider']; model: string }) => void;
+  saveChatModel: (provider: string, model: string) => Promise<void>;
+
   // Device configuration
   selectedDevices: SelectedDevices;
   setSelectedDevices: (devices: SelectedDevices) => void;
@@ -84,6 +90,7 @@ interface ConfigContextType {
     groq: string | null;
     openai: string | null;
     openrouter: string | null;
+    'vercel-gateway': string | null;
   };
   updateProviderApiKey: (provider: string, apiKey: string | null) => void;
 
@@ -101,8 +108,8 @@ const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 export function ConfigProvider({ children }: { children: ReactNode }) {
   // Model configuration state
   const [modelConfig, setModelConfig] = useState<ModelConfig>({
-    provider: 'ollama',
-    model: 'llama3.2:latest',
+    provider: 'builtin-ai',
+    model: '',
     whisperModel: 'large-v3',
     ollamaEndpoint: null
   });
@@ -114,6 +121,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     apiKey: null
   });
 
+  const [chatModelConfig, setChatModelConfig] = useState<{ provider: ModelConfig['provider']; model: string }>({
+    provider: 'builtin-ai',
+    model: '',
+  });
+
   // Provider-specific API keys (loaded once at startup)
   const [providerApiKeys, setProviderApiKeys] = useState<{
     claude: string | null;
@@ -121,12 +133,14 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     groq: string | null;
     openai: string | null;
     openrouter: string | null;
+    'vercel-gateway': string | null;
   }>({
     claude: null,
     gemini: null,
     groq: null,
     openai: null,
     openrouter: null,
+    'vercel-gateway': null,
   });
 
   // Ollama models list and error state
@@ -201,11 +215,19 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         const config = await configService.getTranscriptConfig();
         if (config) {
           console.log('[ConfigContext] Loaded saved transcript config:', config);
+          const provider = config.provider || 'parakeet';
+          const savedModel = config.model || 'parakeet-tdt-0.6b-v3-int8';
+          const model = provider === 'vercel-gateway' ? gatewayTranscriptionModel(savedModel) : savedModel;
           setTranscriptModelConfig({
-            provider: config.provider || 'parakeet',
-            model: config.model || 'parakeet-tdt-0.6b-v3-int8',
+            provider,
+            model,
             apiKey: config.apiKey || null
           });
+          if (provider === 'vercel-gateway' && model !== savedModel) {
+            void invoke('api_save_transcript_config', { provider, model, apiKey: null }).catch((error) => {
+              console.error('[ConfigContext] Failed to replace a retired gateway transcription model:', error);
+            });
+          }
         }
       } catch (error) {
         console.error('[ConfigContext] Failed to load transcript config:', error);
@@ -294,25 +316,43 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     fetchModelConfig();
   }, []);
 
+  useEffect(() => {
+    const loadChatModel = async () => {
+      try {
+        const data = await invoke<{ provider: ModelConfig['provider']; model: string }>('api_get_chat_model_config');
+        if (data?.provider && data.model) {
+          setChatModelConfig({ provider: data.provider, model: data.model });
+        }
+      } catch (error) {
+        console.error('[ConfigContext] Failed to load chat model config:', error);
+      }
+    };
+    loadChatModel();
+  }, []);
+
+  const saveChatModel = useCallback(async (provider: string, model: string) => {
+    let previous = chatModelConfig;
+    setChatModelConfig((current) => {
+      previous = current;
+      return { provider: provider as ModelConfig['provider'], model };
+    });
+    try {
+      await invoke('api_save_chat_model_config', { provider, model });
+    } catch (error) {
+      setChatModelConfig(previous);
+      throw error;
+    }
+  }, [chatModelConfig]);
+
   // Load all provider API keys on mount
   useEffect(() => {
     const loadAllApiKeys = async () => {
       try {
-        const providers = ['claude', 'gemini', 'groq', 'openai', 'openrouter'];
-        const keys = await Promise.all(
-          providers.map(p =>
-            invoke<string>('api_get_api_key', { provider: p })
-              .catch(() => null) // Gracefully handle missing keys
-          )
-        );
-
-        setProviderApiKeys({
-          claude: keys[0],
-          gemini: keys[1],
-          groq: keys[2],
-          openai: keys[3],
-          openrouter: keys[4],
-        });
+        const gateway = await invoke<string>('api_get_api_key', { provider: 'vercel-gateway' }).catch(() => '');
+        setProviderApiKeys((prev) => ({
+          ...prev,
+          'vercel-gateway': gateway.trim() ? gateway : null,
+        }));
         console.log('[ConfigContext] Loaded provider API keys');
       } catch (error) {
         console.error('[ConfigContext] Failed to load provider API keys:', error);
@@ -375,6 +415,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
     'builtin-ai': [],
     'custom-openai': [],
+    'vercel-gateway': [],
   };
 
   // Toggle confidence indicator with localStorage persistence
@@ -497,6 +538,9 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     updateProviderApiKey,
     transcriptModelConfig,
     setTranscriptModelConfig,
+    chatModelConfig,
+    setChatModelConfig,
+    saveChatModel,
     selectedDevices,
     setSelectedDevices,
     selectedLanguage,
@@ -520,6 +564,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     providerApiKeys,
     updateProviderApiKey,
     transcriptModelConfig,
+    chatModelConfig,
+    saveChatModel,
     selectedDevices,
     selectedLanguage,
     handleSetSelectedLanguage,

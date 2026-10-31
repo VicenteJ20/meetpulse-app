@@ -96,14 +96,14 @@ export function useRecordingStart(
             description: 'Please wait for the transcription model to finish downloading before recording.',
             duration: 5000,
           });
-          Analytics.trackButtonClick('start_recording_blocked_downloading', 'home_page');
+          Analytics.trackRecordingStart('home_page', 'blocked_downloading');
         } else {
           toast.error('Transcription model not ready', {
             description: 'Please download a transcription model before recording.',
             duration: 5000,
           });
           showModal?.('modelSelector', 'Transcription model setup required');
-          Analytics.trackButtonClick('start_recording_blocked_missing', 'home_page');
+          Analytics.trackRecordingStart('home_page', 'blocked_missing');
         }
         setStatus(RecordingStatus.IDLE);
         return;
@@ -111,7 +111,9 @@ export function useRecordingStart(
 
       console.log('Parakeet ready - setting up meeting title and state');
 
-      const randomTitle = generateMeetingTitle();
+      let draft: { title?: string } = {};
+      try { draft = JSON.parse(localStorage.getItem('meetpulse-recording-context') || '{}'); } catch {}
+      const randomTitle = draft.title?.trim() || generateMeetingTitle();
       setMeetingTitle(randomTitle);
 
       // Set STARTING status before initiating backend recording
@@ -132,7 +134,7 @@ export function useRecordingStart(
       setIsRecording(true); // This will also update the sidebar via the useEffect
       clearTranscripts(); // Clear previous transcripts when starting new recording
       setIsMeetingActive(true);
-      Analytics.trackButtonClick('start_recording', 'home_page');
+      Analytics.trackRecordingStart('home_page', 'started');
 
       // Show recording notification if enabled
       await showRecordingNotification();
@@ -140,7 +142,7 @@ export function useRecordingStart(
       console.error('Failed to start recording:', error);
       setStatus(RecordingStatus.ERROR, error instanceof Error ? error.message : 'Failed to start recording');
       setIsRecording(false); // Reset state on error
-      Analytics.trackButtonClick('start_recording_error', 'home_page');
+      Analytics.trackRecordingStart('home_page', 'error');
       // Re-throw so RecordingControls can handle device-specific errors
       throw error;
     }
@@ -165,14 +167,14 @@ export function useRecordingStart(
                 description: 'Please wait for the transcription model to finish downloading before recording.',
                 duration: 5000,
               });
-              Analytics.trackButtonClick('start_recording_blocked_downloading', 'sidebar_auto');
+              Analytics.trackRecordingStart('sidebar_auto', 'blocked_downloading');
             } else {
               toast.error('Transcription model not ready', {
                 description: 'Please download a transcription model before recording.',
                 duration: 5000,
               });
               showModal?.('modelSelector', 'Transcription model setup required');
-              Analytics.trackButtonClick('start_recording_blocked_missing', 'sidebar_auto');
+              Analytics.trackRecordingStart('sidebar_auto', 'blocked_missing');
             }
             setStatus(RecordingStatus.IDLE);
             setIsAutoStarting(false);
@@ -201,7 +203,7 @@ export function useRecordingStart(
             setIsRecording(true);
             clearTranscripts();
             setIsMeetingActive(true);
-            Analytics.trackButtonClick('start_recording', 'sidebar_auto');
+            Analytics.trackRecordingStart('sidebar_auto', 'started');
 
             // Show recording notification if enabled
             await showRecordingNotification();
@@ -209,7 +211,7 @@ export function useRecordingStart(
             console.error('Failed to auto-start recording:', error);
             setStatus(RecordingStatus.ERROR, error instanceof Error ? error.message : 'Failed to auto-start recording');
             alert('Failed to start recording. Check console for details.');
-            Analytics.trackButtonClick('start_recording_error', 'sidebar_auto');
+            Analytics.trackRecordingStart('sidebar_auto', 'error');
           } finally {
             setIsAutoStarting(false);
           }
@@ -253,14 +255,14 @@ export function useRecordingStart(
             description: 'Please wait for the transcription model to finish downloading before recording.',
             duration: 5000,
           });
-          Analytics.trackButtonClick('start_recording_blocked_downloading', 'sidebar_direct');
+          Analytics.trackRecordingStart('sidebar_direct', 'blocked_downloading');
         } else {
           toast.error('Transcription model not ready', {
             description: 'Please download a transcription model before recording.',
             duration: 5000,
           });
           showModal?.('modelSelector', 'Transcription model setup required');
-          Analytics.trackButtonClick('start_recording_blocked_missing', 'sidebar_direct');
+          Analytics.trackRecordingStart('sidebar_direct', 'blocked_missing');
         }
         setStatus(RecordingStatus.IDLE);
         setIsAutoStarting(false);
@@ -288,7 +290,7 @@ export function useRecordingStart(
         setIsRecording(true);
         clearTranscripts();
         setIsMeetingActive(true);
-        Analytics.trackButtonClick('start_recording', 'sidebar_direct');
+        Analytics.trackRecordingStart('sidebar_direct', 'started');
 
         // Show recording notification if enabled
         await showRecordingNotification();
@@ -296,7 +298,7 @@ export function useRecordingStart(
         console.error('Failed to start recording from sidebar:', error);
         setStatus(RecordingStatus.ERROR, error instanceof Error ? error.message : 'Failed to start recording from sidebar');
         alert('Failed to start recording. Check console for details.');
-        Analytics.trackButtonClick('start_recording_error', 'sidebar_direct');
+        Analytics.trackRecordingStart('sidebar_direct', 'error');
       } finally {
         setIsAutoStarting(false);
       }

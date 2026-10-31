@@ -1,0 +1,45 @@
+{
+  "_help": [
+    "Catálogo de modelos en la nube que se ofrecen en Inicio y en el chat.",
+    "Con clave API configurada, la lista sale EN VIVO del proveedor y se filtra con 'include' y 'exclude' (expresiones regulares sobre el id del modelo). Así, al salir una versión nueva solo hay que ajustar 'include'.",
+    "'max' limita cuántos modelos se muestran por proveedor (los de versión más alta primero).",
+    "'audio': true marca los proveedores cuyos modelos pueden transcribir (en la transcripción solo se listan modelos con entrada de audio).",
+    "'fallback' se usa si no hay clave o no hay conexión. Ahí van los ids exactos.",
+    "Solo se ofrece Gemini en la nube, limitado a Flash-Lite 3.1 y 3.5. Para sumar otra versión, ajusta 'include' y 'max'."
+  ],
+  "providers": {
+    "gemini": {
+      "label": "Google Gemini",
+      "audio": true,
+      "include": "^gemini-(3\\.1|3\\.5)-flash-lite",
+      "exclude": "(embedding|image|imagen|tts|live|vision|aqa|robotics|computer-use|native-audio|veo|nano|banana|customtools)",
+      "max": 2
+    }
+  },
+  "fallback": {
+    "transcription": [
+      {
+        "provider": "gemini",
+        "id": "gemini-3.1-flash-lite",
+        "label": "Gemini 3.1 Flash-Lite"
+      },
+      {
+        "provider": "gemini",
+        "id": "gemini-3.5-flash-lite",
+        "label": "Gemini 3.5 Flash-Lite"
+      }
+    ],
+    "analysis": [
+      {
+        "provider": "gemini",
+        "id": "gemini-3.1-flash-lite",
+        "label": "Gemini 3.1 Flash-Lite"
+      },
+      {
+        "provider": "gemini",
+        "id": "gemini-3.5-flash-lite",
+        "label": "Gemini 3.5 Flash-Lite"
+      }
+    ]
+  }
+}

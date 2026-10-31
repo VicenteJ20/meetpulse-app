@@ -101,6 +101,15 @@ pub struct ModelInfo {
 
     /// GGUF filename on disk
     pub gguf_file: String,
+
+    /// "current", "legacy" o "retiring"
+    pub lifecycle: String,
+
+    /// Modelo sucesor, si lo hay
+    pub successor: Option<String>,
+
+    /// Fecha tentativa de retiro (YYYY-MM-DD)
+    pub retire_after: Option<String>,
 }
 
 // ============================================================================
@@ -278,6 +287,9 @@ impl ModelManager {
                 context_size: model_def.context_size,
                 description: model_def.description.clone(),
                 gguf_file: model_def.gguf_file.clone(),
+                lifecycle: format!("{:?}", model_def.lifecycle).to_lowercase(),
+                successor: model_def.successor.clone(),
+                retire_after: model_def.retire_after.clone(),
             };
 
             models_map.insert(model_def.name.clone(), model_info);
@@ -299,12 +311,16 @@ impl ModelManager {
 
     /// Get list of all models with their status
     pub async fn list_models(&self) -> Vec<ModelInfo> {
-        self.available_models
+        let mut models: Vec<ModelInfo> = self
+            .available_models
             .read()
             .await
             .values()
             .cloned()
-            .collect()
+            .collect();
+        // Lightest first, so the list reads the same on every launch.
+        models.sort_by(|a, b| a.size_mb.cmp(&b.size_mb).then_with(|| a.name.cmp(&b.name)));
+        models
     }
 
     /// Get info for a specific model

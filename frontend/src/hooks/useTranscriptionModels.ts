@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { loadGatewayCatalog } from '@/hooks/useCloudModels';
+import { gatewayTranscriptionChoices, gatewayTranscriptionModel } from '@/lib/gateway-transcription';
 
 export interface RawModelInfo {
   name: string;
@@ -8,7 +10,7 @@ export interface RawModelInfo {
 }
 
 export interface ModelOption {
-  provider: 'whisper' | 'parakeet' | 'gemini';
+  provider: 'whisper' | 'parakeet' | 'gemini' | 'vercel-gateway';
   name: string;
   displayName: string;
   size_mb: number;
@@ -77,18 +79,28 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
       console.error('Failed to fetch Parakeet models:', err);
     }
 
-    allModels.push({
-      provider: 'gemini',
-      name: 'gemini-3.1-flash-lite',
-      displayName: 'Cloud Gemini: gemini-3.1-flash-lite',
-      size_mb: 0,
-    });
+    let gatewayCatalog: { id: string; name?: string | null; label?: string | null }[] = [];
+    try {
+      gatewayCatalog = await loadGatewayCatalog(false);
+    } catch (err) {
+      console.error('Failed to fetch gateway transcription models:', err);
+    }
+    for (const model of gatewayTranscriptionChoices(gatewayCatalog)) {
+      allModels.push({
+        provider: 'vercel-gateway',
+        name: model.id,
+        displayName: model.label,
+        size_mb: 0,
+      });
+    }
 
     setAvailableModels(allModels);
 
     // Set default model based on user's saved configuration
     const configuredProvider = transcriptModelConfig?.provider || '';
-    const configuredModel = transcriptModelConfig?.model || '';
+    const configuredModel = configuredProvider === 'vercel-gateway'
+      ? gatewayTranscriptionModel(transcriptModelConfig?.model)
+      : (transcriptModelConfig?.model || '');
 
     // Try to match the configured model
     // Note: 'localWhisper' in config maps to 'whisper' provider in model list
@@ -96,7 +108,7 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
       (m) =>
         (configuredProvider === 'localWhisper' && m.provider === 'whisper' && m.name === configuredModel) ||
         (configuredProvider === 'parakeet' && m.provider === 'parakeet' && m.name === configuredModel) ||
-        (configuredProvider === 'gemini' && m.provider === 'gemini' && m.name === configuredModel)
+        (configuredProvider === 'vercel-gateway' && m.provider === 'vercel-gateway' && m.name === configuredModel)
     );
 
     // Only set default model if user hasn't manually selected one

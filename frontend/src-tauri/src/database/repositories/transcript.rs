@@ -15,6 +15,7 @@ impl TranscriptsRepository {
         meeting_title: &str,
         transcripts: &[TranscriptSegment],
         folder_path: Option<String>,
+        recording_session_id: Option<String>,
     ) -> Result<String, SqlxError> {
         let meeting_id = format!("meeting-{}", Uuid::new_v4());
 
@@ -47,8 +48,8 @@ impl TranscriptsRepository {
         for segment in transcripts {
             let transcript_id = format!("transcript-{}", Uuid::new_v4());
             let result = sqlx::query(
-                "INSERT INTO transcripts (id, meeting_id, transcript, timestamp, audio_start_time, audio_end_time, duration)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO transcripts (id, meeting_id, transcript, timestamp, audio_start_time, audio_end_time, duration, speaker)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
             )
             .bind(&transcript_id)
             .bind(&meeting_id)
@@ -57,6 +58,7 @@ impl TranscriptsRepository {
             .bind(segment.audio_start_time)
             .bind(segment.audio_end_time)
             .bind(segment.duration)
+            .bind(&segment.speaker)
             .execute(&mut *transaction)
             .await;
 
@@ -76,6 +78,10 @@ impl TranscriptsRepository {
             meeting_id
         );
 
+        if let Some(session_id) = recording_session_id {
+            sqlx::query("UPDATE assistant_sessions SET meeting_id=? WHERE id=? AND meeting_id IS NULL").bind(&meeting_id).bind(&session_id).execute(&mut *transaction).await?;
+            sqlx::query("UPDATE meetings SET client=(SELECT json_extract(context,'$.client') FROM assistant_sessions WHERE id=?),project=(SELECT json_extract(context,'$.project') FROM assistant_sessions WHERE id=?),additional_context=(SELECT json_extract(context,'$.additionalContext') FROM assistant_sessions WHERE id=?) WHERE id=? AND EXISTS(SELECT 1 FROM assistant_sessions WHERE id=? AND json_valid(context))").bind(&session_id).bind(&session_id).bind(&session_id).bind(&meeting_id).bind(&session_id).execute(&mut *transaction).await?;
+        }
         // Commit the transaction
         transaction.commit().await?;
 

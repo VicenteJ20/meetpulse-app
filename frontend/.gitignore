@@ -17,6 +17,10 @@ package-lock.json
 transcripts/
 chroma/
 models/
+# El catalogo de la IA integrada se incrusta al compilar (include_str!), asi que debe versionarse.
+!src-tauri/models/
+src-tauri/models/*
+!src-tauri/models/builtin_models.json
 whisper.cpp/
 whisper-server*
 whisper-server-package/

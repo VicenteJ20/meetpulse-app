@@ -1,64 +1,35 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { FileQuestion, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 interface EmptyStateSummaryProps {
   onGenerate: () => void;
   hasModel: boolean;
   isGenerating?: boolean;
+  /** Hay un resumen antiguo que no tiene el formato de insights: se ofrece generarlos de nuevo. */
+  legacy?: boolean;
 }
 
-export function EmptyStateSummary({ onGenerate, hasModel, isGenerating = false }: EmptyStateSummaryProps) {
+export function EmptyStateSummary({ onGenerate, hasModel, isGenerating = false, legacy = false }: EmptyStateSummaryProps) {
+  const { t } = useTranslation();
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="flex flex-col items-center justify-center h-full p-8 text-center"
-    >
-      <FileQuestion className="mb-4 h-16 w-16 text-muted-foreground/55" />
-      <h3 className="mb-2 text-lg font-semibold text-foreground">
-        No Summary Generated Yet
+    <div className="animate-enter flex h-full flex-col items-center justify-center p-8 text-center">
+      <span className="mb-4 grid size-12 place-items-center rounded-2xl bg-accent text-brand">
+        <Sparkles className="size-6" />
+      </span>
+      <h3 className="mb-1.5 text-lg font-semibold tracking-[-0.02em] text-foreground">
+        {legacy ? t('insights.legacyTitle') : t('insights.emptyTitle')}
       </h3>
-      <p className="mb-6 max-w-md text-sm text-muted-foreground">
-        Generate an AI-powered summary of your meeting transcript to get key points, action items, and decisions.
+      <p className="mb-5 max-w-sm text-sm leading-6 text-muted-foreground">
+        {legacy ? t('insights.legacyText') : t('insights.emptyText')}
       </p>
-
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Button
-                onClick={onGenerate}
-                disabled={!hasModel || isGenerating}
-                className="gap-2"
-              >
-                <Sparkles className="w-4 h-4" />
-                {isGenerating ? 'Generating...' : 'Generate Summary'}
-              </Button>
-            </div>
-          </TooltipTrigger>
-          {!hasModel && (
-            <TooltipContent>
-              <p>Please select a model in Settings first</p>
-            </TooltipContent>
-          )}
-        </Tooltip>
-      </TooltipProvider>
-
-      {!hasModel && (
-        <p className="mt-3 text-xs text-warning">
-          Please select a model in Settings first
-        </p>
-      )}
-    </motion.div>
+      <Button onClick={onGenerate} disabled={!hasModel || isGenerating}>
+        <Sparkles />
+        {isGenerating ? t('meeting.processing') : t('insights.generate')}
+      </Button>
+      {!hasModel && <p className="mt-3 text-xs text-warning">{t('insights.needModel')}</p>}
+    </div>
   );
 }

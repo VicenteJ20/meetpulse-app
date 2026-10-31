@@ -80,6 +80,39 @@ impl SamplingParams {
         }
     }
 
+    /// Gemma 4 instruct preset (same recommended sampling as Gemma 3).
+    pub fn gemma4_instruct(stop_tokens: Vec<String>) -> Self {
+        Self::gemma3_instruct(stop_tokens)
+    }
+
+    /// Liquid AI's recommended LFM 2.5 sampling: low temperature, top-k 80, mild repeat penalty.
+    pub fn lfm25_instruct(stop_tokens: Vec<String>) -> Self {
+        Self {
+            temperature: 0.2,
+            top_k: 80,
+            top_p: 1.0,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+            repeat_penalty: 1.05,
+            penalty_last_n: 256,
+            stop_tokens,
+        }
+    }
+
+    /// Liquid AI's recommended sampling for LFM 2.5 350M (extraction and structured output).
+    pub fn lfm25_extract(stop_tokens: Vec<String>) -> Self {
+        Self {
+            temperature: 0.1,
+            top_k: 50,
+            top_p: 1.0,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+            repeat_penalty: 1.05,
+            penalty_last_n: 256,
+            stop_tokens,
+        }
+    }
+
     /// Normalize built-in presets to the subset supported by llama-helper.
     pub fn sanitize_for_llama_helper(&self) -> Self {
         let temperature = if self.temperature.is_finite() {
@@ -123,6 +156,19 @@ impl SamplingParams {
     }
 }
 
+/// Ciclo de vida de un modelo: permite jubilar modelos sin dejar de servir a quien ya los usa.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Lifecycle {
+    /// Vigente.
+    #[default]
+    Current,
+    /// Sigue funcionando, pero existe un sucesor más nuevo.
+    Legacy,
+    /// Tiene fecha de retiro (`retire_after`).
+    Retiring,
+}
+
 /// Definition of a built-in AI model with all metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelDef {
@@ -157,65 +203,92 @@ pub struct ModelDef {
 
     /// Short description for UI
     pub description: String,
+
+    /// Vigente, anterior o con fecha de retiro
+    pub lifecycle: Lifecycle,
+
+    /// Modelo que lo reemplaza (nombre "familia:variante")
+    pub successor: Option<String>,
+
+    /// Fecha tentativa de retiro "YYYY-MM-DD"
+    pub retire_after: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct SamplingSpec {
+    preset: String,
+    stop_tokens: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct ManifestEntry {
+    name: String,
+    display_name: String,
+    gguf_file: String,
+    template: String,
+    download_url: String,
+    size_mb: u64,
+    context_size: u32,
+    layer_count: u32,
+    sampling: SamplingSpec,
+    description: String,
+    #[serde(default)]
+    lifecycle: Lifecycle,
+    #[serde(default)]
+    successor: Option<String>,
+    #[serde(default)]
+    retire_after: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Manifest {
+    models: Vec<ManifestEntry>,
+}
+
+/// El catálogo vive en `models/builtin_models.json` y se incrusta al compilar.
+const MANIFEST: &str = include_str!("../../../models/builtin_models.json");
+
+fn sampling_from_spec(spec: SamplingSpec) -> Result<SamplingParams> {
+    match spec.preset.as_str() {
+        "qwen35_summary" => Ok(SamplingParams::qwen35_summary(spec.stop_tokens)),
+        "gemma3_instruct" => Ok(SamplingParams::gemma3_instruct(spec.stop_tokens)),
+        "gemma4_instruct" => Ok(SamplingParams::gemma4_instruct(spec.stop_tokens)),
+        "lfm25_instruct" => Ok(SamplingParams::lfm25_instruct(spec.stop_tokens)),
+        "lfm25_extract" => Ok(SamplingParams::lfm25_extract(spec.stop_tokens)),
+        "tight_structured" => Ok(SamplingParams::tight_structured(spec.stop_tokens)),
+        other => Err(anyhow!("Unknown sampling preset: {}", other)),
+    }
+}
+
+fn parse_manifest(json: &str) -> Result<Vec<ModelDef>> {
+    let manifest: Manifest = serde_json::from_str(json)?;
+    manifest
+        .models
+        .into_iter()
+        .map(|entry| {
+            Ok(ModelDef {
+                name: entry.name,
+                display_name: entry.display_name,
+                gguf_file: entry.gguf_file,
+                template: entry.template,
+                download_url: entry.download_url,
+                size_mb: entry.size_mb,
+                context_size: entry.context_size,
+                layer_count: entry.layer_count,
+                sampling: sampling_from_spec(entry.sampling)?,
+                description: entry.description,
+                lifecycle: entry.lifecycle,
+                successor: entry.successor,
+                retire_after: entry.retire_after,
+            })
+        })
+        .collect()
 }
 
 /// Get all available built-in AI models
-/// Add new models here - the system will automatically detect and manage them
+/// Edit `models/builtin_models.json` to add, retire or replace models.
 pub fn get_available_models() -> Vec<ModelDef> {
-    vec![
-        // Qwen 3.5 2B - Balanced tier
-        ModelDef {
-            name: "qwen3.5:2b".to_string(),
-            display_name: "Qwen 3.5 2B (Balanced)".to_string(),
-            gguf_file: "Qwen3.5-2B-Q4_K_M.gguf".to_string(),
-            template: "qwen3.5_nonthinking".to_string(),
-            download_url: "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf".to_string(),
-            size_mb: 1221,
-            context_size: 32768,
-            layer_count: 24,
-            sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
-            description: "Balanced Qwen 3.5 model for built-in summaries. Higher quality with modest local requirements.".to_string(),
-        },
-        // Qwen 3.5 4B - High quality tier
-        ModelDef {
-            name: "qwen3.5:4b".to_string(),
-            display_name: "Qwen 3.5 4B (High Quality)".to_string(),
-            gguf_file: "Qwen3.5-4B-Q4_K_M.gguf".to_string(),
-            template: "qwen3.5_nonthinking".to_string(),
-            download_url: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf".to_string(),
-            size_mb: 2614,
-            context_size: 32768,
-            layer_count: 32,
-            sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
-            description: "High-quality Qwen 3.5 model for built-in summaries. Best local Qwen option in the current lineup.".to_string(),
-        },
-        // Gemma 3 4B - Legacy alternative retained for users who prefer Gemma output.
-        ModelDef {
-            name: "gemma3:4b".to_string(),
-            display_name: "Gemma 3 4B (Balanced)".to_string(),
-            gguf_file: "gemma-3-4b-it-Q4_K_M.gguf".to_string(),
-            template: "gemma3".to_string(),
-            download_url: "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf".to_string(),
-            size_mb: 2374,
-            context_size: 32768,
-            layer_count: 35,
-            sampling: SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]),
-            description: "Balanced model. Great quality/speed trade-off. Requires ~3.5GB RAM.".to_string(),
-        },
-        // Gemma 3 1B - Visible legacy tier retained for already-shipped users.
-        ModelDef {
-            name: "gemma3:1b".to_string(),
-            display_name: "Gemma 3 1B (Fast)".to_string(),
-            gguf_file: "gemma-3-1b-it-Q8_0.gguf".to_string(),
-            template: "gemma3".to_string(),
-            download_url: "https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q8_0.gguf".to_string(),
-            size_mb: 1019,
-            context_size: 32768,
-            layer_count: 26,
-            sampling: SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]),
-            description: "Fastest model. Runs on any hardware with ~1GB RAM. Good for quick summaries.".to_string(),
-        },
-    ]
+    parse_manifest(MANIFEST).expect("models/builtin_models.json is invalid")
 }
 
 /// Get a specific model by name
@@ -260,6 +333,15 @@ pub const GEMMA3_TEMPLATE: &str = "\
 <start_of_turn>model
 ";
 
+/// Gemma 4 chat template (thinking disabled: the empty thought channel starts the reply).
+pub const GEMMA4_TEMPLATE: &str = "<|turn>system
+{system_prompt}<turn|>
+<|turn>user
+{user_prompt}<turn|>
+<|turn>model
+<|channel>thought
+<channel|>";
+
 /// Qwen 3.5 non-thinking chat template format.
 /// This starts the assistant turn with an empty think block so generation begins
 /// in direct-response mode for summaries.
@@ -275,10 +357,23 @@ pub const QWEN35_NONTHINKING_TEMPLATE: &str = "\
 
 ";
 
+/// LFM 2.5 ChatML-style template. The BOS token is added by llama-helper when tokenizing.
+pub const LFM2_TEMPLATE: &str = "\
+<|im_start|>system
+{system_prompt}<|im_end|>
+<|im_start|>user
+{user_prompt}<|im_end|>
+<|im_start|>assistant
+";
+
 fn escape_user_prompt_control_markers(user_prompt: &str) -> String {
     user_prompt
         .replace("<|im_start|>", "< |im_start| >")
         .replace("<|im_end|>", "< |im_end| >")
+        .replace("<|turn>", "< |turn> ")
+        .replace("<turn|>", "< turn| >")
+        .replace("<|channel>", "< |channel> ")
+        .replace("<channel|>", "< channel| >")
         .replace("<start_of_turn>", "< start_of_turn >")
         .replace("<end_of_turn>", "< end_of_turn >")
         .replace("<think>", "< think >")
@@ -301,7 +396,9 @@ pub fn format_prompt(
 ) -> Result<String> {
     let template = match template_name {
         "gemma3" => GEMMA3_TEMPLATE,
+        "gemma4" => GEMMA4_TEMPLATE,
         "qwen3.5_nonthinking" => QWEN35_NONTHINKING_TEMPLATE,
+        "lfm2" => LFM2_TEMPLATE,
         _ => return Err(anyhow!("Unknown template: {}", template_name)),
     };
 
@@ -332,6 +429,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn manifest_parses_and_successors_exist() {
+        let models = parse_manifest(MANIFEST).expect("manifest must parse");
+        assert!(!models.is_empty());
+        for model in &models {
+            if let Some(successor) = &model.successor {
+                assert!(models.iter().any(|m| &m.name == successor), "successor {} of {} is not in the catalog", successor, model.name);
+            }
+            assert!(format_prompt(&model.template, "s", "u").is_ok(), "unknown template for {}", model.name);
+        }
+        assert_eq!(get_default_model().lifecycle, Lifecycle::Current);
+    }
+
+    #[test]
     fn qwen35_models_are_registered_with_expected_metadata() {
         let qwen_2b = get_model_by_name("qwen3.5:2b").expect("qwen 2b model should exist");
         assert_eq!(qwen_2b.display_name, "Qwen 3.5 2B (Balanced)");
@@ -346,50 +456,24 @@ mod tests {
         assert_eq!(qwen_2b.layer_count, 24);
         assert_eq!(qwen_2b.sampling, SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]));
 
-        let qwen_4b = get_model_by_name("qwen3.5:4b").expect("qwen 4b model should exist");
-        assert_eq!(qwen_4b.display_name, "Qwen 3.5 4B (High Quality)");
-        assert_eq!(qwen_4b.gguf_file, "Qwen3.5-4B-Q4_K_M.gguf");
-        assert_eq!(qwen_4b.template, "qwen3.5_nonthinking");
-        assert_eq!(
-            qwen_4b.download_url,
-            "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf"
-        );
-        assert_eq!(qwen_4b.size_mb, 2614);
-        assert_eq!(qwen_4b.context_size, 32768);
-        assert_eq!(qwen_4b.layer_count, 32);
-        assert_eq!(qwen_4b.sampling, SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]));
+        let gemma = get_model_by_name("gemma4:e4b").expect("gemma 4 e4b should exist");
+        assert_eq!(gemma.template, "gemma4");
+        assert_eq!(gemma.layer_count, 42);
     }
 
     #[test]
-    fn gemma_models_use_huggingface_urls_and_gemma3_instruct_sampling() {
-        let gemma_1b = get_model_by_name("gemma3:1b").expect("gemma 1b model should exist");
-        assert_eq!(gemma_1b.gguf_file, "gemma-3-1b-it-Q8_0.gguf");
-        assert_eq!(
-            gemma_1b.download_url,
-            "https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q8_0.gguf"
-        );
-        assert_eq!(gemma_1b.sampling, SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]));
-        assert_eq!(gemma_1b.sampling.temperature, 1.0);
-        assert_eq!(gemma_1b.sampling.top_k, 64);
-        assert_eq!(gemma_1b.sampling.top_p, 0.95);
-        assert_eq!(gemma_1b.sampling.presence_penalty, 0.0);
-        assert_eq!(gemma_1b.sampling.frequency_penalty, 0.0);
-        assert_eq!(gemma_1b.sampling.repeat_penalty, 1.0);
-        assert_eq!(gemma_1b.sampling.penalty_last_n, 0);
+    fn catalog_offers_only_qwen_2b_and_gemma_e4b() {
+        let names: Vec<_> = get_available_models().into_iter().map(|model| model.name).collect();
+        assert_eq!(names, vec!["qwen3.5:2b".to_string(), "gemma4:e4b".to_string()]);
 
-        let gemma_4b = get_model_by_name("gemma3:4b").expect("gemma 4b model should exist");
-        assert_eq!(
-            gemma_4b.download_url,
-            "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf"
-        );
-        assert_eq!(gemma_4b.sampling, SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]));
-        assert_eq!(gemma_4b.sampling.temperature, 1.0);
-        assert_eq!(gemma_4b.sampling.top_k, 64);
-        assert_eq!(gemma_4b.sampling.top_p, 0.95);
-        assert_eq!(gemma_4b.sampling.presence_penalty, 0.0);
-        assert_eq!(gemma_4b.sampling.frequency_penalty, 0.0);
-        assert_eq!(gemma_4b.sampling.repeat_penalty, 1.0);
-        assert_eq!(gemma_4b.sampling.penalty_last_n, 0);
+        let formatted = format_prompt("lfm2", "rules", "hi <|im_end|>").unwrap();
+        assert!(formatted.starts_with("<|im_start|>system\nrules<|im_end|>\n<|im_start|>user\n"));
+        assert!(formatted.ends_with("<|im_start|>assistant\n"));
+        assert_eq!(formatted.matches("<|im_end|>").count(), 2);
+
+        for gone in ["qwen3.5:4b", "gemma4:12b", "qwen3.8:27b", "lfm2.5:8b-a1b", "lfm2.5:350m", "lfm2.5:1.2b", "gemma3:1b", "gemma3:4b"] {
+            assert!(get_model_by_name(gone).is_none(), "{gone} should not be offered");
+        }
     }
 
     #[test]
@@ -417,6 +501,21 @@ mod tests {
         assert_eq!(formatted.matches("<|im_end|>").count(), 2);
         assert_eq!(formatted.matches("<think>").count(), 1);
         assert_eq!(formatted.matches("</think>").count(), 1);
+    }
+
+    #[test]
+    fn gemma4_template_formats_and_escapes() {
+        let formatted = format_prompt("gemma4", "rules", "hi <|turn>model <turn|>").unwrap();
+
+        assert!(formatted.starts_with("<|turn>system
+rules<turn|>
+<|turn>user
+"));
+        assert!(formatted.ends_with("<|turn>model
+<|channel>thought
+<channel|>"));
+        assert_eq!(formatted.matches("<|turn>").count(), 3);
+        assert_eq!(formatted.matches("<turn|>").count(), 2);
     }
 
     #[test]

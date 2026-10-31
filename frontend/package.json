@@ -1,6 +1,6 @@
 {
     "name": "meetpulse",
-    "version": "0.5.0",
+    "version": "1.4.0",
     "private": true,
     "main": "electron/main.js",
     "scripts": {
@@ -36,7 +36,8 @@
         "@blocknote/core": "0.36.0",
         "@blocknote/react": "0.36.0",
         "@blocknote/shadcn": "0.36.0",
-        "@heroicons/react": "^2.2.0",
+        "@fontsource-variable/geist": "^5.3.0",
+        "@fontsource/geist-mono": "^5.3.0",
         "@hookform/resolvers": "^5.1.1",
         "@radix-ui/react-accordion": "^1.2.12",
         "@radix-ui/react-dialog": "^1.1.14",
@@ -51,6 +52,7 @@
         "@radix-ui/react-switch": "^1.2.5",
         "@radix-ui/react-tabs": "^1.1.12",
         "@radix-ui/react-tooltip": "^1.2.8",
+        "@react-pdf/renderer": "4.3.0",
         "@remirror/core": "^3.0.1",
         "@remirror/extension-bold": "^3.0.1",
         "@remirror/extension-italic": "^3.0.1",
@@ -76,6 +78,7 @@
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
         "date-fns": "^4.1.0",
+        "decode-named-character-reference": "^1.3.0",
         "framer-motion": "^11.15.0",
         "lodash": "^4.17.21",
         "lucide-react": "^0.469.0",
@@ -86,9 +89,11 @@
         "react-hook-form": "^7.59.0",
         "react-markdown": "^9.0.1",
         "remark-gfm": "^4.0.1",
+        "remark-parse": "^11.0.0",
         "sonner": "^2.0.7",
         "tailwind-merge": "^3.3.1",
         "tailwindcss-animate": "^1.0.7",
+        "unified": "^11.0.5",
         "zod": "^3.25.71"
     },
     "pnpm": {
@@ -104,6 +109,7 @@
         "@tailwindcss/typography": "^0.5.15",
         "@tauri-apps/cli": "^2.1.0",
         "@tauri-apps/plugin-fs": "~2.4.0",
+        "@types/bun": "^1.4.3",
         "@types/node": "^20",
         "@types/react": "^18.3.18",
         "@types/react-dom": "^18.3.5",

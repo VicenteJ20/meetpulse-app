@@ -1,10 +1,10 @@
 [package]
 name = "meetpulse"
-version = "0.5.0"
-description = "A Tauri App for meeting minutes"
-authors = ["Sujith S"]
+version = "1.4.0"
+description = "MeetPulse: asistente de reuniones privado y local"
+authors = ["Vicente Jorquera"]
 license = "MIT"
-repository = "https://github.com/Zackriya-Solutions/meeting-minutes"
+repository = "https://github.com/VicenteJ20/meetpulse-app"
 edition = "2021"
 rust-version = "1.77"
 
@@ -103,7 +103,8 @@ futures-util = "0.3"
 silero_rs = { git = "https://github.com/emotechlab/silero-rs", rev = "26a6460", package = "silero" }
 
 # Parakeet (ONNX-based fast transcription) dependencies
-ort = { version = "2.0.0-rc.10" }  # ONNX Runtime for Parakeet models
+ort = { version = "=2.0.0-rc.10" }
+tokenizers = { version = "0.21", default-features = false, features = ["onig"] }  # ONNX Runtime for Parakeet models
 thiserror = "2.0.16"                # Error handling for Parakeet
 
 # Async
@@ -123,9 +124,7 @@ dirs = "5.0.1"
 # Additional dependencies for notification system
 url = "2.5.0"
 base64 = "0.22"
-keyring = "3.6"
 sha2 = "0.10"
-webbrowser = "1.0"
 
 
 # System monitoring for resource management
@@ -137,7 +136,7 @@ regex = "1.11.0"
 ndarray = "0.16"
 bytes = { version = "1.9.0", features = ["serde"] }
 
-esaxx-rs = "0.1.10"
+esaxx-rs = { version = "0.1.10", default-features = false }
 symphonia = { version = "0.5.4", features = ["aac", "isomp4", "mp3", "flac", "ogg", "vorbis", "pcm", "wav", "opt-simd"] }
 rand = "0.8.5"
 rayon = "1.10"

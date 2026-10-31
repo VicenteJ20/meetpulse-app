@@ -5,6 +5,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { DeviceSelection, SelectedDevices } from '@/components/DeviceSelection';
 import Analytics from '@/lib/analytics';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { SettingsSection } from '@/components/ui/settings';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 export interface RecordingPreferences {
   save_folder: string;
@@ -19,6 +22,7 @@ interface RecordingSettingsProps {
 }
 
 export function RecordingSettings({ onSave }: RecordingSettingsProps) {
+  const { t } = useTranslation();
   const [preferences, setPreferences] = useState<RecordingPreferences>({
     save_folder: '',
     auto_save: true,
@@ -74,9 +78,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     await savePreferences(newPreferences);
 
     // Track auto-save setting change
-    await Analytics.track('auto_save_recording_toggled', {
-      enabled: enabled.toString()
-    });
+    await Analytics.trackSettingsChanged('auto_save_recording', enabled.toString());
   };
 
   const handleDeviceChange = async (devices: SelectedDevices) => {
@@ -90,10 +92,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
 
     // Track default device preference changes
     // Note: Individual device selection analytics are tracked in DeviceSelection component
-    await Analytics.track('default_devices_changed', {
-      has_preferred_microphone: (!!devices.micDevice).toString(),
-      has_preferred_system_audio: (!!devices.systemDevice).toString()
-    });
+    await Analytics.trackSettingsChanged('default_devices', `mic:${!!devices.micDevice},system:${!!devices.systemDevice}`);
   };
 
   const handleOpenFolder = async () => {
@@ -111,13 +110,11 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
       const store = await Store.load('preferences.json');
       await store.set('show_recording_notification', enabled);
       await store.save();
-      toast.success('Preference saved');
-      await Analytics.track('recording_notification_preference_changed', {
-        enabled: enabled.toString()
-      });
+      toast.success(t('rs.prefSaved'));
+      await Analytics.trackSettingsChanged('recording_notification', enabled.toString());
     } catch (error) {
       console.error('Failed to save notification preference:', error);
-      toast.error('Failed to save preference');
+      toast.error(t('rs.prefFailed'));
     }
   };
 
@@ -128,14 +125,14 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
       onSave?.(prefs);
 
       // Show success toast with device details
-      const micDevice = prefs.preferred_mic_device || 'Default';
-      const systemDevice = prefs.preferred_system_device || 'Default';
-      toast.success("Device preferences saved", {
+      const micDevice = prefs.preferred_mic_device || t('rs.defaultDevice');
+      const systemDevice = prefs.preferred_system_device || t('rs.defaultDevice');
+      toast.success(t('rs.devSaved'), {
         description: `Microphone: ${micDevice}, System Audio: ${systemDevice}`
       });
     } catch (error) {
       console.error('Failed to save recording preferences:', error);
-      toast.error("Failed to save device preferences", {
+      toast.error(t('rs.devFailed'), {
         description: error instanceof Error ? error.message : String(error)
       });
     } finally {
@@ -153,100 +150,49 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Recording Settings</h3>
-        <p className="text-sm text-muted-foreground mb-6">
-          Configure how your audio recordings are saved during meetings.
-        </p>
-      </div>
-
-      {/* Auto Save Toggle */}
-      <div className="flex items-center justify-between p-4 border rounded-lg">
-        <div className="flex-1">
-          <div className="font-medium">Save Audio Recordings</div>
-          <div className="text-sm text-muted-foreground">
-            Automatically save audio files when recording stops
-          </div>
-        </div>
-        <Switch
-          checked={preferences.auto_save}
-          onCheckedChange={handleAutoSaveToggle}
-          disabled={saving}
-        />
-      </div>
-
-      {/* Folder Location - Only shown when auto_save is enabled */}
-      {preferences.auto_save && (
-        <div className="space-y-4">
-          <div className="p-4 border rounded-lg bg-muted/50">
-            <div className="font-medium mb-2">Save Location</div>
-            <div className="text-sm text-muted-foreground mb-3 break-all">
-              {preferences.save_folder || 'Default folder'}
+    <div>
+      <SettingsSection
+        title={t('rs.saveAudio')}
+        description={t('rs.saveAudioDesc')}
+        action={<Switch checked={preferences.auto_save} onCheckedChange={handleAutoSaveToggle} disabled={saving} aria-label={t('rs.saveAudio')} />}
+      >
+        {preferences.auto_save ? (
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="text-sm font-medium">{t('rs.location')}</div>
+            <div className="mt-1 break-all font-mono text-xs text-muted-foreground">
+              {preferences.save_folder || t('rs.defaultFolder')}
             </div>
-            <button
-              onClick={handleOpenFolder}
-              className="flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-muted/50 transition-colors"
-            >
-              <FolderOpen className="w-4 h-4" />
-              Open Folder
-            </button>
+            <Button variant="outline" size="sm" className="mt-3" onClick={handleOpenFolder}>
+              <FolderOpen />
+              {t('rs.openFolder')}
+            </Button>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {t('rs.format').replace('{ext}', (preferences.file_format || 'mp4').toUpperCase())}
+            </p>
           </div>
+        ) : (
+          <p className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">{t('rs.disabled')}</p>
+        )}
+      </SettingsSection>
 
-          <div className="p-4 border rounded-lg bg-brand/10">
-            <div className="text-sm text-brand">
-              <strong>File Format:</strong> {preferences.file_format.toUpperCase()} files
-            </div>
-            <div className="text-xs text-blue-600 mt-1">
-              Recordings are saved with timestamp: recording_YYYYMMDD_HHMMSS.{preferences.file_format}
-            </div>
-          </div>
+      <SettingsSection
+        title={t('rs.notice')}
+        description={t('rs.noticeDesc')}
+        action={<Switch checked={showRecordingNotification} onCheckedChange={handleNotificationToggle} aria-label={t('rs.notice')} />}
+      />
+
+      <SettingsSection title={t('rs.devices')} description={t('rs.devicesDesc')}>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <DeviceSelection
+            selectedDevices={{
+              micDevice: preferences.preferred_mic_device,
+              systemDevice: preferences.preferred_system_device,
+            }}
+            onDeviceChange={handleDeviceChange}
+            disabled={saving}
+          />
         </div>
-      )}
-
-      {/* Info when auto_save is disabled */}
-      {!preferences.auto_save && (
-        <div className="p-4 border rounded-lg bg-warning/10">
-          <div className="text-sm text-warning">
-            Audio recording is disabled. Enable "Save Audio Recordings" to automatically save your meeting audio.
-          </div>
-        </div>
-      )}
-
-      {/* Recording Notification Toggle */}
-      <div className="flex items-center justify-between p-4 border rounded-lg">
-        <div className="flex-1">
-          <div className="font-medium">Recording Start Notification</div>
-          <div className="text-sm text-muted-foreground">
-            Show reminder to inform participants when recording starts
-          </div>
-        </div>
-        <Switch
-          checked={showRecordingNotification}
-          onCheckedChange={handleNotificationToggle}
-        />
-      </div>
-
-      {/* Device Preferences */}
-      <div className="space-y-4">
-        <div className="border-t pt-6">
-          <h4 className="text-base font-medium text-foreground mb-4">Default Audio Devices</h4>
-          <p className="text-sm text-muted-foreground mb-4">
-            Set your preferred microphone and system audio devices for recording. These will be automatically selected when starting new recordings.
-          </p>
-
-          <div className="border rounded-lg p-4 bg-muted/50">
-            <DeviceSelection
-              selectedDevices={{
-                micDevice: preferences.preferred_mic_device,
-                systemDevice: preferences.preferred_system_device
-              }}
-              onDeviceChange={handleDeviceChange}
-              disabled={saving}
-            />
-          </div>
-        </div>
-      </div>
+      </SettingsSection>
     </div>
   );
 }

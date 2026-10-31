@@ -1,0 +1,10 @@
+ALTER TABLE meetings ADD COLUMN wiki_tenant_id TEXT;
+ALTER TABLE meetings ADD COLUMN wiki_client_id TEXT;
+ALTER TABLE meetings ADD COLUMN wiki_project_id TEXT;
+ALTER TABLE meetings ADD COLUMN wiki_source_key TEXT;
+ALTER TABLE meetings ADD COLUMN wiki_job_id TEXT;
+ALTER TABLE meetings ADD COLUMN wiki_analysis_hash TEXT;
+ALTER TABLE meetings ADD COLUMN wiki_raw_hash TEXT;
+ALTER TABLE meetings ADD COLUMN wiki_published_at TEXT;
+ALTER TABLE meetings ADD COLUMN wiki_ingest_status TEXT;
+ALTER TABLE meetings ADD COLUMN wiki_librarian_status TEXT;

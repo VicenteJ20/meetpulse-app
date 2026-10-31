@@ -48,8 +48,8 @@ test('meeting summary controls keep semantic contrast and iconography', async ()
   assert.match(languagePicker, /bg-popover text-popover-foreground/);
   assert.match(languagePicker, /bg-brand\/10 font-medium text-brand/);
   assert.doesNotMatch(summaryControls, /slate-|text-white/);
-  assert.match(summaryControls, /border-brand bg-brand text-brand-foreground/);
-  assert.match(summaryControls, /data-\[state=open\]:bg-accent/);
+  assert.match(summaryControls, /variant=\{hasSummary \? 'outline' : 'default'\}/);
+  assert.match(summaryControls, /data-\[state=open\]:border-brand/);
 });
 
 test('BlockNote editors follow the application theme', async () => {
@@ -80,27 +80,4 @@ test('meeting summary document uses one semantic editorial surface', async () =>
   assert.match(globalStyles, /\[data-content-type="table"\] \.tableWrapper/);
   assert.match(summaryPanel, /className="meeting-summary-editor w-full"/);
   assert.doesNotMatch(summaryPanel, /meeting-summary-editor w-full p-6/);
-});
-
-test('home readiness controls align device icons with a stable text gap', async () => {
-  const controls = await readFile(
-    path.join(frontendRoot, 'src/components/HomeReadinessControls.tsx'),
-    'utf8'
-  );
-
-  assert.match(controls, /flex min-w-0 flex-1 items-center gap-3/);
-  assert.match(controls, /flex h-9 w-5 shrink-0 items-center justify-center self-center/);
-  assert.match(controls, /<Icon className="h-4 w-4" \/>/);
-});
-
-test('wiki documents reuse the semantic editorial surface without a nested dark canvas', async () => {
-  const [wikiPage, globalStyles] = await Promise.all([
-    readFile(path.join(frontendRoot, 'src/app/wiki/page.tsx'), 'utf8'),
-    readFile(path.join(frontendRoot, 'src/app/globals.css'), 'utf8'),
-  ]);
-
-  assert.match(wikiPage, /mx-auto max-w-\[880px\]/);
-  assert.match(wikiPage, /meeting-summary-editor wiki-document-editor/);
-  assert.match(globalStyles, /\.wiki-document-editor\.meeting-summary-editor/);
-  assert.match(globalStyles, /\.wiki-document-editor \.bn-editor h1/);
 });

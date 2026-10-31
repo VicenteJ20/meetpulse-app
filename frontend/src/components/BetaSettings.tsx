@@ -1,71 +1,34 @@
 "use client"
 
 import { Switch } from "./ui/switch"
-import { FlaskConical, AlertCircle } from "lucide-react"
+import { SettingsSection } from "@/components/ui/settings"
+import { AlertCircle } from "lucide-react"
 import { useConfig } from "@/contexts/ConfigContext"
-import {
-  BetaFeatureKey,
-  BETA_FEATURE_NAMES,
-  BETA_FEATURE_DESCRIPTIONS
-} from "@/types/betaFeatures"
+import { useTranslation } from "@/contexts/UiPreferencesContext"
+import { BetaFeatureKey } from "@/types/betaFeatures"
 
 export function BetaSettings() {
+  const { t } = useTranslation();
   const { betaFeatures, toggleBetaFeature } = useConfig();
 
-  // Define feature order for display (allows custom ordering)
+  // Orden de visualización de las funciones beta
   const featureOrder: BetaFeatureKey[] = ['importAndRetranscribe'];
 
   return (
-    <div className="space-y-6">
-      {/* Yellow Warning Banner */}
-      <div className="flex items-start gap-3 p-4 bg-warning/10 border border-warning/25 rounded-lg">
-        <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-warning">
-          <p className="font-medium">Beta Features</p>
-          <p className="mt-1">
-            These features are still being tested. You may encounter issues, and we appreciate your feedback.
-          </p>
-        </div>
-      </div>
-
-      {/* Dynamic Feature Toggles - Automatically renders all features */}
+    <div>
+      <p className="mb-2 flex items-start gap-2.5 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+        <AlertCircle className="mt-0.5 size-4 shrink-0" />
+        {t('beta.banner')}
+      </p>
       {featureOrder.map((featureKey) => (
-        <div
+        <SettingsSection
           key={featureKey}
-          className="bg-card rounded-lg border border-border p-6 shadow-sm"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <FlaskConical className="h-5 w-5 text-muted-foreground" />
-                <h3 className="text-lg font-semibold text-foreground">
-                  {BETA_FEATURE_NAMES[featureKey]}
-                </h3>
-                <span className="px-2 py-0.5 text-xs font-medium bg-warning/15 text-warning rounded-full">
-                  BETA
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {BETA_FEATURE_DESCRIPTIONS[featureKey]}
-              </p>
-            </div>
-
-            <div className="ml-6">
-              <Switch
-                checked={betaFeatures[featureKey]}
-                onCheckedChange={(checked) => toggleBetaFeature(featureKey, checked)}
-              />
-            </div>
-          </div>
-        </div>
+          title={t(`beta.${featureKey}`)}
+          description={t(`beta.${featureKey}Desc`)}
+          action={<Switch checked={betaFeatures[featureKey]} onCheckedChange={(checked) => toggleBetaFeature(featureKey, checked)} aria-label={t(`beta.${featureKey}`)} />}
+        />
       ))}
-
-      {/* Info Box */}
-      <div className="p-4 bg-brand/10 border border-brand/25 rounded-lg">
-        <p className="text-sm text-brand">
-          <strong>Note:</strong> When disabled, beta features will be hidden. Your existing meetings remain unaffected.
-        </p>
-      </div>
+      <p className="border-t border-border pt-4 text-xs text-muted-foreground">{t('beta.note')}</p>
     </div>
   );
 }

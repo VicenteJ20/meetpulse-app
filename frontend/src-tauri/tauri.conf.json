@@ -1,7 +1,7 @@
 {
     "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
     "productName": "MeetPulse",
-    "version": "0.5.0",
+    "version": "1.4.0",
     "identifier": "com.meetpulse.ai",
     "build": {
         "frontendDist": "../out",
@@ -26,7 +26,7 @@
                 "default-src": "'self'",
                 "style-src": "'self' 'unsafe-inline'",
                 "img-src": "'self' asset: https://asset.localhost data:",
-                "connect-src": "'self' http://localhost:11434 http://localhost:5167 http://localhost:8178 https://api.ollama.ai https://meetpulse-wiki.vercel.app"
+                "connect-src": "'self' http://localhost:11434 http://localhost:5167 http://localhost:8178 https://api.ollama.ai"
             },
             "assetProtocol": {
                 "enable": true,
@@ -87,7 +87,15 @@
             "app",
             "dmg"
         ],
-        "createUpdaterArtifacts": false,
+        "createUpdaterArtifacts": true,
+        "publisher": "Vicente Jorquera",
+        "copyright": "Copyright © 2026 Vicente Jorquera. MIT License.",
+        "category": "Productivity",
+        "shortDescription": "Asistente de reuniones privado: graba, transcribe y resume en tu equipo.",
+        "longDescription": "MeetPulse captura, transcribe y resume tus reuniones de forma local, sin enviar el audio a la nube.",
+        "homepage": "https://github.com/VicenteJ20/meetpulse-app",
+        "license": "MIT",
+        "licenseFile": "../../LICENSE.md",
         "icon": [
             "icons/icon.png",
             "icons/icon.icns",
@@ -112,9 +120,9 @@
     },
     "plugins": {
         "updater": {
-            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDQTYzMUQ3ODc5N0M4MkEKUldRcXlKZUgxekdtN09DRkVWSHNpZlJseEVOUmpNd1dDSTNaLzZ3MXJGTnY3WW1pdnlOYjBpbkIK",
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENEMTRCRDY4OUI2MjQyMjUKUldRbFFtS2JhTDBVelh1L05kcmJ2K05uY0xhQmF6THlVYlA0ejhxVDBBSHljNTBXY1pqUkp6K2cK",
             "endpoints": [
-                "https://github.com/Zackriya-Solutions/meeting-minutes/releases/latest/download/latest.json"
+                "https://github.com/VicenteJ20/meetpulse-app/releases/latest/download/latest.json"
             ]
         }
     }

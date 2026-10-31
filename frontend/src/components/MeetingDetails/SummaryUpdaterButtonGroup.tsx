@@ -1,9 +1,9 @@
 "use client";
 
 import { Button } from '@/components/ui/button';
-import { ButtonGroup } from '@/components/ui/button-group';
-import { Copy, Save, Loader2, Search, FolderOpen, BookOpen } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
 import Analytics from '@/lib/analytics';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 interface SummaryUpdaterButtonGroupProps {
   isSaving: boolean;
@@ -13,88 +13,32 @@ interface SummaryUpdaterButtonGroupProps {
   onFind?: () => void;
   onOpenFolder: () => Promise<void>;
   hasSummary: boolean;
-  onSaveToWiki: () => Promise<void>;
-  isSavingToWiki: boolean;
-  isSavedToWiki: boolean;
 }
 
+// Guardar aparece resaltado solo cuando hay cambios; copiar vive ahora en el menú Exportar.
 export function SummaryUpdaterButtonGroup({
   isSaving,
   isDirty,
   onSave,
-  onCopy,
-  onFind,
-  onOpenFolder,
-  hasSummary,
-  onSaveToWiki,
-  isSavingToWiki,
-  isSavedToWiki
 }: SummaryUpdaterButtonGroupProps) {
+  const { t } = useTranslation();
   return (
-    <ButtonGroup>
-      {/* Save button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className={isDirty ? 'border-brand/40 bg-brand/10' : ''}
-        title={isSaving ? "Saving" : "Save Changes"}
-        onClick={() => {
-          Analytics.trackButtonClick('save_changes', 'meeting_details');
-          onSave();
-        }}
-        disabled={isSaving}
-      >
-        {isSaving ? (
-          <>
-            <Loader2 className="animate-spin" />
-            <span className="hidden lg:inline">Saving...</span>
-          </>
-        ) : (
-          <>
-            <Save />
-            <span className="hidden lg:inline">Save</span>
-          </>
-        )}
-      </Button>
-
-      <Button variant="outline" size="sm" title={isSavedToWiki ? 'Saved to Wiki' : 'Choose a Wiki destination'} onClick={onSaveToWiki} disabled={!hasSummary || isSavingToWiki || isSavedToWiki} className="cursor-pointer">
-        {isSavingToWiki ? <Loader2 className="animate-spin" /> : <BookOpen />}
-        <span className="hidden lg:inline">{isSavedToWiki ? 'Saved to Wiki' : 'Choose Wiki'}</span>
-      </Button>
-
-      {/* Copy button */}
-      <Button
-        variant="outline"
-        size="sm"
-        title="Copy Summary"
-        onClick={() => {
-          Analytics.trackButtonClick('copy_summary', 'meeting_details');
-          onCopy();
-        }}
-        disabled={!hasSummary}
-        className="cursor-pointer"
-      >
-        <Copy />
-        <span className="hidden lg:inline">Copy</span>
-      </Button>
-
-      {/* Find button */}
-      {/* {onFind && (
+    <div className="flex items-center gap-1.5">
+      {(isDirty || isSaving) && (
         <Button
-          variant="outline"
           size="sm"
-          title="Find in Summary"
+          variant={isDirty ? 'default' : 'ghost'}
+          title={isSaving ? t('meeting.saving') : t('common.save')}
           onClick={() => {
-            Analytics.trackButtonClick('find_in_summary', 'meeting_details');
-            onFind();
+            void Analytics.track('summary_saved');
+            onSave();
           }}
-          disabled={!hasSummary}
-          className="cursor-pointer"
+          disabled={isSaving}
         >
-          <Search />
-          <span className="hidden lg:inline">Find</span>
+          {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+          {isSaving ? t('meeting.saving') : t('common.save')}
         </Button>
-      )} */}
-    </ButtonGroup>
+      )}
+    </div>
   );
 }

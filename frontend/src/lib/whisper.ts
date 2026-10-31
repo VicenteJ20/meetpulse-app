@@ -1,4 +1,5 @@
 // Types for whisper-rs integration
+import type { TranslationKey } from '@/i18n/catalogs';
 export interface ModelInfo {
   name: string;
   path: string;
@@ -52,37 +53,31 @@ export interface TranscribeAudioRequest {
 export const MODEL_CONFIGS: Record<string, Partial<ModelInfo>> = {
   // Standard f16 models (full precision)
   'large-v3': {
-    description: 'Highest accuracy, best for important meetings. Slower processing.',
     size_mb: 2951,
     accuracy: 'High',
     speed: 'Slow'
   },
   'large-v3-turbo': {
-    description: 'Best accuracy with improved speed.',
     size_mb: 1549,
     accuracy: 'High',
     speed: 'Medium'
   },
   'medium': {
-    description: 'Balanced accuracy and speed. Good for most use cases.',
     size_mb: 1463,
     accuracy: 'High',
     speed: 'Slow'
   },
   'small': {
-    description: 'Fast processing with good quality. Great for quick transcription.',
     size_mb: 466,
     accuracy: 'Good',
     speed: 'Medium'
   },
   'base': {
-    description: 'Good balance of speed and accuracy.',
     size_mb: 142,
     accuracy: 'Good',
     speed: 'Fast'
   },
   'tiny': {
-    description: 'Fastest processing, good for real-time use.',
     size_mb: 39,
     accuracy: 'Decent',
     speed: 'Very Fast'
@@ -90,19 +85,16 @@ export const MODEL_CONFIGS: Record<string, Partial<ModelInfo>> = {
 
   // Q5_1 quantized models (balanced speed/accuracy, slightly better quality than Q5_0)
   'tiny-q5_1': {
-    description: 'Quantized tiny model, ~50% faster processing.',
     size_mb: 31,
     accuracy: 'Decent',
     speed: 'Very Fast'
   },
   'base-q5_1': {
-    description: 'Quantized base model, good speed/accuracy balance.',
     size_mb: 57,
     accuracy: 'Good',
     speed: 'Fast'
   },
   'small-q5_1': {
-    description: 'Quantized small model, faster than f16 version.',
     size_mb: 181,
     accuracy: 'Good',
     speed: 'Fast'
@@ -110,19 +102,16 @@ export const MODEL_CONFIGS: Record<string, Partial<ModelInfo>> = {
 
   // Q5_0 quantized models (balanced speed/accuracy)
   'medium-q5_0': {
-    description: 'Quantized medium model, professional quality with better speed.',
     size_mb: 514,
     accuracy: 'High',
     speed: 'Medium'
   },
   'large-v3-turbo-q5_0': {
-    description: 'Quantized large turbo model, best balance.',
     size_mb: 547,
     accuracy: 'High',
     speed: 'Medium'
   },
   'large-v3-q5_0': {
-    description: 'Quantized large model, best balance of speed and accuracy.',
     size_mb: 1031,
     accuracy: 'High',
     speed: 'Slow'
@@ -173,71 +162,76 @@ export function isQuantizedModel(modelName: string): boolean {
 }
 
 // Helper function to get model performance badge
-export function getModelPerformanceBadge(modelName: string): { label: string; color: string } {
+export function getModelPerformanceBadge(modelName: string): { labelKey: TranslationKey; color: string } {
   const type = getModelType(modelName);
   switch (type) {
     case 'f16':
-      return { label: 'Full Precision', color: 'blue' };
+      return { labelKey: 'mr.fullPrecision', color: 'blue' };
     case 'q5_1':
-      return { label: 'Balanced+', color: 'green' };
+      return { labelKey: 'mr.balancedPlus', color: 'green' };
     case 'q5_0':
-      return { label: 'Balanced', color: 'green' };
+      return { labelKey: 'mr.balanced', color: 'green' };
     case 'q4_0':
-      return { label: 'Fast', color: 'orange' };
+      return { labelKey: 'mr.fast', color: 'orange' };
     default:
-      return { label: 'Standard', color: 'gray' };
+      return { labelKey: 'mr.standard', color: 'gray' };
   }
 }
 
 // Helper function to get concise tagline for model (similar to Parakeet style)
-export function getModelTagline(modelName: string, speed: ProcessingSpeed, accuracy: ModelAccuracy): string {
+export function getModelTaglineKeys(modelName: string, speed: ProcessingSpeed, accuracy: ModelAccuracy): {
+  speedKey: TranslationKey;
+  featureKey: TranslationKey;
+  qualifierKey?: TranslationKey;
+} {
   const isQuantized = isQuantizedModel(modelName);
   const baseName = getModelBaseName(modelName);
 
   // Speed prefix
-  let speedText = '';
+  let speedKey: TranslationKey = 'mr.speedModerate';
   switch (speed) {
     case 'Very Fast':
-      speedText = 'Real time';
+      speedKey = 'mr.speedRealtime';
       break;
     case 'Fast':
-      speedText = 'Fast processing';
+      speedKey = 'mr.speedFast';
       break;
     case 'Medium':
-      speedText = 'Moderate speed';
+      speedKey = 'mr.speedModerate';
       break;
     case 'Slow':
-      speedText = 'Slower processing';
+      speedKey = 'mr.speedSlow';
       break;
   }
 
   // Key feature based on model and accuracy
-  let featureText = '';
+  let featureKey: TranslationKey = 'mr.featureBalanced';
   if (baseName === 'large-v3') {
-    featureText = 'Most accurate';
+    featureKey = 'mr.featureMostAccurate';
   } else if (baseName === 'large-v3-turbo') {
-    featureText = 'Best accuracy with speed';
+    featureKey = 'mr.featureAccuracySpeed';
   } else if (baseName === 'medium') {
-    featureText = accuracy === 'High' ? 'Professional quality' : 'Balanced quality';
+    featureKey = accuracy === 'High' ? 'mr.featureProfessional' : 'mr.featureBalanced';
   } else if (baseName === 'small') {
-    featureText = 'Good accuracy';
+    featureKey = 'mr.featureGoodAccuracy';
   } else if (baseName === 'base') {
-    featureText = 'Balanced quality';
+    featureKey = 'mr.featureBalanced';
   } else if (baseName === 'tiny') {
-    featureText = 'Fastest option';
+    featureKey = 'mr.featureFastest';
   }
 
+  let qualifierKey: TranslationKey | undefined;
   // Add quantization note if applicable
   if (isQuantized) {
     const quantType = getModelType(modelName);
     if (quantType === 'q5_0') {
-      featureText += ', optimized';
+      qualifierKey = 'mr.optimized';
     } else if (quantType === 'q4_0') {
-      featureText += ', ultra fast';
+      qualifierKey = 'mr.ultraFast';
     }
   }
 
-  return `${speedText} • ${featureText}`;
+  return { speedKey, featureKey, qualifierKey };
 }
 
 // Group models by their base name for better UI organization

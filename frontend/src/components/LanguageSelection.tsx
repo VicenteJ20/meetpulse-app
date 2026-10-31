@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Globe } from 'lucide-react';
 import Analytics from '@/lib/analytics';
 import { toast } from 'sonner';
+import { SelectField } from '@/components/ui/select-field';
 
 export interface Language {
   code: string;
@@ -117,7 +118,7 @@ interface LanguageSelectionProps {
   selectedLanguage: string;
   onLanguageChange: (language: string) => void;
   disabled?: boolean;
-  provider?: 'localWhisper' | 'parakeet' | 'deepgram' | 'elevenLabs' | 'groq' | 'openai' | 'gemini';
+  provider?: 'localWhisper' | 'parakeet' | 'deepgram' | 'elevenLabs' | 'groq' | 'openai' | 'gemini' | 'vercel-gateway';
 }
 
 export function LanguageSelection({
@@ -179,19 +180,16 @@ export function LanguageSelection({
       </div>
 
       <div className="space-y-2">
-        <select
+        <SelectField
+          aria-label="Transcription language"
           value={isParakeet ? 'auto' : selectedLanguage}
-          onChange={(e) => handleLanguageChange(e.target.value)}
+          onValueChange={handleLanguageChange}
           disabled={disabled || saving}
-          className="w-full px-3 py-2 text-sm bg-card border border-border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-muted/50 disabled:text-muted-foreground"
-        >
-          {availableLanguages.map((language) => (
-            <option key={language.code} value={language.code}>
-              {language.name}
-              {language.code !== 'auto' && language.code !== 'auto-translate' && ` (${language.code})`}
-            </option>
-          ))}
-        </select>
+          options={availableLanguages.map((language) => ({
+            value: language.code,
+            label: `${language.name}${language.code !== 'auto' && language.code !== 'auto-translate' ? ` (${language.code})` : ''}`,
+          }))}
+        />
 
         {/* Parakeet language limitation warning */}
         {isParakeet && (

@@ -45,9 +45,36 @@ impl Default for AnalyticsConfig {
     fn default() -> Self {
         Self {
             api_key: String::new(),
-            host: Some("https://us.i.posthog.com".to_string()),
+            host: Some(DEFAULT_POSTHOG_HOST.to_string()),
             enabled: false,
         }
+    }
+}
+
+const DEFAULT_POSTHOG_HOST: &str = "https://us.i.posthog.com";
+
+impl AnalyticsConfig {
+    /// Config from the PostHog project baked in at build time through
+    /// `MEETPULSE_POSTHOG_KEY` (and optionally `MEETPULSE_POSTHOG_HOST`).
+    /// Without a key analytics stays disabled; there is no fallback project.
+    pub fn from_build_env() -> Self {
+        let api_key = option_env!("MEETPULSE_POSTHOG_KEY").unwrap_or("").trim().to_string();
+        let host = option_env!("MEETPULSE_POSTHOG_HOST")
+            .map(str::trim)
+            .filter(|h| !h.is_empty())
+            .unwrap_or(DEFAULT_POSTHOG_HOST)
+            .to_string();
+
+        Self {
+            enabled: !api_key.is_empty(),
+            api_key,
+            host: Some(host),
+        }
+    }
+
+    fn capture_endpoint(&self) -> String {
+        let host = self.host.as_deref().unwrap_or(DEFAULT_POSTHOG_HOST);
+        format!("{}/i/v0/e/", host.trim_end_matches('/'))
     }
 }
 
@@ -85,7 +112,15 @@ pub struct AnalyticsClient {
 impl AnalyticsClient {
     pub async fn new(config: AnalyticsConfig) -> Self {
         let client = if config.enabled && !config.api_key.is_empty() {
-            Some(Arc::new(posthog_rs::client(config.api_key.as_str()).await))
+            let options = posthog_rs::ClientOptionsBuilder::default()
+                .api_key(config.api_key.clone())
+                .api_endpoint(config.capture_endpoint())
+                .build()
+                .ok();
+            match options {
+                Some(options) => Some(Arc::new(posthog_rs::client(options).await)),
+                None => None,
+            }
         } else {
             None
         };
@@ -508,6 +543,22 @@ mod tests {
         assert_eq!(sanitized.get("segments_count"), Some(&"42".to_string()));
         assert_eq!(sanitized.get("model_name"), Some(&"parakeet".to_string()));
         assert_eq!(sanitized.get("platform"), Some(&"Windows".to_string()));
+    }
+
+    #[test]
+    fn capture_endpoint_follows_configured_host() {
+        let mut config = AnalyticsConfig::default();
+        assert_eq!(config.capture_endpoint(), "https://us.i.posthog.com/i/v0/e/");
+
+        config.host = Some("https://eu.i.posthog.com/".to_string());
+        assert_eq!(config.capture_endpoint(), "https://eu.i.posthog.com/i/v0/e/");
+    }
+
+    #[test]
+    fn default_config_is_disabled_without_a_key() {
+        let config = AnalyticsConfig::default();
+        assert!(!config.enabled);
+        assert!(config.api_key.is_empty());
     }
 
     #[test]

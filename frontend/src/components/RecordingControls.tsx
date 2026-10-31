@@ -9,6 +9,7 @@ import { listen } from '@tauri-apps/api/event';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Analytics from '@/lib/analytics';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
 import { TranscriptionLanguageControl } from '@/components/TranscriptionLanguageControl';
 
@@ -43,6 +44,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
   meetingName,
 }) => {
   // Use global recording state context for pause state (syncs with tray operations)
+  const { t } = useTranslation();
   const recordingState = useRecordingState();
   const isPaused = recordingState.isPaused;
 
@@ -238,11 +240,17 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
     }
   }, [isRecording, isPaused, isResuming]);
 
+  // La cabecera de la vista en vivo dispara estas acciones con eventos de ventana.
   useEffect(() => {
+    const onStop = () => void handleStopRecording();
+    const onTogglePause = () => void (isPaused ? handleResumeRecording() : handlePauseRecording());
+    window.addEventListener('meetpulse-stop-recording', onStop);
+    window.addEventListener('meetpulse-toggle-pause', onTogglePause);
     return () => {
-      // Cleanup on unmount if needed
+      window.removeEventListener('meetpulse-stop-recording', onStop);
+      window.removeEventListener('meetpulse-toggle-pause', onTogglePause);
     };
-  }, []);
+  }, [handleStopRecording, handlePauseRecording, handleResumeRecording, isPaused]);
 
   useEffect(() => {
     console.log('Setting up recording event listeners');
@@ -352,7 +360,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
         <div className="flex items-center space-x-2 rounded-xl bg-card px-3 py-2 text-foreground">
           {isProcessing && !isParentProcessing ? (
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground"></div>
               <span className="text-sm text-muted-foreground">Processing recording...</span>
             </div>
           ) : (
@@ -367,7 +375,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                 <>
                   <button
                     onClick={handleStartRecording}
-                    className="w-10 h-10 flex items-center justify-center bg-destructive rounded-full text-white hover:bg-red-600 transition-colors"
+                    className="w-10 h-10 flex items-center justify-center bg-destructive rounded-full text-white hover:bg-destructive/90 transition-colors"
                   >
                     <Mic size={16} />
                   </button>
@@ -406,12 +414,11 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                       <TooltipTrigger asChild>
                         <button
                           onClick={() => {
-                            Analytics.trackButtonClick('start_recording', 'recording_controls');
                             handleStartRecording();
                           }}
                           disabled={isStarting || isProcessing || isRecordingDisabled || isValidatingModel}
                           className={`relative flex h-12 w-12 items-center justify-center ${isStarting || isProcessing || isValidatingModel ? 'bg-muted text-muted-foreground' : 'bg-recording text-recording-foreground hover:brightness-105'
-                            } rounded-xl transition-colors`}
+                            } rounded-full transition-colors`}
                         >
                           {isValidatingModel ? (
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -421,7 +428,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Start recording</p>
+                        <p>{t('recording.start')}</p>
                       </TooltipContent>
                     </Tooltip>
                   ) : (
@@ -432,10 +439,10 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                           <button
                             onClick={() => {
                               if (isPaused) {
-                                Analytics.trackButtonClick('resume_recording', 'recording_controls');
+                                Analytics.trackRecordingControl('resume');
                                 handleResumeRecording();
                               } else {
-                                Analytics.trackButtonClick('pause_recording', 'recording_controls');
+                                Analytics.trackRecordingControl('pause');
                                 handlePauseRecording();
                               }
                             }}
@@ -443,18 +450,18 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                             className={`w-10 h-10 flex items-center justify-center ${isPausing || isResuming || isStopping
                               ? 'bg-muted text-muted-foreground'
                               : 'border border-border bg-card text-foreground hover:bg-muted'
-                              } relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors`}
+                              } relative flex h-10 w-10 items-center justify-center rounded-full transition-colors`}
                           >
                             {isPaused ? <Play size={16} /> : <Pause size={16} />}
                             {(isPausing || isResuming) && (
                               <div className="absolute -top-8 text-xs font-medium text-muted-foreground">
-                                {isPausing ? 'Pausing...' : 'Resuming...'}
+                                {isPausing ? t('rc.pausing') : t('rc.resuming')}
                               </div>
                             )}
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>{isPaused ? 'Resume recording' : 'Pause recording'}</p>
+                          <p>{isPaused ? t('recording.resume') : t('recording.pause')}</p>
                         </TooltipContent>
                       </Tooltip>
 
@@ -462,23 +469,23 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => {
-                              Analytics.trackButtonClick('stop_recording', 'recording_controls');
+                              Analytics.trackRecordingControl('stop');
                               handleStopRecording();
                             }}
                             disabled={isStopping || isPausing || isResuming}
                             className={`relative flex h-10 w-10 items-center justify-center ${isStopping || isPausing || isResuming ? 'bg-muted text-muted-foreground' : 'bg-recording text-recording-foreground hover:brightness-105'
-                              } rounded-xl transition-colors`}
+                              } rounded-full transition-colors`}
                           >
                             <Square size={16} />
                             {isStopping && (
                               <div className="absolute -top-8 text-xs font-medium text-muted-foreground">
-                                Stopping...
+                                {t('rc.stopping')}
                               </div>
                             )}
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Stop recording</p>
+                          <p>{t('recording.stop')}</p>
                         </TooltipContent>
                       </Tooltip>
                     </>
@@ -506,7 +513,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
         {/* Show validation status only */}
         {isValidatingModel && (
           <div className="mt-2 text-center text-xs text-muted-foreground">
-            Validating speech recognition...
+            {t('rc.validating')}
           </div>
         )}
 

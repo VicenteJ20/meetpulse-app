@@ -1,135 +1,95 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import Image from 'next/image';
-import AnalyticsConsentSwitch from "./AnalyticsConsentSwitch";
-import { UpdateDialog } from "./UpdateDialog";
-import { updateService, UpdateInfo } from '@/services/updateService';
-import { Button } from './ui/button';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, FolderKanban, Layers, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import AnalyticsConsentSwitch from './AnalyticsConsentSwitch';
+import { UpdateDialog } from './UpdateDialog';
+import { Button } from './ui/button';
+import { updateService, UpdateInfo } from '@/services/updateService';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { APP_VERSION } from '@/config/app';
 
+const PILLARS = [
+  { icon: ShieldCheck, title: 'about.p1Title', body: 'about.p1Body' },
+  { icon: Layers, title: 'about.p2Title', body: 'about.p2Body' },
+  { icon: FolderKanban, title: 'about.p3Title', body: 'about.p3Body' },
+  { icon: Sparkles, title: 'about.p4Title', body: 'about.p4Body' },
+] as const;
 
 export function About() {
-    const [currentVersion, setCurrentVersion] = useState<string>(APP_VERSION);
-    const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-    const [isChecking, setIsChecking] = useState(false);
-    const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const { t } = useTranslation();
+  const [currentVersion, setCurrentVersion] = useState<string>(APP_VERSION);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+  const [upToDate, setUpToDate] = useState(false);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
-    useEffect(() => {
-        // Get current version on mount
-        getVersion().then(setCurrentVersion).catch(console.error);
-    }, []);
+  useEffect(() => {
+    getVersion().then(setCurrentVersion).catch(console.error);
+  }, []);
 
-    const handleCheckForUpdates = async () => {
-        setIsChecking(true);
-        try {
-            const info = await updateService.checkForUpdates(true);
-            setUpdateInfo(info);
-            if (info.available) {
-                setShowUpdateDialog(true);
-            } else {
-                toast.success('You are running the latest version');
-            }
-        } catch (error: any) {
-            console.error('Failed to check for updates:', error);
-            toast.error('Failed to check for updates: ' + (error.message || 'Unknown error'));
-        } finally {
-            setIsChecking(false);
-        }
-    };
+  const handleCheckForUpdates = async () => {
+    setIsChecking(true);
+    setUpToDate(false);
+    try {
+      const info = await updateService.checkForUpdates(true);
+      setUpdateInfo(info);
+      if (info.available) setShowUpdateDialog(true);
+      else setUpToDate(true);
+    } catch (error) {
+      console.error('Failed to check for updates:', error);
+      toast.error(t('about.updateFailed'));
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
-    return (
-        <div className="p-4 space-y-4 h-[80vh] overflow-y-auto">
-            {/* Compact Header */}
-            <div className="text-center">
-                <div className="mb-3">
-                    <Image
-                        src="/icon.png"
-                        alt="MeetPulse Logo"
-                        width={64}
-                        height={64}
-                        className="mx-auto"
-                    />
-                </div>
-                <h1 className="text-xl font-bold text-foreground">MeetPulse</h1>
-                <span className="text-sm text-muted-foreground"> v{currentVersion}</span>
-                <p className="text-medium mt-1 text-muted-foreground">
-                    Real-time notes and summaries that never leave your machine.
-                </p>
-                <div className="mt-3">
-                    <Button
-                        onClick={handleCheckForUpdates}
-                        disabled={isChecking}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                    >
-                        {isChecking ? (
-                            <>
-                                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                                Checking...
-                            </>
-                        ) : (
-                            <>
-                                <CheckCircle2 className="h-3 w-3 mr-2" />
-                                Check for Updates
-                            </>
-                        )}
-                    </Button>
-                    {updateInfo?.available && (
-                        <div className="mt-2 text-xs text-blue-600">
-                            Update available: v{updateInfo.version}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Features Grid - Compact */}
-            <div className="space-y-3">
-                <h2 className="text-base font-semibold text-foreground">Meeting intelligence, kept private</h2>
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded border border-border/70 bg-muted/55 p-3 transition-colors hover:bg-muted">
-                        <h3 className="mb-1 text-sm font-bold text-foreground">Privacy-first</h3>
-                        <p className="text-xs leading-relaxed text-muted-foreground">Your data & AI processing workflow can now stay within your premise. No cloud, no leaks.</p>
-                    </div>
-                    <div className="rounded border border-border/70 bg-muted/55 p-3 transition-colors hover:bg-muted">
-                        <h3 className="mb-1 text-sm font-bold text-foreground">Use Any Model</h3>
-                        <p className="text-xs leading-relaxed text-muted-foreground">Prefer local open-source model? Great. Want to plug in an external API? Also fine. No lock-in.</p>
-                    </div>
-                    <div className="rounded border border-border/70 bg-muted/55 p-3 transition-colors hover:bg-muted">
-                        <h3 className="mb-1 text-sm font-bold text-foreground">Cost-Smart</h3>
-                        <p className="text-xs leading-relaxed text-muted-foreground">Avoid pay-per-minute bills by running models locally (or pay only for the calls you choose).</p>
-                    </div>
-                    <div className="rounded border border-border/70 bg-muted/55 p-3 transition-colors hover:bg-muted">
-                        <h3 className="mb-1 text-sm font-bold text-foreground">Works everywhere</h3>
-                        <p className="text-xs leading-relaxed text-muted-foreground">Google Meet, Zoom, Teams-online or offline.</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Coming Soon - Compact */}
-            <div className="rounded border border-border/70 bg-muted/55 p-3">
-                <p className="text-s text-muted-foreground">
-                    MeetPulse keeps recordings, transcripts, and summaries organized by client and project.
-                </p>
-            </div>
-
-            {/* Footer - Compact */}
-            <div className="border-t border-border pt-2 text-center">
-                <p className="text-xs text-muted-foreground">
-                    License notices are included with this distribution.
-                </p>
-            </div>
-            <AnalyticsConsentSwitch />
-
-            {/* Update Dialog */}
-            <UpdateDialog
-                open={showUpdateDialog}
-                onOpenChange={setShowUpdateDialog}
-                updateInfo={updateInfo}
-            />
+  return (
+    <div className="custom-scrollbar -mr-2 max-h-[calc(100dvh-6rem)] space-y-6 overflow-y-auto pr-2">
+      <header className="flex items-center gap-4">
+        <Image src="/icon.png" alt="" width={56} height={56} priority className="rounded-2xl" />
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-2">
+            <h1 className="text-xl font-semibold tracking-[-0.03em]">{t('app.name')}</h1>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">v{currentVersion}</span>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{t('about.tagline')}</p>
         </div>
+      </header>
 
-    )
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="outline" size="sm" onClick={handleCheckForUpdates} disabled={isChecking}>
+          {isChecking ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+          {isChecking ? t('about.checking') : t('about.checkUpdates')}
+        </Button>
+        {updateInfo?.available && (
+          <span className="text-sm font-medium text-brand">{t('about.updateAvailable').replace('{v}', updateInfo.version ?? '')}</span>
+        )}
+        {upToDate && <span role="status" className="text-sm text-muted-foreground">{t('about.upToDate')}</span>}
+      </div>
+
+      <ul className="divide-y divide-border rounded-xl border border-border">
+        {PILLARS.map(({ icon: Icon, title, body }) => (
+          <li key={title} className="flex items-start gap-3.5 p-4">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand/10 text-brand">
+              <Icon className="size-[18px]" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">{t(title)}</h2>
+              <p className="mt-0.5 text-sm leading-6 text-muted-foreground">{t(body)}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <section className="border-t border-border pt-5">
+        <AnalyticsConsentSwitch />
+      </section>
+
+      <p className="text-xs text-muted-foreground">{t('about.license')}</p>
+
+      <UpdateDialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog} updateInfo={updateInfo} />
+    </div>
+  );
 }

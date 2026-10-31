@@ -18,6 +18,15 @@ export interface UserSession {
   is_active: boolean;
 }
 
+/** Error text without file paths or URLs, so it can be reported safely. */
+export function sanitizeErrorMessage(message: string): string {
+  return message
+    .replace(/[A-Za-z]:\[^\s'"]*/g, '<path>')
+    .replace(/(?:\/Users|\/home)\/[^\s'"]*/g, '<path>')
+    .replace(/https?:\/\/[^\s'"]*/g, '<url>')
+    .slice(0, 160);
+}
+
 export class Analytics {
   private static initialized = false;
   private static currentUserId: string | null = null;
@@ -255,9 +264,10 @@ export class Analytics {
   static async getOSVersion(): Promise<string> {
     try {
       const platform = await this.getPlatform();
-      // Use navigator.userAgent for version info
-      const userAgent = navigator.userAgent;
-      return `${platform} (${userAgent})`;
+      // Only the coarse OS version, never the full user agent string
+      const match = navigator.userAgent.match(/(Windows NT [\d.]+|Mac OS X [\d_.]+|Linux)/);
+      const version = match ? match[1].replace(/_/g, '.') : 'unknown';
+      return `${platform} (${version})`;
     } catch (error) {
       console.error('Failed to get OS version:', error);
       return 'unknown';
@@ -593,7 +603,18 @@ export class Analytics {
 
   // Convenience methods for common events
   static async trackPageView(pageName: string): Promise<void> {
-    await this.track(`page_view_${pageName}`, { page: pageName });
+    await this.track('page_view', { page: pageName });
+  }
+
+  static async trackRecordingStart(
+    source: string,
+    outcome: 'started' | 'blocked_downloading' | 'blocked_missing' | 'error',
+  ): Promise<void> {
+    await this.track('recording_start_attempt', { source, outcome });
+  }
+
+  static async trackRecordingControl(action: 'pause' | 'resume' | 'stop'): Promise<void> {
+    await this.track('recording_control', { action });
   }
 
   static async trackButtonClick(buttonName: string, location?: string): Promise<void> {
@@ -603,15 +624,9 @@ export class Analytics {
   }
 
   static async trackError(errorType: string, errorMessage: string): Promise<void> {
-    await this.track('error', { 
-      error_type: errorType, 
-      error_message: errorMessage 
-    });
-  }
-
-  static async trackAppStarted(): Promise<void> {
-    await this.track('app_started', { 
-      timestamp: new Date().toISOString() 
+    await this.track('error', {
+      error_type: errorType,
+      error_message: sanitizeErrorMessage(errorMessage),
     });
   }
 
@@ -641,31 +656,6 @@ export class Analytics {
     return this.initialized;
   }
 
-  // Track backend connection success/failure
-  static async trackBackendConnection(success: boolean, error?: string) {
-    // Wait for analytics to be initialized
-    const isInitialized = await this.waitForInitialization();
-    if (!isInitialized) {
-      console.warn('Analytics not initialized within timeout, skipping backend connection tracking');
-      return;
-    }
-
-    try {
-      console.log('Tracking backend connection event:', { success, error });
-      await invoke('track_event', {
-        eventName: 'backend_connection',
-        properties: {
-          success: success.toString(),
-          error: error || '',
-          timestamp: new Date().toISOString()
-        }
-      });
-      console.log('Backend connection event tracked successfully');
-    } catch (error) {
-      console.error('Failed to track backend connection:', error);
-    }
-  }
-
   // Track transcription errors
   static async trackTranscriptionError(errorMessage: string) {
     if (!this.initialized) {
@@ -678,7 +668,7 @@ export class Analytics {
       await invoke('track_event', {
         eventName: 'transcription_error',
         properties: {
-          error_message: errorMessage,
+          error_message: sanitizeErrorMessage(errorMessage),
           timestamp: new Date().toISOString()
         }
       });
@@ -769,7 +759,7 @@ export class Analytics {
         modelName,
         success,
         durationSeconds,
-        errorMessage
+        errorMessage: errorMessage ? sanitizeErrorMessage(errorMessage) : errorMessage
       });
       console.log('Summary generation completed event tracked successfully');
     } catch (error) {

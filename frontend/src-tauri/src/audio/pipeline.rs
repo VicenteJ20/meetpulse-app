@@ -695,9 +695,32 @@ pub struct AudioPipeline {
     mixer: ProfessionalAudioMixer,
     // Recording sender for pre-mixed audio
     recording_sender_for_mixed: Option<mpsc::UnboundedSender<AudioChunk>>,
+    // Energía reciente (media móvil) de cada fuente: decide quién habla en cada segmento
+    mic_energy: f32,
+    sys_energy: f32,
 }
 
 impl AudioPipeline {
+    /// Mide el audio previo a la mezcla: el micrófono domina cuando habla el usuario;
+    /// si no, habla alguien del equipo (audio del sistema).
+    fn track_speaker_energy(&mut self, mic: &[f32], sys: &[f32]) {
+        const ALPHA: f32 = 0.05;
+        let ms = |w: &[f32]| if w.is_empty() { 0.0 } else { w.iter().map(|x| x * x).sum::<f32>() / w.len() as f32 };
+        self.mic_energy += ALPHA * (ms(mic) - self.mic_energy);
+        self.sys_energy += ALPHA * (ms(sys) - self.sys_energy);
+    }
+
+    fn dominant_source(&self) -> DeviceType {
+        if self.mic_energy >= self.sys_energy { DeviceType::Microphone } else { DeviceType::System }
+    }
+
+    /// Inicio del segmento en tiempo de grabación activa. El reloj de la VAD cuenta las
+    /// ventanas mezcladas y se desfasa del tiempo real, así que se ancla al cronómetro.
+    fn segment_start_seconds(&self, duration_ms: f64) -> f64 {
+        let now = self.state.get_active_recording_duration().unwrap_or(0.0);
+        (now - duration_ms / 1000.0).max(0.0)
+    }
+
     pub fn new(
         receiver: mpsc::UnboundedReceiver<AudioChunk>,
         transcription_sender: mpsc::Sender<TranscriptionJob>,
@@ -761,6 +784,8 @@ impl AudioPipeline {
             ring_buffer,
             mixer,
             recording_sender_for_mixed: None,  // Will be set by manager
+            mic_energy: 0.0,
+            sys_energy: 0.0,
         }
     }
 
@@ -823,6 +848,7 @@ impl AudioPipeline {
                     // STEP 2: Mix audio in fixed windows when both streams have sufficient data
                     while self.ring_buffer.can_mix() {
                         if let Some((mic_window, sys_window)) = self.ring_buffer.extract_window() {
+                            self.track_speaker_energy(&mic_window, &sys_window);
                             // Simple mixing without aggressive ducking
                             let mixed_clean = self.mixer.mix_window(&mic_window, &sys_window);
 
@@ -845,9 +871,9 @@ impl AudioPipeline {
                                             let transcription_chunk = AudioChunk {
                                                 data: segment.samples,
                                                 sample_rate: 16000,
-                                                timestamp: segment.start_timestamp_ms / 1000.0,
+                                                timestamp: self.segment_start_seconds(duration_ms),
                                                 chunk_id: self.chunk_id_counter,
-                                                device_type: DeviceType::Microphone,  // Mixed audio
+                                                device_type: self.dominant_source(),
                                             };
 
                                             let transcription_job = TranscriptionJob {
@@ -920,9 +946,9 @@ impl AudioPipeline {
                         let transcription_chunk = AudioChunk {
                             data: segment.samples,
                             sample_rate: 16000,
-                            timestamp: segment.start_timestamp_ms / 1000.0,
+                            timestamp: self.segment_start_seconds(duration_ms),
                             chunk_id: self.chunk_id_counter,
-                            device_type: DeviceType::Microphone,
+                            device_type: self.dominant_source(),
                         };
 
                         let transcription_job = TranscriptionJob {

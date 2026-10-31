@@ -11,6 +11,41 @@ pub const DEFAULT_WHISPER_MODEL: &str = "large-v3-turbo";
 /// This is the quantized version optimized for speed.
 pub const DEFAULT_PARAKEET_MODEL: &str = "parakeet-tdt-0.6b-v3-int8";
 
+/// Default Vercel AI Gateway transcription model.
+/// MAI-Transcribe-2 stays first so a missing or retired gateway id falls back here.
+pub const DEFAULT_GATEWAY_TRANSCRIPTION_MODEL: &str = "microsoft/mai-transcribe-2";
+
+const GATEWAY_TRANSCRIPTION_MODELS: &[&str] = &[
+    DEFAULT_GATEWAY_TRANSCRIPTION_MODEL,
+    "google/gemini-3.1-flash-lite",
+    "google/gemini-3.5-flash-lite",
+];
+
+fn without_models_prefix(model: &str) -> &str {
+    let trimmed = model.trim();
+    if trimmed.len() > 7 && trimmed[..7].eq_ignore_ascii_case("models/") {
+        &trimmed[7..]
+    } else {
+        trimmed
+    }
+}
+
+/// Exact id match for gateway transcription. Preview, image, TTS, and streaming ids do not match.
+pub fn canonical_gateway_transcription_model(model: &str) -> Option<&'static str> {
+    let bare = without_models_prefix(model);
+    GATEWAY_TRANSCRIPTION_MODELS
+        .iter()
+        .copied()
+        .find(|id| id.eq_ignore_ascii_case(bare))
+}
+
+/// Allowlisted gateway transcription id, or MAI-Transcribe-2 when the saved id is not allowed.
+pub fn approved_gateway_transcription_model(model: &str) -> String {
+    canonical_gateway_transcription_model(model)
+        .unwrap_or(DEFAULT_GATEWAY_TRANSCRIPTION_MODEL)
+        .to_string()
+}
+
 /// Whisper model catalog with metadata for all supported models.
 /// Used by both WhisperEngine::discover_models() and discover_models_standalone().
 ///
@@ -34,3 +69,48 @@ pub const WHISPER_MODEL_CATALOG: &[(&str, &str, u32, &str, &str, &str)] = &[
     ("large-v3-turbo-q5_0", "ggml-large-v3-turbo-q5_0.bin", 547, "High", "Medium", "Quantized large model, best balance"),
     ("large-v3-q5_0", "ggml-large-v3-q5_0.bin", 1031, "High", "Slow", "Quantized large model, high accuracy"),
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gateway_transcription_allowlist_keeps_mai_as_default() {
+        assert_eq!(
+            approved_gateway_transcription_model(""),
+            DEFAULT_GATEWAY_TRANSCRIPTION_MODEL
+        );
+        assert_eq!(
+            approved_gateway_transcription_model("openai/whisper-1"),
+            "microsoft/mai-transcribe-2"
+        );
+        assert_eq!(
+            approved_gateway_transcription_model("microsoft/mai-transcribe-2-streaming"),
+            "microsoft/mai-transcribe-2"
+        );
+        assert_eq!(
+            approved_gateway_transcription_model("google/gemini-3.1-flash-lite-preview"),
+            "microsoft/mai-transcribe-2"
+        );
+        assert_eq!(
+            approved_gateway_transcription_model("google/gemini-3.1-flash-lite-image"),
+            "microsoft/mai-transcribe-2"
+        );
+        assert_eq!(
+            canonical_gateway_transcription_model("google/gemini-3.8-flash-lite-tts"),
+            None
+        );
+        assert_eq!(
+            approved_gateway_transcription_model("Models/Google/Gemini-3.5-Flash-Lite"),
+            "google/gemini-3.5-flash-lite"
+        );
+        assert_eq!(
+            approved_gateway_transcription_model("  microsoft/MAI-Transcribe-2  "),
+            "microsoft/mai-transcribe-2"
+        );
+        assert_eq!(
+            canonical_gateway_transcription_model("models/google/gemini-3.1-flash-lite"),
+            Some("google/gemini-3.1-flash-lite")
+        );
+    }
+}

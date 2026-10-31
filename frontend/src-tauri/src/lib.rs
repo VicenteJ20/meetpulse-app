@@ -1,3 +1,4 @@
+pub mod desktop;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex as StdMutex;
@@ -36,7 +37,6 @@ pub(crate) use perf_trace;
 
 // Declare audio module
 pub mod analytics;
-pub mod auth;
 pub mod api;
 pub mod audio;
 pub mod config;
@@ -71,6 +71,10 @@ static LANGUAGE_PREFERENCE: std::sync::LazyLock<
 > = std::sync::LazyLock::new(|| {
     StdMutex::new(audio::transcription::TranscriptionLanguageMode::Auto)
 });
+
+// Interface language. MAI-Transcribe-2 uses this so it does not guess.
+static UI_LOCALE: std::sync::LazyLock<StdMutex<String>> =
+    std::sync::LazyLock::new(|| StdMutex::new("en".to_string()));
 
 #[derive(Debug, Deserialize)]
 struct RecordingArgs {
@@ -395,6 +399,36 @@ pub fn get_language_preference_internal() -> audio::transcription::Transcription
         .unwrap_or_default()
 }
 
+fn normalize_ui_locale(locale: &str) -> Result<&'static str, String> {
+    match locale.trim().to_ascii_lowercase().as_str() {
+        "en" => Ok("en"),
+        "es" => Ok("es"),
+        other => Err(format!(
+            "Unsupported interface language '{}'. Expected en or es.",
+            other
+        )),
+    }
+}
+
+#[tauri::command]
+async fn set_ui_locale(locale: String) -> Result<(), String> {
+    let normalized = normalize_ui_locale(&locale)?;
+    let mut current = UI_LOCALE
+        .lock()
+        .map_err(|e| format!("Failed to set interface language: {}", e))?;
+    log_info!("Setting interface language to: {}", normalized);
+    *current = normalized.to_string();
+    Ok(())
+}
+
+/// Interface language (`en` or `es`) synced from the settings screen.
+pub fn get_ui_locale() -> String {
+    UI_LOCALE
+        .lock()
+        .map(|locale| locale.clone())
+        .unwrap_or_else(|_| "en".to_string())
+}
+
 pub fn run() {
     log::set_max_level(log::LevelFilter::Info);
 
@@ -532,9 +566,23 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            auth::sign_in_with_google,
-            auth::get_google_auth_token,
-            auth::sign_out_google,
+            desktop::desktop_save_pdf,
+            desktop::providers::desktop_list_models,
+            desktop::providers::desktop_test_gemini_audio,
+            desktop::assistant::desktop_assistant_session,
+            desktop::assistant::desktop_assistant_recent_sessions,
+            desktop::assistant::desktop_assistant_delete_session,
+            desktop::assistant::desktop_assistant_sync,
+            desktop::assistant::desktop_assistant_recording_state,
+            desktop::assistant::desktop_assistant_preferences,
+            desktop::assistant::desktop_assistant_dismiss,
+            desktop::assistant::desktop_assistant_new_chat,
+            desktop::assistant::desktop_assistant_ask,
+            desktop::assistant::desktop_assistant_cancel,
+            desktop::search::desktop_search_status,
+            desktop::search::desktop_search_query,
+            desktop::search::desktop_search_download,
+            desktop::search::desktop_search_index,
             start_recording,
             stop_recording,
             is_recording,
@@ -542,6 +590,7 @@ pub fn run() {
             read_audio_file,
             save_transcript,
             analytics::commands::init_analytics,
+            analytics::commands::analytics_configured,
             analytics::commands::disable_analytics,
             analytics::commands::track_event,
             analytics::commands::identify_user,
@@ -648,7 +697,11 @@ pub fn run() {
             api::api_update_profile,
             api::api_get_model_config,
             api::api_save_model_config,
+            api::api_get_chat_model_config,
+            api::api_save_chat_model_config,
             api::api_get_api_key,
+            api::api_save_api_key,
+            api::api_delete_api_key,
             // api::api_get_auto_generate_setting,
             // api::api_save_auto_generate_setting,
             api::api_get_transcript_config,
@@ -704,6 +757,7 @@ pub fn run() {
             audio::recording_preferences::get_audio_backend_info,
             // Language preference commands
             set_language_preference,
+            set_ui_locale,
             // Notification system commands
             notifications::commands::get_notification_settings,
             notifications::commands::set_notification_settings,

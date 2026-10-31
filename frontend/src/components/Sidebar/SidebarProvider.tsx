@@ -1,8 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import Analytics from '@/lib/analytics';
 import { invoke } from '@tauri-apps/api/core';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
 
@@ -17,6 +17,8 @@ interface SidebarItem {
 }
 
 export interface CurrentMeeting {
+  created_at?: string;
+  tags?: string[];
   id: string;
   title: string;
   client?: string | null;
@@ -70,7 +72,7 @@ export const useSidebar = () => {
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [currentMeeting, setCurrentMeeting] = useState<CurrentMeeting | null>({ id: 'intro-call', title: '+ New Call' });
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [meetings, setMeetings] = useState<CurrentMeeting[]>([]);
   const [sidebarItems, setSidebarItems] = useState<SidebarItem[]>([]);
   const [isMeetingActive, setIsMeetingActive] = useState(false);
@@ -84,6 +86,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const { isRecording } = useRecordingState();
 
   const pathname = usePathname();
+  const { locale } = useTranslation();
   const router = useRouter();
 
   // Extract fetchMeetings as a reusable function
@@ -96,13 +99,13 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
           title: meeting.title,
           client: meeting.client ?? null,
           project: meeting.project ?? null,
+          created_at: meeting.created_at,
+          tags: meeting.tags || [],
         }));
         setMeetings(transformedMeetings);
-        Analytics.trackBackendConnection(true);
       } catch (error) {
         console.error('Error fetching meetings:', error);
         setMeetings([]);
-        Analytics.trackBackendConnection(false, error instanceof Error ? error.message : 'Unknown error');
       }
     }
   }, [serverAddress]);
@@ -123,8 +126,8 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     const clients = new Map<string, Map<string, CurrentMeeting[]>>();
 
     for (const meeting of meetings) {
-      const client = meeting.client?.trim() || 'Unassigned client';
-      const project = meeting.project?.trim() || 'Unassigned project';
+      const client = meeting.client?.trim() || (locale === 'es' ? 'Sin clasificar' : 'Unclassified');
+      const project = meeting.project?.trim() || (locale === 'es' ? 'Sin proyecto' : 'No project');
       const projects = clients.get(client) ?? new Map<string, CurrentMeeting[]>();
       projects.set(project, [...(projects.get(project) ?? []), meeting]);
       clients.set(client, projects);
@@ -149,7 +152,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     }));
 
     return [{ id: 'meetings', title: 'Meeting Notes', type: 'folder', children }];
-  }, [meetings]);
+  }, [meetings, locale]);
 
 
   const toggleCollapse = () => {
@@ -184,8 +187,6 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
         router.push('/');
       }
 
-      // Track recording initiation from sidebar
-      Analytics.trackButtonClick('start_recording', 'sidebar');
     }
     // The actual recording start/stop is handled in the Home component
   };

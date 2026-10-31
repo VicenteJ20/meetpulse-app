@@ -64,11 +64,11 @@ export function BluetoothPlaybackWarning({
 
   return (
     <Alert
-      className="mb-4 border-yellow-500 bg-warning/10 text-warning"
+      className="mb-4 border-warning bg-warning/10 text-warning"
       role="alert"
       aria-live="polite"
     >
-      <Speaker className="h-4 w-4 text-yellow-600" />
+      <Speaker className="h-4 w-4 text-warning" />
       <div className="flex items-start justify-between w-full">
         <div className="flex-1">
           <AlertTitle className="text-warning font-semibold">
@@ -79,15 +79,6 @@ export function BluetoothPlaybackWarning({
             Recordings may sound distorted or sped up through Bluetooth devices.
             For accurate review, please use <strong>computer speakers</strong> or{' '}
             <strong>wired headphones</strong>.
-            <br />
-            <a
-              href="https://github.com/Zackriya-Solutions/meeting-minutes/blob/main/BLUETOOTH_PLAYBACK_NOTICE.md"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-warning font-medium mt-2 inline-block"
-            >
-              Learn why this happens →
-            </a>
           </AlertDescription>
         </div>
         <Button
