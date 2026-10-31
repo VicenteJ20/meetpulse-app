@@ -5,6 +5,7 @@ fn main() {
     // PostHog project is read with option_env!, so rebuild when it changes
     println!("cargo:rerun-if-env-changed=MEETPULSE_POSTHOG_KEY");
     println!("cargo:rerun-if-env-changed=MEETPULSE_POSTHOG_HOST");
+    load_posthog_env_from_dotenv();
 
     // GPU Acceleration Detection and Build Guidance
     detect_and_report_gpu_capabilities();
@@ -23,6 +24,37 @@ fn main() {
     ffmpeg::ensure_ffmpeg_binary();
 
     tauri_build::build()
+}
+
+/// Fills MEETPULSE_POSTHOG_KEY / MEETPULSE_POSTHOG_HOST from `frontend/.env.local` (or `.env`) when
+/// they are not already set in the environment, so builds don't depend on a shell session.
+/// The environment always wins. The key itself is never printed.
+fn load_posthog_env_from_dotenv() {
+    for name in [".env.local", ".env"] {
+        let path = std::path::Path::new("..").join(name);
+        let Ok(contents) = std::fs::read_to_string(&path) else { continue };
+        println!("cargo:rerun-if-changed={}", path.display());
+
+        for line in contents.lines() {
+            let line = line.trim();
+            if line.starts_with('#') {
+                continue;
+            }
+            let Some((key, value)) = line.split_once('=') else { continue };
+            let key = key.trim();
+            if key != "MEETPULSE_POSTHOG_KEY" && key != "MEETPULSE_POSTHOG_HOST" {
+                continue;
+            }
+            let value = value.trim().trim_matches('"').trim_matches('\'');
+            if value.is_empty() || std::env::var_os(key).is_some() {
+                continue;
+            }
+            println!("cargo:rustc-env={}={}", key, value);
+            if key == "MEETPULSE_POSTHOG_KEY" {
+                println!("cargo:warning=📊 Analytics: PostHog project key loaded from frontend/{}", name);
+            }
+        }
+    }
 }
 
 /// Detects GPU acceleration capabilities and provides build guidance
