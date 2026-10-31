@@ -36,3 +36,12 @@ Guarda una copia de ambos archivos en un gestor de contraseñas: sin ellos no se
 
 ## Cómo funciona el updater
 La app consulta `https://github.com/VicenteJ20/meetpulse-app/releases/latest/download/latest.json`, compara versiones y solo instala paquetes cuya firma coincide con la `pubkey` de `tauri.conf.json`.
+
+## Firma de instaladores (Authenticode / Apple)
+`release.yml` usa `sign-binaries: false` mientras no existan certificados: con `true` los pasos de DigiCert y Apple fallan si faltan los secretos `SM_*` / `APPLE_*`. Las builds salen sin firma de instalador (aviso de SmartScreen en Windows), pero el updater funciona igual porque usa su propia firma. Cuando tengas certificado, cambia el valor a `true` y crea los secretos correspondientes.
+
+## Requisitos para que el updater encuentre la release
+- El repositorio es público y la release está **publicada** (no borrador, no pre-release).
+- El tag es `v<versión>` y la versión de `tauri.conf.json` coincide con la que lleva la app; si el tag ya existe el workflow añade un sufijo (`1.4.0.1`) y la app se vería a sí misma como desactualizada, así que sube la versión en vez de repetir.
+- La release contiene `latest.json`, el instalador y su `.sig` (los genera el workflow).
+- El workflow *Release* solo aparece en Actions cuando está en la rama por defecto: fusiona primero el PR.

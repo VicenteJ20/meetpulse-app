@@ -115,7 +115,8 @@ jobs:
       platform: ${{ matrix.platform }}
       target: ${{ matrix.target }}
       build-args: ${{ matrix.args }}
-      sign-binaries: true
+      # Sin certificados de DigiCert/Apple los pasos de firma fallan; ponlo en true cuando existan (ver docs/RELEASING.md)
+      sign-binaries: false
       asset-prefix: "meetpulse"
       upload-artifacts: false  # tauri-action uploads directly to release
       release-id: ${{ needs.create-release.outputs.release-id }}
