@@ -88,6 +88,14 @@
             "dmg"
         ],
         "createUpdaterArtifacts": true,
+        "publisher": "Vicente Jorquera",
+        "copyright": "Copyright © 2026 Vicente Jorquera. MIT License.",
+        "category": "Productivity",
+        "shortDescription": "Asistente de reuniones privado: graba, transcribe y resume en tu equipo.",
+        "longDescription": "MeetPulse captura, transcribe y resume tus reuniones de forma local, sin enviar el audio a la nube.",
+        "homepage": "https://github.com/VicenteJ20/meetpulse-app",
+        "license": "MIT",
+        "licenseFile": "../../LICENSE.md",
         "icon": [
             "icons/icon.png",
             "icons/icon.icns",
