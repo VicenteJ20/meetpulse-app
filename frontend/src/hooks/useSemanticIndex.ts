@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import Analytics from '@/lib/analytics';
 
 export type SearchStatus = {
   ready: boolean;
@@ -40,8 +41,18 @@ export function useSemanticIndex() {
       setError('');
       await invoke(command, args);
       await poll();
+      void Analytics.track('semantic_search_action', {
+        step: command === 'desktop_search_download' ? 'download' : 'index',
+        action: String(args.action ?? (args.cancel ? 'cancel' : 'start')),
+        success: 'true',
+      });
     } catch (e) {
       setError(String(e));
+      void Analytics.track('semantic_search_action', {
+        step: command === 'desktop_search_download' ? 'download' : 'index',
+        action: String(args.action ?? (args.cancel ? 'cancel' : 'start')),
+        success: 'false',
+      });
     }
   }, [poll]);
 

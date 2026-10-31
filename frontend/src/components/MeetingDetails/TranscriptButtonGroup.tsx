@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Copy, FolderOpen, RefreshCw } from 'lucide-react';
-import Analytics from '@/lib/analytics';
 import { RetranscribeDialog } from './RetranscribeDialog';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
@@ -54,7 +53,6 @@ export function TranscriptButtonGroup({
           t('meeting.copyTranscript'),
           <Copy />,
           () => {
-            Analytics.trackButtonClick('copy_transcript', 'meeting_details');
             onCopyTranscript();
           },
           transcriptCount === 0,
@@ -63,7 +61,6 @@ export function TranscriptButtonGroup({
           t('meeting.openFolder'),
           <FolderOpen />,
           () => {
-            Analytics.trackButtonClick('open_recording_folder', 'meeting_details');
             onOpenMeetingFolder();
           },
         )}
@@ -74,7 +71,6 @@ export function TranscriptButtonGroup({
             'Retranscribe',
             <RefreshCw />,
             () => {
-              Analytics.trackButtonClick('enhance_transcript', 'meeting_details');
               setShowRetranscribeDialog(true);
             },
           )}

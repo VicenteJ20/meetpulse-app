@@ -283,7 +283,7 @@ export function SummaryGeneratorButtonGroup({
           size="sm"
           className="border-destructive/25 bg-destructive/10 text-destructive hover:bg-destructive/15"
           onClick={() => {
-            Analytics.trackButtonClick('stop_summary_generation', 'meeting_details');
+            void Analytics.track('summary_generation_cancelled');
             onStopGeneration();
           }}
           title="Stop summary generation"
@@ -297,7 +297,6 @@ export function SummaryGeneratorButtonGroup({
           variant={hasSummary ? 'outline' : 'default'}
           className={hasSummary ? 'size-8' : undefined}
           onClick={() => {
-            Analytics.trackButtonClick('generate_summary', 'meeting_details');
             checkOllamaModelsAndGenerate();
           }}
           disabled={busy}

@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, Library, Mic, Monitor, Moon, Search, Settings, Sparkles, Square, Sun, Home, Info as InfoIcon } from 'lucide-react';
+import { Library, Mic, Monitor, Moon, Search, Settings, Sparkles, Square, Sun, Home, Info as InfoIcon } from 'lucide-react';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
 import { useTranslation, useUiPreferences, type ThemePreference } from '@/contexts/UiPreferencesContext';
@@ -10,8 +10,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { About } from '@/components/About';
-import { desktopCapabilities } from '@/config/capabilities';
 import { cn } from '@/lib/utils';
+import Analytics from '@/lib/analytics';
 import Image from 'next/image';
 
 export const OPEN_PALETTE_EVENT = 'meetpulse-open-palette';
@@ -75,9 +75,11 @@ export default function Rail() {
       const key = event.key.toLowerCase();
       if (key === 'k') {
         event.preventDefault();
+        void Analytics.track('shortcut_used', { shortcut: 'ctrl_k' });
         window.dispatchEvent(new Event(OPEN_PALETTE_EVENT));
       } else if (key === 'j') {
         event.preventDefault();
+        void Analytics.track('shortcut_used', { shortcut: 'ctrl_j' });
         router.push('/ask');
       }
     };
@@ -120,9 +122,6 @@ export default function Rail() {
           disabled={isRecording}
           onClick={handleRecordingToggle}
         />
-        {desktopCapabilities.wikiEnabled && (
-          <RailButton label={t('nav.wiki')} icon={BookOpen} active={pathname === '/wiki'} onClick={() => router.push('/wiki')} />
-        )}
 
         <div className="mt-auto flex flex-col items-center gap-1">
           <RailButton label={`${t('nav.theme')}: ${themeName}`} icon={ThemeIcon} onClick={() => setTheme(themeCycle[theme])} />

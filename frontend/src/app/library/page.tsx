@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { invoke } from '@tauri-apps/api/core';
+import Analytics from '@/lib/analytics';
 import { toast } from 'sonner';
 import { ChevronRight, FileText, FolderOpen, Library, Mic, Pencil, Search, SlidersHorizontal, Sparkles, Trash2, UserRound, X } from 'lucide-react';
 import { useSidebar, type CurrentMeeting } from '@/components/Sidebar/SidebarProvider';
@@ -189,6 +190,7 @@ export default function LibraryPage() {
     for (const id of ids) {
       try {
         await invoke('api_delete_meeting', { meetingId: id });
+        void Analytics.trackMeetingDeleted(id);
       } catch (error) {
         console.error('Failed to delete meeting', id, error);
         failed.push(id);
@@ -205,6 +207,7 @@ export default function LibraryPage() {
     if (!renaming || !title) return;
     try {
       await invoke('api_save_meeting_title', { meetingId: renaming.id, title });
+      void Analytics.track('meeting_renamed', { meeting_id: renaming.id, title_length: String(title.length) });
       setMeetings(meetings.map((m) => (m.id === renaming.id ? { ...m, title } : m)));
       setRenaming(null);
     } catch (error) {

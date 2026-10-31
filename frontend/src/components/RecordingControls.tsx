@@ -414,7 +414,6 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                       <TooltipTrigger asChild>
                         <button
                           onClick={() => {
-                            Analytics.trackButtonClick('start_recording', 'recording_controls');
                             handleStartRecording();
                           }}
                           disabled={isStarting || isProcessing || isRecordingDisabled || isValidatingModel}
@@ -440,10 +439,10 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                           <button
                             onClick={() => {
                               if (isPaused) {
-                                Analytics.trackButtonClick('resume_recording', 'recording_controls');
+                                Analytics.trackRecordingControl('resume');
                                 handleResumeRecording();
                               } else {
-                                Analytics.trackButtonClick('pause_recording', 'recording_controls');
+                                Analytics.trackRecordingControl('pause');
                                 handlePauseRecording();
                               }
                             }}
@@ -470,7 +469,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => {
-                              Analytics.trackButtonClick('stop_recording', 'recording_controls');
+                              Analytics.trackRecordingControl('stop');
                               handleStopRecording();
                             }}
                             disabled={isStopping || isPausing || isResuming}

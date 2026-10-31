@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import type { ReportSnapshot } from "@/lib/pdf/branding";
 import type { Transcript } from "@/types";
+import Analytics from "@/lib/analytics";
 
 export function PdfExports({
   meeting,
@@ -32,6 +33,8 @@ export function PdfExports({
   useEffect(() => () => worker.current?.terminate(), []);
   async function exportPdf(kind: ReportSnapshot["kind"]) {
     setBusy(true);
+    const startedAt = Date.now();
+    let outcome: "saved" | "cancelled" | "failed" = "failed";
     try {
       const snapshot: ReportSnapshot = {
         kind,
@@ -101,11 +104,17 @@ export function PdfExports({
         filename: `${(meeting.created_at || new Date().toISOString()).slice(0, 10)}_${title}_${kind === "analysis" ? "analisis" : "transcripcion"}.pdf`,
         bytes: Array.from(new Uint8Array(bytes)),
       });
+      outcome = saved ? "saved" : "cancelled";
       if (saved) toast.success(t("meeting.pdfSaved"));
     } catch (error) {
       toast.error(String(error));
     } finally {
       setBusy(false);
+      void Analytics.track("pdf_exported", {
+        kind,
+        outcome,
+        duration_seconds: ((Date.now() - startedAt) / 1000).toFixed(1),
+      });
     }
   }
   return (

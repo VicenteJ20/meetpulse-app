@@ -1,9 +1,7 @@
 "use client";
-import { SuggestInput } from '@/components/ui/suggest-input';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Summary, SummaryResponse, Transcript } from '@/types';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
-import Analytics from '@/lib/analytics';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { TranscriptPanel } from '@/components/MeetingDetails/TranscriptPanel';
@@ -17,57 +15,15 @@ import { useTemplates } from '@/hooks/meeting-details/useTemplates';
 import { useCopyOperations } from '@/hooks/meeting-details/useCopyOperations';
 import { useMeetingOperations } from '@/hooks/meeting-details/useMeetingOperations';
 import { useConfig } from '@/contexts/ConfigContext';
-import { desktopCapabilities } from '@/config/capabilities';
-import { getWikiLastDestination } from '@/services/wiki-config';
-import { useWikiPublish } from '@/hooks/meeting-details/useWikiPublish';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AssistantButton, LiveAssistantDockHost, useAssistant, useAssistantTarget } from '@/contexts/AssistantContext';
 import { ResizeHandle } from '@/components/ui/resize-handle';
 import { PdfExports } from '@/components/MeetingDetails/PdfExports';
 import { CalendarDays, ChevronRight } from 'lucide-react';
 import { Segmented } from '@/components/ui/segmented';
-import { SelectField } from '@/components/ui/select-field';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { MeetingMetaPopover } from '@/components/MeetingDetails/MeetingMetaPopover';
 import { DataFlowChip } from '@/components/DataFlowChip';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { useRouter } from 'next/navigation';
-import { slugifyWikiId } from '@/lib/wiki-slug';
-
-interface TranscriptPage {
-  transcripts: Transcript[];
-  total_count: number;
-}
-
-async function loadCompleteTranscript(meetingId: string): Promise<Transcript[]> {
-  const firstPage = await invoke<TranscriptPage>('api_get_meeting_transcripts', {
-    meetingId,
-    limit: 1,
-    offset: 0,
-  });
-  if (!firstPage.total_count) return [];
-  if (firstPage.total_count === 1) return firstPage.transcripts;
-  const complete = await invoke<TranscriptPage>('api_get_meeting_transcripts', {
-    meetingId,
-    limit: firstPage.total_count,
-    offset: 0,
-  });
-  return complete.transcripts;
-}
-
-function transcriptMarkdown(title: string, createdAt: string | undefined, transcripts: Transcript[]): string {
-  const formatTime = (transcript: Transcript) => {
-    if (transcript.audio_start_time === undefined) return transcript.timestamp;
-    const totalSeconds = Math.floor(transcript.audio_start_time);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `[${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}]`;
-  };
-  const date = createdAt ? new Date(createdAt).toISOString() : new Date().toISOString();
-  const body = transcripts.map(transcript => `${formatTime(transcript)}${transcript.speaker === 'me' ? ' [Usuario]' : transcript.speaker === 'team' ? ' [Equipo]' : ''} ${transcript.text.trim()}`).join('\n');
-  return `# Transcripción: ${title}\n\n## Fecha\n\n${date}\n\n## Contenido\n\n${body}\n`;
-}
 
 export default function PageContent({
   meeting,
@@ -131,10 +87,9 @@ export default function PageContent({
     return () => { query.removeEventListener('change', adapt); window.removeEventListener('meetpulse-source', showSource); };
   }, []);
   // State
-  const lastWikiDestination = !desktopCapabilities.wikiEnabled || typeof window === 'undefined' ? null : getWikiLastDestination();
   const [customPrompt, setCustomPrompt] = useState<string>(meeting.additional_context || '');
-  const [client, setClient] = useState<string>(meeting.client || lastWikiDestination?.clientId || '');
-  const [project, setProject] = useState<string>(meeting.project || lastWikiDestination?.projectId || '');
+  const [client, setClient] = useState<string>(meeting.client || '');
+  const [project, setProject] = useState<string>(meeting.project || '');
   const [isRecording] = useState(false);
   const [summaryResponse] = useState<SummaryResponse | null>(null);
   const { serverAddress, refetchMeetings, meetings } = useSidebar();
@@ -142,9 +97,8 @@ export default function PageContent({
   const router = useRouter();
 
   useEffect(() => {
-    const lastDestination = desktopCapabilities.wikiEnabled ? getWikiLastDestination() : null;
-    setClient(meeting.client || lastDestination?.clientId || '');
-    setProject(meeting.project || lastDestination?.projectId || '');
+    setClient(meeting.client || '');
+    setProject(meeting.project || '');
     setCustomPrompt(meeting.additional_context || '');
   }, [meeting.id, meeting.client, meeting.project, meeting.additional_context]);
 
@@ -223,7 +177,7 @@ export default function PageContent({
     }
   };
 
-  const getWikiMarkdown = useCallback(async () => {
+  const getAnalysisMarkdown = useCallback(async () => {
     const editor = meetingData.blockNoteSummaryRef.current;
     const current = await editor?.getMarkdown?.();
     const summary = meetingData.aiSummary as unknown as { markdown?: string; summary_json?: unknown[] } | null;
@@ -233,21 +187,6 @@ export default function PageContent({
     if (typeof summary?.markdown === 'string') return summary.markdown;
     return Object.values(meetingData.aiSummary || {}).filter(section => section && typeof section === 'object' && 'title' in section && Array.isArray(section.blocks)).map(section => `## ${section.title}\n\n${section.blocks.map(block => block.content || '').join('\n\n')}`).join('\n\n');
   }, [meetingData.aiSummary, meetingData.blockNoteSummaryRef]);
-
-  const getWikiRawMarkdown = useCallback(async () => {
-    const completeTranscript = await loadCompleteTranscript(meeting.id);
-    const title = meetingData.meetingTitle.trim() || meeting.title;
-    return transcriptMarkdown(title, meeting.created_at, completeTranscript);
-  }, [meeting.id, meeting.title, meeting.created_at, meetingData.meetingTitle]);
-
-  const wikiPublish = useWikiPublish({
-    meeting,
-    meetingTitle: meetingData.meetingTitle,
-    client,
-    project,
-    getMarkdown: getWikiMarkdown,
-    getRawMarkdown: getWikiRawMarkdown,
-  });
 
   const summaryGeneration = useSummaryGeneration({
     meeting,
@@ -259,9 +198,8 @@ export default function PageContent({
     updateMeetingTitle: meetingData.updateMeetingTitle,
     setAiSummary: meetingData.setAiSummary,
     onOpenModelSettings: handleOpenModelSettings,
-    onSummaryCompleted: async ({ title, markdown }) => {
+    onSummaryCompleted: async ({ title }) => {
       if (title) meetingData.updateMeetingTitle(title);
-      await wikiPublish.publishAfterAnalysis({ title, markdown });
     },
   });
 
@@ -279,7 +217,6 @@ export default function PageContent({
 
   // Track page view
   useEffect(() => {
-    Analytics.trackPageView('meeting_details');
   }, []);
 
   // Auto-generate summary when flag is set
@@ -344,28 +281,12 @@ export default function PageContent({
               onContextChange={setCustomPrompt}
             />
             <DataFlowChip />
-            {desktopCapabilities.wikiEnabled && (
-              <span className="rounded-full border border-border px-2.5 py-0.5 font-medium">
-                {t((
-                  {
-                    draft: 'meeting.wikiStatus.draft',
-                    publishing: 'meeting.wikiStatus.publishing',
-                    published: 'meeting.wikiStatus.published',
-                    curating: 'meeting.wikiStatus.curating',
-                    curated: 'meeting.wikiStatus.curated',
-                    conflict: 'meeting.wikiStatus.conflict',
-                    diverged: 'meeting.wikiStatus.diverged',
-                    error: 'meeting.wikiStatus.error',
-                  } as const
-                )[wikiPublish.status])}
-              </span>
-            )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <PdfExports
             meeting={{ ...meeting, title: meetingData.meetingTitle || meeting.title, client, project }}
-            getAnalysis={getWikiMarkdown}
+            getAnalysis={getAnalysisMarkdown}
             onCopySummary={() => void copyOperations.handleCopySummary()}
             onCopyTranscript={() => void copyOperations.handleCopyTranscript()}
           />
@@ -449,51 +370,11 @@ export default function PageContent({
           onTemplateSelect={templates.handleTemplateSelection}
           isModelConfigLoading={false}
           onOpenModelSettings={handleRegisterModalOpen}
-          wikiStatus={wikiPublish.status}
-          onRetryWiki={() => { void wikiPublish.retryPublish(); }}
-          onOpenWiki={() => router.push('/wiki')}
         /></div>
         <ResizeHandle data-handle="chat" side="end" min={300} max={640} value={columns.chat} onChange={value => resizeColumn('chat', value)} label={t('meeting.resizeChat')} />
         <LiveAssistantDockHost isOpen={assistantOpen} />
       </div>
     </div>
-    <Dialog open={wikiPublish.destinationOpen} onOpenChange={wikiPublish.setDestinationOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('meeting.wikiDestination')}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">{wikiPublish.selectedTenant ? t('meeting.wikiNeedsClientProject') : t('meeting.wikiDestinationDescription')}</p>
-          {!wikiPublish.selectedTenant && (
-          <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
-            {t('meeting.wikiWorkspace')}
-            <SelectField
-              aria-label={t('meeting.wikiWorkspace')}
-              value={wikiPublish.selectedTenant}
-              onValueChange={wikiPublish.setSelectedTenant}
-              options={wikiPublish.tenants.map(tenant => ({ value: tenant.tenant_id, label: `${tenant.display_name || tenant.tenant_id} · ${tenant.role === 'owner' ? t('wiki.owner') : t('wiki.guest')}` }))}
-            />
-          </label>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-              {t('meeting.client')}
-              <SuggestInput value={client} onValueChange={setClient} options={wikiPublish.clients.map(item => item.client_id)} />
-              <span className="block font-normal text-[11px]">{t('meeting.wikiSlugPreview').replace('{id}', slugifyWikiId(client) || '—')}</span>
-            </label>
-            <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-              {t('meeting.project')}
-              <SuggestInput value={project} onValueChange={setProject} options={wikiPublish.projects.map(item => item.project_id)} />
-              <span className="block font-normal text-[11px]">{t('meeting.wikiSlugPreview').replace('{id}', slugifyWikiId(project) || '—')}</span>
-            </label>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => wikiPublish.setDestinationOpen(false)}>{t('common.cancel')}</Button>
-          <Button onClick={() => { wikiPublish.confirmDestination(); }} disabled={!wikiPublish.destination.ready || wikiPublish.isPublishing}>{t('meeting.wikiPublishNow')}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
     </>
   );
 }

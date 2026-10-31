@@ -1,8 +1,7 @@
 'use client';
 
-import { desktopCapabilities } from '@/config/capabilities';
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Cpu, FileText, UserRound, Database as DatabaseIcon, Lightbulb, Mic, Settings2, ShieldCheck } from 'lucide-react';
+import { Cpu, FileText, UserRound, Database as DatabaseIcon, Lightbulb, Mic, Settings2, ShieldCheck } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { TranscriptSettings } from '@/components/TranscriptSettings';
 import { RecordingSettings } from '@/components/RecordingSettings';
@@ -14,7 +13,6 @@ import { PrivacySettings } from '@/components/settings/PrivacySettings';
 import { AboutMeSettings } from '@/components/settings/AboutMeSettings';
 import { useConfig } from '@/contexts/ConfigContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { WikiSettings } from '@/components/WikiSettings';
 import { PageHeader } from '@/components/ui/product';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 
@@ -38,8 +36,7 @@ export default function SettingsPage() {
     { value: 'about', label: t('st.tabAbout'), icon: UserRound },
     { value: 'coach', label: t('st.tabCoach'), icon: Lightbulb },
     { value: 'privacy', label: t('st.tabPrivacy'), icon: ShieldCheck },
-    { value: 'wiki', label: t('settings.wiki'), icon: BookOpen },
-  ].filter(tab => tab.value !== 'wiki' || desktopCapabilities.wikiEnabled);
+  ];
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('tab');
@@ -73,9 +70,7 @@ export default function SettingsPage() {
             <TabsContent value="models" className="mt-0"><ModelsSettings onGoTo={setActiveTab} /></TabsContent>
             <TabsContent value="about" className="mt-0"><AboutMeSettings /></TabsContent>
             <TabsContent value="coach" className="mt-0"><AssistantDefaultsSettings /></TabsContent>
-            <TabsContent value="privacy" className="mt-0"><PrivacySettings /></TabsContent>
-            {desktopCapabilities.wikiEnabled && <TabsContent value="wiki" className="mt-0"><WikiSettings /></TabsContent>}
-          </div>
+            <TabsContent value="privacy" className="mt-0"><PrivacySettings /></TabsContent>          </div>
         </Tabs>
       </div>
     </main>

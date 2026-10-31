@@ -30,8 +30,6 @@ import { RecordingPostProcessingProvider } from '@/contexts/RecordingPostProcess
 import { ImportAudioDialog, ImportDropOverlay } from '@/components/ImportAudio'
 import { ImportDialogProvider } from '@/contexts/ImportDialogContext'
 import { isAudioExtension, getAudioFormatsDisplayList } from '@/constants/audioFormats'
-import { AuthProvider } from '@/contexts/AuthContext'
-import { AuthGate } from '@/components/AuthGate'
 import { UiPreferencesProvider } from '@/contexts/UiPreferencesContext'
 import { AppSplash } from '@/components/AppSplash'
 import { ThemedToaster } from '@/components/ThemedToaster'
@@ -244,7 +242,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#0b5fa5" />
       </head>
       <body className="font-sans antialiased">
-        <UiPreferencesProvider><ThemedToaster /><AuthProvider><AuthGate><AnalyticsProvider>
+        <UiPreferencesProvider><ThemedToaster /><AnalyticsProvider>
           <RecordingStateProvider>
             <TranscriptProvider>
               <ConfigProvider>
@@ -288,7 +286,7 @@ export default function RootLayout({
               </ConfigProvider>
             </TranscriptProvider>
           </RecordingStateProvider>
-        </AnalyticsProvider></AuthGate></AuthProvider></UiPreferencesProvider>
+        </AnalyticsProvider></UiPreferencesProvider>
       </body>
     </html>
   )

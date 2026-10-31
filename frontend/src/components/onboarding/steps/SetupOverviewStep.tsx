@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { OnboardingContainer } from '../OnboardingContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
-
 export function SetupOverviewStep() {
   const { goNext } = useOnboarding();
   const { t } = useTranslation();
@@ -65,16 +64,6 @@ export function SetupOverviewStep() {
           >
             {t('onboarding.letsGo')}
           </Button>
-          <div className="text-center">
-            <a
-              href="https://github.com/Zackriya-Solutions/meeting-minutes"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-muted-foreground hover:underline"
-            >
-              {t('onboarding.reportIssues')}
-            </a>
-          </div>
         </div>
       </div>
     </OnboardingContainer>

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Radio, ShieldCheck, X } from 'lucide-react';
 import { toast } from 'sonner';
-import Analytics from '@/lib/analytics';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,7 +33,6 @@ function RecordingConsentToast({ toastId }: { toastId: string | number }) {
       await store.set('show_recording_notification', false);
       await store.save();
     }
-    Analytics.trackButtonClick('recording_notification_acknowledged', 'toast');
     toast.dismiss(toastId);
   };
 

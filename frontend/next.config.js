@@ -33,6 +33,8 @@ const nextConfig = {
         ...config.resolve.alias,
         // Markdown entities must also decode in the PDF worker, where document is unavailable.
         'decode-named-character-reference$': require.resolve('decode-named-character-reference'),
+        // Wraps invoke() so analytics can observe user-triggered commands (see src/lib/tauri-core.ts).
+        '@tauri-apps/api/core$': path.resolve(__dirname, 'src/lib/tauri-core.ts'),
         '@blocknote/core$': require.resolve('@blocknote/core'),
         '@blocknote/react$': require.resolve('@blocknote/react'),
         '@blocknote/shadcn$': require.resolve('@blocknote/shadcn'),

@@ -19,6 +19,7 @@ import { useTranslation } from "@/contexts/UiPreferencesContext";
 import { Button } from "@/components/ui/button";
 import { loadAssistantDefaults } from "@/lib/assistantDefaults";
 import { loadAboutMe } from "@/lib/aboutMe";
+import Analytics from "@/lib/analytics";
 import { AssistantPanel } from "./AssistantPanel";
 import { AskView } from "./AskView";
 
@@ -389,6 +390,17 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     setError("");
     const text = typed;
     stopped.current = false;
+    const askStartedAt = Date.now();
+    let askOutcome: "completed" | "stopped" | "failed" = "failed";
+    // Solo metadatos: nunca el texto de la pregunta ni la respuesta.
+    void Analytics.track("assistant_question_asked", {
+      kind,
+      scope: kind === "chat" ? scope : "live",
+      provider,
+      model,
+      question_length: String(text.length),
+      has_date_range: String(Boolean(from || to)),
+    });
     // Envío optimista: el campo se vacía y el mensaje aparece al instante; si algo falla, el texto vuelve.
     if (kind === "chat") {
       setPendingText(text);
@@ -418,10 +430,12 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       );
       if (request.current !== id || sessionRef.current !== activeSession)
         return true;
+      askOutcome = "completed";
       if (kind === "coach") lastCoach.current = key;
       setPartial(result.partial);
       await reload(activeSession);
     } catch (e) {
+      askOutcome = stopped.current ? "stopped" : "failed";
       if (kind === "chat") setQuestion((current) => current || text);
       if (request.current === id) {
         // Detener no es un error: se devuelve el texto al campo y se avisa en silencio.
@@ -429,6 +443,13 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         await reload(activeSession).catch(() => {});
       }
     } finally {
+      void Analytics.track("assistant_answer_finished", {
+        kind,
+        outcome: askOutcome,
+        provider,
+        model,
+        duration_seconds: ((Date.now() - askStartedAt) / 1000).toFixed(1),
+      });
       if (request.current === id) {
         request.current = "";
         setBusy("");

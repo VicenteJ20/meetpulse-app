@@ -1,5 +1,6 @@
 "use client";
 
+import Analytics from '@/lib/analytics';
 import { Summary, SummaryResponse, Transcript } from '@/types';
 import { EditableTitle } from '@/components/EditableTitle';
 import { BlockNoteSummaryViewRef } from '@/components/AISummary/BlockNoteSummaryView';
@@ -24,7 +25,6 @@ import {
   saveMeetingSummaryLanguage,
   SummaryLanguageStorage,
 } from '@/lib/summary-language-preferences';
-import type { WikiPublishUiStatus } from '@/hooks/meeting-details/useWikiPublish';
 
 interface SummaryPanelProps {
   meeting: {
@@ -64,9 +64,6 @@ interface SummaryPanelProps {
   onTemplateSelect: (templateId: string, templateName: string) => void;
   isModelConfigLoading?: boolean;
   onOpenModelSettings?: (openFn: () => void) => void;
-  wikiStatus: WikiPublishUiStatus;
-  onRetryWiki: () => Promise<void> | void;
-  onOpenWiki: () => void;
 }
 
 export function SummaryPanel({
@@ -102,9 +99,6 @@ export function SummaryPanel({
   onTemplateSelect,
   isModelConfigLoading = false,
   onOpenModelSettings,
-  wikiStatus,
-  onRetryWiki,
-  onOpenWiki
 }: SummaryPanelProps) {
   const { t } = useTranslation();
   const [summaryLang, setSummaryLang] = useState<string | null>(null);
@@ -215,6 +209,7 @@ export function SummaryPanel({
   };
 
   const handleLangChange = (code: string | null) => {
+    void Analytics.track('summary_language_changed', { language: code ?? 'auto' });
     const previous = summaryLang;
     const previousStorage = summaryLangStorage;
     const nextStored = code;
@@ -274,9 +269,6 @@ export function SummaryPanel({
       onFind={() => console.log('Find in summary clicked')}
       onOpenFolder={onOpenFolder}
       hasSummary={!!aiSummary}
-      wikiStatus={wikiStatus}
-      onRetryWiki={onRetryWiki}
-      onOpenWiki={onOpenWiki}
     />
   ) : null;
 

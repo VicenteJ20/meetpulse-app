@@ -78,9 +78,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     await savePreferences(newPreferences);
 
     // Track auto-save setting change
-    await Analytics.track('auto_save_recording_toggled', {
-      enabled: enabled.toString()
-    });
+    await Analytics.trackSettingsChanged('auto_save_recording', enabled.toString());
   };
 
   const handleDeviceChange = async (devices: SelectedDevices) => {
@@ -94,10 +92,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
 
     // Track default device preference changes
     // Note: Individual device selection analytics are tracked in DeviceSelection component
-    await Analytics.track('default_devices_changed', {
-      has_preferred_microphone: (!!devices.micDevice).toString(),
-      has_preferred_system_audio: (!!devices.systemDevice).toString()
-    });
+    await Analytics.trackSettingsChanged('default_devices', `mic:${!!devices.micDevice},system:${!!devices.systemDevice}`);
   };
 
   const handleOpenFolder = async () => {
@@ -116,9 +111,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
       await store.set('show_recording_notification', enabled);
       await store.save();
       toast.success(t('rs.prefSaved'));
-      await Analytics.track('recording_notification_preference_changed', {
-        enabled: enabled.toString()
-      });
+      await Analytics.trackSettingsChanged('recording_notification', enabled.toString());
     } catch (error) {
       console.error('Failed to save notification preference:', error);
       toast.error(t('rs.prefFailed'));

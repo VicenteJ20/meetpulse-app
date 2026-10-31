@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import Analytics from '@/lib/analytics';
 import type { PermissionStatus, OnboardingPermissions } from '@/types/onboarding';
 import { resolveOnboardingSummaryModelStatus } from '@/lib/onboarding-summary-model';
 
@@ -463,6 +464,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
       // A local summary model is optional and can be downloaded later from Settings.
       await invoke('complete_onboarding');
+      void Analytics.track('onboarding_completed');
       setCompleted(true);
       console.log('[OnboardingContext] Onboarding completed');
 

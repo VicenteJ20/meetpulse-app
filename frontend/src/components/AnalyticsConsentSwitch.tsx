@@ -45,11 +45,6 @@ export default function AnalyticsConsentSwitch() {
       await navigator.clipboard.writeText(userId);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
-
-      // Track that user copied their ID
-      await Analytics.track('user_id_copied', {
-        user_id: userId
-      });
     } catch (error) {
       console.error('Failed to copy user ID:', error);
     }
@@ -96,18 +91,17 @@ export default function AnalyticsConsentSwitch() {
         await Analytics.init();
 
         // Identify user with enhanced properties immediately after init
+        const deviceInfo = await Analytics.getDeviceInfo();
         await Analytics.identify(userId, {
           app_version: APP_VERSION,
-          platform: 'tauri',
+          platform: deviceInfo.platform,
+          os_version: deviceInfo.os_version,
+          architecture: deviceInfo.architecture,
           first_seen: new Date().toISOString(),
-          os: navigator.platform,
         });
 
         // Start analytics session with the same user ID
         await Analytics.startSession(userId);
-
-        // Track app started (re-enabled)
-        await Analytics.trackAppStarted();
 
         // Track that user enabled analytics
         try {
@@ -148,13 +142,12 @@ export default function AnalyticsConsentSwitch() {
     // Keep analytics enabled, no state change needed
   };
 
-  const handlePrivacyPolicyClick = async () => {
-    try {
-      await invoke('open_external_url', { url: 'https://github.com/Zackriya-Solutions/meeting-minutes/blob/main/PRIVACY_POLICY.md' });
-    } catch (error) {
-      console.error('Failed to open privacy policy link:', error);
-    }
-  };
+  const [showInfo, setShowInfo] = useState(false);
+  const [configured, setConfigured] = useState(true);
+
+  useEffect(() => {
+    invoke<boolean>('analytics_configured').then(setConfigured).catch(() => setConfigured(false));
+  }, []);
 
   return (
     <>
@@ -166,7 +159,7 @@ export default function AnalyticsConsentSwitch() {
           </div>
           <div className="flex items-center gap-2">
             {isProcessing && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
-            <Switch checked={isAnalyticsOptedIn} onCheckedChange={handleToggle} disabled={isProcessing} aria-label={t('mx.enableAnalytics')} />
+            <Switch checked={isAnalyticsOptedIn} onCheckedChange={handleToggle} disabled={isProcessing || !configured} aria-label={t('mx.enableAnalytics')} />
           </div>
         </div>
 
@@ -188,9 +181,10 @@ export default function AnalyticsConsentSwitch() {
           <Info className="mt-0.5 size-3.5 shrink-0" />
           <span>
             {t('mx.privateNote')}{' '}
-            <button onClick={handlePrivacyPolicyClick} className="text-brand hover:underline">{t('mx.privacyPolicy')}</button>
+            <button onClick={() => setShowInfo(true)} className="text-brand hover:underline">{t('mx.privacyPolicy')}</button>
           </span>
         </p>
+        {!configured && <p className="mt-2 text-xs text-muted-foreground">{t('mx.notConfigured')}</p>}
       </div>
 
       {/* 2-Step Opt-Out Modal */}
@@ -199,6 +193,7 @@ export default function AnalyticsConsentSwitch() {
         onClose={handleCancelDisable}
         onConfirmDisable={handleConfirmDisable}
       />
+      <AnalyticsDataModal isOpen={showInfo} onClose={() => setShowInfo(false)} />
     </>
   );
 }

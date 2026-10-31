@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { invoke } from '@tauri-apps/api/core';
+import Analytics from '@/lib/analytics';
 import { Cpu, FileText, Home, Library, Lightbulb, Mic, Moon, Settings, Sparkles, Waves } from 'lucide-react';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useAssistant } from '@/contexts/AssistantContext';
@@ -82,6 +83,12 @@ export default function CommandPalette() {
           if (stale) return;
           setSemanticResults(result.sources ?? []);
           setPartialSearch(result.partial);
+          // Solo el tamaño de la búsqueda, nunca el texto.
+          void Analytics.track('search_performed', {
+            query_length: String(trimmed.length),
+            results_count: String(result.sources?.length ?? 0),
+            partial: String(Boolean(result.partial)),
+          });
         })
         .catch((error) => {
           if (!stale) console.warn('Semantic palette search failed:', error);

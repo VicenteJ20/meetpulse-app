@@ -2,7 +2,9 @@
 
 import React, { useEffect, ReactNode, useRef, useState, createContext } from 'react';
 import Analytics from '@/lib/analytics';
+import { installAutoAnalytics } from '@/lib/analytics-auto';
 import { load } from '@tauri-apps/plugin-store';
+import { usePathname } from 'next/navigation';
 import { APP_VERSION } from '@/config/app';
 
 const ANALYTICS_DEFAULT_OFF_MIGRATION_KEY = 'analyticsDefaultOffMigrationV1';
@@ -110,9 +112,6 @@ export default function AnalyticsProvider({ children }: AnalyticsProviderProps) 
       // Check and track first launch (after analytics is initialized)
       await Analytics.checkAndTrackFirstLaunch();
 
-      // Track app started
-      await Analytics.trackAppStarted();
-
       // Check and track daily usage
       await Analytics.checkAndTrackDailyUsage();
 
@@ -139,6 +138,20 @@ export default function AnalyticsProvider({ children }: AnalyticsProviderProps) 
 
     initAnalytics().catch(console.error);
   }, []); // Run only once on mount to prevent infinite loops
+
+  // App-wide coverage (labeled clicks, user-triggered backend actions, errors) while opted in
+  useEffect(() => {
+    if (!isAnalyticsOptedIn) return;
+    return installAutoAnalytics();
+  }, [isAnalyticsOptedIn]);
+
+  // One page_view per route change
+  const pathname = usePathname();
+  useEffect(() => {
+    if (!isAnalyticsOptedIn || !pathname) return;
+    const page = pathname.replace(/^\/|\/$/g, '').replace(/\//g, '_') || 'home';
+    void Analytics.trackPageView(page);
+  }, [pathname, isAnalyticsOptedIn]);
 
   // Separate effect to handle re-initialization when analytics is toggled
   useEffect(() => {

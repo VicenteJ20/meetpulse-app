@@ -79,15 +79,6 @@ export function BluetoothPlaybackWarning({
             Recordings may sound distorted or sped up through Bluetooth devices.
             For accurate review, please use <strong>computer speakers</strong> or{' '}
             <strong>wired headphones</strong>.
-            <br />
-            <a
-              href="https://github.com/Zackriya-Solutions/meeting-minutes/blob/main/BLUETOOTH_PLAYBACK_NOTICE.md"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-warning font-medium mt-2 inline-block"
-            >
-              Learn why this happens →
-            </a>
           </AlertDescription>
         </div>
         <Button

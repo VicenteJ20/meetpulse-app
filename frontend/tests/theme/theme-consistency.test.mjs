@@ -81,15 +81,3 @@ test('meeting summary document uses one semantic editorial surface', async () =>
   assert.match(summaryPanel, /className="meeting-summary-editor w-full"/);
   assert.doesNotMatch(summaryPanel, /meeting-summary-editor w-full p-6/);
 });
-
-test('wiki documents reuse the semantic editorial surface without a nested dark canvas', async () => {
-  const [wikiPage, globalStyles] = await Promise.all([
-    readFile(path.join(frontendRoot, 'src/app/wiki/page.tsx'), 'utf8'),
-    readFile(path.join(frontendRoot, 'src/app/globals.css'), 'utf8'),
-  ]);
-
-  assert.match(wikiPage, /mx-auto max-w-\[880px\]/);
-  assert.match(wikiPage, /meeting-summary-editor wiki-document-editor/);
-  assert.match(globalStyles, /\.wiki-document-editor\.meeting-summary-editor/);
-  assert.match(globalStyles, /\.wiki-document-editor \.bn-editor h1/);
-});

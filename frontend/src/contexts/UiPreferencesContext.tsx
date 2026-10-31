@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { invoke } from '@tauri-apps/api/core';
 import { catalogs, TranslationKey } from '@/i18n/catalogs';
 import { withAssistant } from '@/config/brand';
+import Analytics from '@/lib/analytics';
 
 export type UiLocale = 'en' | 'es';
 export type ThemePreference = 'light' | 'dark' | 'system';
@@ -75,11 +76,13 @@ export function UiPreferencesProvider({ children }: { children: React.ReactNode 
     window.localStorage.setItem(LOCALE_KEY, next);
     setLocaleState(next);
     syncUiLocale(next);
+    void Analytics.trackSettingsChanged('ui_language', next);
   }, []);
 
   const setTheme = useCallback((next: ThemePreference) => {
     window.localStorage.setItem(THEME_KEY, next);
     setThemeState(next);
+    void Analytics.trackSettingsChanged('theme', next);
   }, []);
 
   const value = useMemo<UiPreferencesContextValue>(() => ({
