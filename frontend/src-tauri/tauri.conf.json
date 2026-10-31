@@ -87,7 +87,7 @@
             "app",
             "dmg"
         ],
-        "createUpdaterArtifacts": false,
+        "createUpdaterArtifacts": true,
         "icon": [
             "icons/icon.png",
             "icons/icon.icns",
@@ -112,9 +112,9 @@
     },
     "plugins": {
         "updater": {
-            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDQTYzMUQ3ODc5N0M4MkEKUldRcXlKZUgxekdtN09DRkVWSHNpZlJseEVOUmpNd1dDSTNaLzZ3MXJGTnY3WW1pdnlOYjBpbkIK",
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENEMTRCRDY4OUI2MjQyMjUKUldRbFFtS2JhTDBVelh1L05kcmJ2K05uY0xhQmF6THlVYlA0ejhxVDBBSHljNTBXY1pqUkp6K2cK",
             "endpoints": [
-                "https://github.com/Zackriya-Solutions/meeting-minutes/releases/latest/download/latest.json"
+                "https://github.com/VicenteJ20/meetpulse-app/releases/latest/download/latest.json"
             ]
         }
     }
