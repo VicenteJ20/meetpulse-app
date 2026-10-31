@@ -47,7 +47,7 @@ function request(pathname) {
 }
 
 async function waitForNext() {
-  const deadline = Date.now() + 90_000;
+  const deadline = Date.now() + 240_000;
   let lastError;
 
   while (Date.now() < deadline) {
@@ -61,7 +61,7 @@ async function waitForNext() {
     }
   }
 
-  throw new Error(`Next.js did not finish compiling within 90 seconds: ${lastError?.message ?? 'unknown error'}`);
+  throw new Error(`Next.js did not finish compiling within 240 seconds: ${lastError?.message ?? 'unknown error'}`);
 }
 
 function startProxy() {
@@ -81,8 +81,12 @@ function startProxy() {
       if (!clientResponse.headersSent) clientResponse.writeHead(502);
       clientResponse.end(`Next.js proxy error: ${error.message}`);
     });
+    clientRequest.on('error', () => upstreamRequest.destroy());
+    clientResponse.on('error', () => upstreamRequest.destroy());
     clientRequest.pipe(upstreamRequest);
   });
+
+  proxy.on('clientError', (_error, socket) => socket.destroy());
 
   // Forward Next's HMR WebSocket as well, so hot reload continues to work.
   proxy.on('upgrade', (request, socket, head) => {
@@ -97,7 +101,9 @@ function startProxy() {
       if (head.length) upstream.write(head);
       socket.pipe(upstream).pipe(socket);
     });
+    // A webview reload or a Rust rebuild resets these sockets; that must never take the dev server down.
     upstream.on('error', () => socket.destroy());
+    socket.on('error', () => upstream.destroy());
   });
 
   proxy.listen(tauriPort, '127.0.0.1', () => {
