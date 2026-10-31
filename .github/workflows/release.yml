@@ -18,6 +18,16 @@ jobs:
       release-id: ${{ steps.create-release.outputs.result }}
       version: ${{ steps.get-version.outputs.version }}
     steps:
+      - name: Verificar secretos de firma del updater
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          PW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEY" ] || [ -z "$PW" ]; then
+            echo "::error::Faltan los secretos TAURI_SIGNING_PRIVATE_KEY y/o TAURI_SIGNING_PRIVATE_KEY_PASSWORD (ver docs/RELEASING.md)"
+            exit 1
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
