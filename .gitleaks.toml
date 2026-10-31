@@ -1,0 +1,14 @@
+title = "MeetPulse gitleaks"
+
+[extend]
+useDefault = true
+
+# Claves públicas (solo escritura) de PostHog que venían en el código original y que
+# siguen en el historial de git. Ya no están en el código actual.
+[[allowlists]]
+description = "Claves de proyecto de PostHog heredadas, públicas por diseño"
+regexTarget = "match"
+regexes = [
+  '''phc_cohhHPgfQfnNWl33THRRpCftuRtWx2k5svtKrkpFb04''',
+  '''phc_Aa9PqeCkDkVbtbRsYjtmHANBfcscjCVupxZwrtL5vZ77''',
+]
