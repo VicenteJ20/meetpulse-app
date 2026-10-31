@@ -37,7 +37,6 @@ pub(crate) use perf_trace;
 
 // Declare audio module
 pub mod analytics;
-pub mod auth;
 pub mod api;
 pub mod audio;
 pub mod config;
@@ -584,12 +583,6 @@ pub fn run() {
             desktop::search::desktop_search_query,
             desktop::search::desktop_search_download,
             desktop::search::desktop_search_index,
-
-            auth::sign_in_with_google,
-            auth::get_google_auth_token,
-            auth::peek_google_auth_session,
-            auth::debug_expire_google_session,
-            auth::sign_out_google,
             start_recording,
             stop_recording,
             is_recording,
@@ -597,6 +590,7 @@ pub fn run() {
             read_audio_file,
             save_transcript,
             analytics::commands::init_analytics,
+            analytics::commands::analytics_configured,
             analytics::commands::disable_analytics,
             analytics::commands::track_event,
             analytics::commands::identify_user,
@@ -719,7 +713,6 @@ pub fn run() {
             api::api_get_meeting_transcripts,
             api::api_save_meeting_title,
             api::api_save_meeting_metadata,
-            api::api_save_meeting_wiki_state,
             api::api_save_transcript,
             api::open_meeting_folder,
             api::test_backend_connection,

@@ -2,6 +2,10 @@
 mod ffmpeg;
 
 fn main() {
+    // PostHog project is read with option_env!, so rebuild when it changes
+    println!("cargo:rerun-if-env-changed=MEETPULSE_POSTHOG_KEY");
+    println!("cargo:rerun-if-env-changed=MEETPULSE_POSTHOG_HOST");
+
     // GPU Acceleration Detection and Build Guidance
     detect_and_report_gpu_capabilities();
 

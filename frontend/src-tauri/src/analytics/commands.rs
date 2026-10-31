@@ -8,18 +8,23 @@ static ANALYTICS_CLIENT: std::sync::Mutex<Option<Arc<AnalyticsClient>>> = std::s
 
 #[command]
 pub async fn init_analytics() -> Result<(), String> {
-    let config = AnalyticsConfig {
-        api_key: "phc_Aa9PqeCkDkVbtbRsYjtmHANBfcscjCVupxZwrtL5vZ77".to_string(),
-        host: Some("https://us.i.posthog.com".to_string()),
-        enabled: true,
-    };
-    
+    let config = AnalyticsConfig::from_build_env();
+    if !config.enabled {
+        log::info!("Analytics not configured (MEETPULSE_POSTHOG_KEY missing at build time); nothing will be sent");
+    }
+
     let client = Arc::new(AnalyticsClient::new(config).await);
     
     let mut guard = ANALYTICS_CLIENT.lock().unwrap();
     *guard = Some(client);
     
     Ok(())
+}
+
+/// Whether this build ships with a PostHog project to report to.
+#[command]
+pub async fn analytics_configured() -> bool {
+    AnalyticsConfig::from_build_env().enabled
 }
 
 #[command]

@@ -13,16 +13,6 @@ pub struct MeetingModel {
     pub project: Option<String>,
     pub additional_context: Option<String>,
     pub tags: Option<String>,
-    pub wiki_tenant_id: Option<String>,
-    pub wiki_client_id: Option<String>,
-    pub wiki_project_id: Option<String>,
-    pub wiki_source_key: Option<String>,
-    pub wiki_job_id: Option<String>,
-    pub wiki_analysis_hash: Option<String>,
-    pub wiki_raw_hash: Option<String>,
-    pub wiki_published_at: Option<String>,
-    pub wiki_ingest_status: Option<String>,
-    pub wiki_librarian_status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
