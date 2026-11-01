@@ -497,8 +497,47 @@ pub async fn desktop_test_gemini_audio(
     Ok(true)
 }
 
+/// Resultado de comprobar una clave del Vercel AI Gateway.
+fn classify_gateway_key_status(status: u16) -> &'static str {
+    match status {
+        200..=299 => "valid",
+        401 => "invalid",
+        // 403 y errores del servidor no permiten afirmar nada sobre la clave.
+        _ => "unverified",
+    }
+}
+
+/// Comprueba una clave del Vercel AI Gateway con una consulta de solo lectura (`GET /v1/credits`).
+/// Devuelve "valid", "invalid" o "unverified" (no se pudo confirmar); un fallo de red es un error.
+#[tauri::command]
+pub async fn desktop_validate_gateway_key(api_key: String) -> Result<String, String> {
+    let key = api_key.trim();
+    if key.is_empty() {
+        return Ok("invalid".to_string());
+    }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let response = client
+        .get("https://ai-gateway.vercel.sh/v1/credits")
+        .bearer_auth(key)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(classify_gateway_key_status(response.status().as_u16()).to_string())
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn gateway_key_status_is_classified() {
+        assert_eq!(super::classify_gateway_key_status(200), "valid");
+        assert_eq!(super::classify_gateway_key_status(401), "invalid");
+        assert_eq!(super::classify_gateway_key_status(403), "unverified");
+        assert_eq!(super::classify_gateway_key_status(503), "unverified");
+    }
+
     use super::*;
 
     #[test]

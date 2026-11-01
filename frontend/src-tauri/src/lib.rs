@@ -587,6 +587,7 @@ pub fn run() {
             desktop::desktop_save_pdf,
             desktop::providers::desktop_list_models,
             desktop::providers::desktop_test_gemini_audio,
+            desktop::providers::desktop_validate_gateway_key,
             desktop::assistant::desktop_assistant_session,
             desktop::assistant::desktop_assistant_recent_sessions,
             desktop::assistant::desktop_assistant_delete_session,

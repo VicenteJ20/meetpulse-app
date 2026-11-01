@@ -1,6 +1,6 @@
 [package]
 name = "meetpulse"
-version = "1.4.6"
+version = "1.4.7"
 description = "MeetPulse: asistente de reuniones privado y local"
 authors = ["Vicente Jorquera"]
 license = "MIT"
