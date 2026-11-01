@@ -57,6 +57,39 @@ upload_asset() {
     "https://uploads.github.com/repos/${REPO}/releases/${RELEASE_ID}/assets?name=${name}" > /dev/null
 }
 
+# Hash abreviado para la tabla; los completos van en SHA256SUMS.txt.
+short_hash() {
+  local h
+  h=$(sha256sum "$1" | cut -d' ' -f1)
+  echo "${h:0:8}…${h: -5}"
+}
+
+# Escribe en stdout las notas: tabla de descargas con hashes y, debajo, las notas autogeneradas.
+render_notes() {
+  local dir=$1 tag=$2 generated=$3
+  local base="https://github.com/${REPO}/releases/download/${tag}"
+  local footer="Instaladores sin firma digital por ahora: si SmartScreen avisa, pulsa **Más información → Ejecutar de todos modos**."
+  if [[ "${SIGNED:-false}" == "true" ]]; then
+    footer="Instaladores firmados con Authenticode ([SignPath Foundation](https://signpath.org))."
+  fi
+
+  echo "<!-- downloads -->"
+  echo "## Descargas"
+  echo
+  echo "| | Archivo | SHA-256 |"
+  echo "|---|---|---|"
+  [[ -n "${ALIAS_EXE:-}" ]] && echo "| **Windows 10/11 (64 bits)**, recomendado | [${ALIAS_EXE}](${base}/${ALIAS_EXE}) | \`$(short_hash "${dir}/${ALIAS_EXE}")\` |"
+  [[ -n "${ALIAS_MSI:-}" ]] && echo "| Windows, MSI | [${ALIAS_MSI}](${base}/${ALIAS_MSI}) | \`$(short_hash "${dir}/${ALIAS_MSI}")\` |"
+  echo
+  echo "Hashes completos en [SHA256SUMS.txt](${base}/SHA256SUMS.txt) · Para comprobar: \`Get-FileHash .\\${ALIAS_EXE:-instalador.exe}\`"
+  echo
+  echo "$footer"
+  echo "<!-- /downloads -->"
+  echo
+  # Quita una sección de descargas previa (idempotente) y la línea en blanco que la sigue.
+  awk '/<!-- downloads -->/ { skip = 1 } !skip && !(drop && $0 == "") { drop = 0; print } /<!-- \/downloads -->/ { skip = 0; drop = 1 }' "$generated"
+}
+
 publish() {
   local dir=$1
   : "${VERSION:?falta VERSION}"
@@ -64,7 +97,12 @@ publish() {
 
   # Alias sin versión: permiten un enlace estable en .../releases/latest/download/<alias>
   for f in "$dir"/*_"${VERSION}"_*.exe "$dir"/*_"${VERSION}"_*.msi; do
-    cp "$f" "${dir}/$(basename "$f" | sed "s/_${VERSION}_/_/")"
+    alias_name=$(basename "$f" | sed "s/_${VERSION}_/_/")
+    cp "$f" "${dir}/${alias_name}"
+    case "$alias_name" in
+      *.exe) ALIAS_EXE=$alias_name ;;
+      *.msi) ALIAS_MSI=$alias_name ;;
+    esac
   done
 
   (cd "$dir" && sha256sum *.exe *.msi | sort -k2 > SHA256SUMS.txt)
@@ -74,32 +112,11 @@ publish() {
     upload_asset "$f"
   done
 
-  local signed_note="Los instaladores no están firmados con Authenticode, por lo que Windows SmartScreen puede mostrar un aviso."
-  if [[ "${SIGNED:-false}" == "true" ]]; then
-    signed_note="Los instaladores están firmados con Authenticode mediante [SignPath Foundation](https://signpath.org) (software libre)."
-  fi
-
-  local marker="<!-- checksums -->"
+  local tag
+  tag=$(gh api "$api_release" --jq .tag_name)
   local body_file="${dir}/.body.md"
-  gh api "$api_release" --jq '.body // ""' | awk -v m="$marker" 'index($0, m) { exit } { print }' > "$body_file"
-  {
-    echo "$marker"
-    echo "## Descargas y verificación"
-    echo
-    echo "MeetPulse es software libre (MIT) publicado por Vicente Jorquera. ${signed_note}"
-    echo
-    echo "Verifica la integridad antes de instalar (PowerShell):"
-    echo
-    echo '```powershell'
-    echo 'Get-FileHash .\MeetPulse_x64-setup.exe -Algorithm SHA256'
-    echo '```'
-    echo
-    echo "SHA-256:"
-    echo
-    echo '```'
-    cat "${dir}/SHA256SUMS.txt"
-    echo '```'
-  } >> "$body_file"
+  gh api "$api_release" --jq '.body // ""' > "${dir}/.generated.md"
+  render_notes "$dir" "$tag" "${dir}/.generated.md" > "$body_file"
   gh api -X PATCH "$api_release" -F "body=@${body_file}" > /dev/null
 }
 
