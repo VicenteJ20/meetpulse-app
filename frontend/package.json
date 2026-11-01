@@ -38,7 +38,7 @@
         "@blocknote/shadcn": "0.36.0",
         "@fontsource-variable/geist": "^5.3.0",
         "@fontsource/geist-mono": "^5.3.0",
-        "@hookform/resolvers": "^5.1.1",
+        "@hookform/resolvers": "^6.0.2",
         "@radix-ui/react-accordion": "^1.2.12",
         "@radix-ui/react-dialog": "^1.1.14",
         "@radix-ui/react-dropdown-menu": "^2.1.16",
