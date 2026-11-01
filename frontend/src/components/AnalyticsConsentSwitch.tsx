@@ -159,11 +159,11 @@ export default function AnalyticsConsentSwitch({ compact = false }: { compact?: 
           </div>
           <div className="flex items-center gap-2">
             {isProcessing && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
-            <Switch checked={isAnalyticsOptedIn} onCheckedChange={handleToggle} disabled={isProcessing || !configured} aria-label={t('mx.enableAnalytics')} />
+            <Switch checked={configured && isAnalyticsOptedIn} onCheckedChange={handleToggle} disabled={isProcessing || !configured} aria-label={t('mx.enableAnalytics')} />
           </div>
         </div>
 
-        {isAnalyticsOptedIn && userId && (
+        {configured && isAnalyticsOptedIn && userId && (
           <div className={compact ? "mt-3 rounded-lg bg-muted/50 p-3" : "mt-4 rounded-xl border border-border bg-card p-4"}>
             <div className="text-sm font-medium">{t('mx.userId')}</div>
             <p className="mt-1 text-xs text-muted-foreground">{t('mx.userIdDesc')}</p>
