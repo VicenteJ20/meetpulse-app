@@ -2,13 +2,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Mic, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { OnboardingContainer } from '../OnboardingContainer';
+import { OnboardingShell } from '../shared/OnboardingShell';
 import { PermissionRow } from '../shared';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 
-export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
-  const { setPermissionStatus, setPermissionsSkipped, permissions, completeOnboarding } = useOnboarding();
+export function PermissionsStep({ step, total, onNext, onBack }: { step: number; total: number; onNext: () => void; onBack: () => void }) {
+  const { setPermissionStatus, setPermissionsSkipped, permissions } = useOnboarding();
   const { t } = useTranslation();
   const [isPending, setIsPending] = useState(false);
 
@@ -97,18 +97,11 @@ export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  const handleFinish = async () => {
-    try {
-      await completeOnboarding();
-      onComplete();
-    } catch (error) {
-      console.error('Failed to complete onboarding:', error);
-    }
-  };
+  const handleFinish = () => onNext();
 
-  const handleSkip = async () => {
+  const handleSkip = () => {
     setPermissionsSkipped(true);
-    await handleFinish();
+    onNext();
   };
 
   const allPermissionsGranted =
@@ -116,13 +109,12 @@ export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
     permissions.systemAudio === 'authorized';
 
   return (
-    <OnboardingContainer
+    <OnboardingShell
       title={t('onboarding.permissionsTitle')}
       description={t('onboarding.permissionsDescription')}
-      step={4}
-      hideProgress={true}
-      showNavigation={allPermissionsGranted}
-      canGoNext={allPermissionsGranted}
+      step={step}
+      total={total}
+      onBack={onBack}
     >
       <div className="max-w-lg mx-auto space-y-6">
         {/* Permission Rows */}
@@ -151,7 +143,7 @@ export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 pt-4">
           <Button onClick={handleFinish} disabled={!allPermissionsGranted} className="w-full h-11">
-            {t('onboarding.finishSetup')}
+            {t('ob2.continue')}
           </Button>
 
           <button
@@ -168,6 +160,6 @@ export function PermissionsStep({ onComplete }: { onComplete: () => void }) {
           )}
         </div>
       </div>
-    </OnboardingContainer>
+    </OnboardingShell>
   );
 }

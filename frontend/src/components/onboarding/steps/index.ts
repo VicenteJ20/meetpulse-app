@@ -1,4 +1,6 @@
 export { WelcomeStep } from './WelcomeStep';
+export { ModeStep, type SetupMode } from './ModeStep';
+export { EngineStep } from './EngineStep';
 export { PermissionsStep } from './PermissionsStep';
-export { DownloadProgressStep } from './DownloadProgressStep';
-export { SetupOverviewStep } from './SetupOverviewStep';
+export { PrivacyStep } from './PrivacyStep';
+export { ReadyStep } from './ReadyStep';

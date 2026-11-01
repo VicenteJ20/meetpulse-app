@@ -4,6 +4,7 @@ import React, { useEffect, ReactNode, useRef, useState, createContext } from 're
 import Analytics from '@/lib/analytics';
 import { installAutoAnalytics } from '@/lib/analytics-auto';
 import { load } from '@tauri-apps/plugin-store';
+import { invoke } from '@tauri-apps/api/core';
 import { usePathname } from 'next/navigation';
 import { APP_VERSION } from '@/config/app';
 
@@ -48,9 +49,14 @@ export default function AnalyticsProvider({ children }: AnalyticsProviderProps) 
       let analyticsOptedIn = await store.get<boolean>('analyticsOptedIn');
       if (!(await store.has(ANALYTICS_DEFAULT_OFF_MIGRATION_KEY))) {
         analyticsOptedIn = false;
-        await store.set('analyticsOptedIn', false);
-        await store.set(ANALYTICS_DEFAULT_OFF_MIGRATION_KEY, true);
-        await store.save();
+        // En el primer arranque la decisión se toma en el onboarding: hasta entonces no se envía nada.
+        // Quien ya terminó el onboarding sin decidir conserva la analítica apagada.
+        const onboarding = await invoke<{ completed: boolean } | null>('get_onboarding_status').catch(() => null);
+        if (onboarding?.completed) {
+          await store.set('analyticsOptedIn', false);
+          await store.set(ANALYTICS_DEFAULT_OFF_MIGRATION_KEY, true);
+          await store.save();
+        }
       } else if (analyticsOptedIn !== true) {
         analyticsOptedIn = false;
       }
