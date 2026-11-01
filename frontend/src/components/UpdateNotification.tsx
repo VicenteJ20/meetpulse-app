@@ -58,6 +58,8 @@ export function showUpdateNotification(updateInfo: UpdateInfo, t: Translate, onU
     {
       duration: 10000,
       position: 'bottom-center',
+      // La tarjeta ya trae su propio estilo: se anula el del contenedor de sonner.
+      classNames: { toast: '!w-auto !border-0 !bg-transparent !p-0 !shadow-none' },
     }
   );
 }
