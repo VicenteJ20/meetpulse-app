@@ -153,7 +153,7 @@ jobs:
       - name: Subir instaladores sin firmar (entrada de SignPath)
         if: env.SIGN_WITH_SIGNPATH == 'true'
         id: upload-unsigned
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unsigned-installers
           path: |
