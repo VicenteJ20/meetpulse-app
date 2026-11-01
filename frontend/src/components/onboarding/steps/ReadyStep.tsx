@@ -2,13 +2,15 @@
 
 import React, { useContext, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Check, Loader2, Mic, PartyPopper, Search } from 'lucide-react';
+import { BarChart3, Check, Cloud, Lightbulb, Loader2, MessageSquare, Mic, PartyPopper, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useConfig } from '@/contexts/ConfigContext';
 import { AnalyticsContext } from '@/components/AnalyticsProvider';
 import { OnboardingShell } from '../shared/OnboardingShell';
 import { useLocalEngines, type EngineState } from '../shared/useLocalEngines';
+import { useBuiltinModels } from '../shared/useBuiltinModels';
 import { fadeUp, stagger } from '../shared/motion';
 import { cn } from '@/lib/utils';
 
@@ -25,17 +27,31 @@ function SummaryRow({ icon, label, state }: { icon: React.ReactNode; label: stri
 }
 
 // Pantalla final: resume lo configurado y muestra el estado real de las descargas pendientes.
-export function ReadyStep({ step, total, onFinish, onBack }: { step: number; total: number; onFinish: () => Promise<void>; onBack: () => void }) {
+export function ReadyStep({ step, total, onFinish, onBack, mode = 'express' }: { step: number; total: number; onFinish: () => Promise<void>; onBack: () => void; mode?: 'full' | 'express' }) {
   const { t } = useTranslation();
   const { isAnalyticsOptedIn } = useContext(AnalyticsContext);
   const { isBackgroundDownloading } = useOnboarding();
   const engines = useLocalEngines({ autoStart: false });
+  const { chatModelConfig, modelConfig, providerApiKeys } = useConfig();
+  const builtin = useBuiltinModels();
+  const cloudConnected = !!providerApiKeys['vercel-gateway']?.trim();
   const [finishing, setFinishing] = useState(false);
 
   const pendingLabel = (engine: EngineState, label: string) =>
     engine.status === 'ready' ? label : `${label} · ${t('ob2.ready.pending').replace('{percent}', String(engine.percent))}`;
   const rowState = (engine: EngineState): 'ready' | 'pending' => (engine.status === 'ready' ? 'ready' : 'pending');
-  const waiting = !engines.allReady && (isBackgroundDownloading || engines.parakeet.status === 'downloading' || engines.search.status === 'downloading');
+  const modelRow = (config: { provider: string; model: string }, template: string) => {
+    if (!config.model) return { label: template.replace('{model}', t('ob2.ready.notChosen')), state: 'off' as const };
+    const local = config.provider === 'builtin-ai' ? builtin.models.find((item) => item.name === config.model) : undefined;
+    const pending = !!local && !local.available;
+    const name = local?.displayName ?? config.model;
+    const label = template.replace('{model}', pending ? `${name} · ${t('ob2.ready.pending').replace('{percent}', String(local?.percent ?? 0))}` : name);
+    return { label, state: pending ? ('pending' as const) : ('ready' as const) };
+  };
+  const chatRow = modelRow(chatModelConfig, t('ob2.ready.meety'));
+  const insightsRow = modelRow(modelConfig, t('ob2.ready.insights'));
+  const waiting = (!engines.allReady && (isBackgroundDownloading || engines.parakeet.status === 'downloading' || engines.search.status === 'downloading'))
+    || (mode === 'full' && (chatRow.state === 'pending' || insightsRow.state === 'pending'));
 
   const finish = async () => {
     setFinishing(true);
@@ -62,6 +78,9 @@ export function ReadyStep({ step, total, onFinish, onBack }: { step: number; tot
       <motion.ul variants={stagger} initial="hidden" animate="show" className="grid w-full gap-2.5">
         <SummaryRow icon={<Mic className="size-[18px]" />} label={pendingLabel(engines.parakeet, t('ob2.ready.transcription'))} state={rowState(engines.parakeet)} />
         <SummaryRow icon={<Search className="size-[18px]" />} label={pendingLabel(engines.search, t('ob2.ready.search'))} state={rowState(engines.search)} />
+        {mode === 'full' && <SummaryRow icon={<MessageSquare className="size-[18px]" />} label={chatRow.label} state={chatRow.state} />}
+        {mode === 'full' && <SummaryRow icon={<Lightbulb className="size-[18px]" />} label={insightsRow.label} state={insightsRow.state} />}
+        {mode === 'full' && <SummaryRow icon={<Cloud className="size-[18px]" />} label={cloudConnected ? t('ob2.ready.cloudOn') : t('ob2.ready.cloudOff')} state={cloudConnected ? 'ready' : 'off'} />}
         <SummaryRow icon={<BarChart3 className="size-[18px]" />} label={isAnalyticsOptedIn ? t('ob2.ready.analyticsOn') : t('ob2.ready.analyticsOff')} state={isAnalyticsOptedIn ? 'ready' : 'off'} />
       </motion.ul>
 
