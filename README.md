@@ -98,3 +98,11 @@ corepack pnpm run tauri:build
 MeetPulse utiliza Meetily como base histórica del codebase y reconoce el trabajo de su comunidad open source. **La identidad, experiencia de producto y dirección actual corresponden a MeetPulse.**
 
 Este repositorio mantiene licencia MIT.
+
+## Descarga
+
+Descarga el instalador más reciente desde [Releases](https://github.com/VicenteJ20/meetpulse-app/releases/latest) o directamente: [MeetPulse_x64-setup.exe](https://github.com/VicenteJ20/meetpulse-app/releases/latest/download/MeetPulse_x64-setup.exe). Cada release incluye `SHA256SUMS.txt` y los hashes en las notas para verificar la descarga.
+
+## Política de firma de código
+
+Los instaladores de Windows se firman con certificado gratuito de [SignPath.io](https://signpath.io), emitido por [SignPath Foundation](https://signpath.org). MeetPulse es software libre (MIT) mantenido por Vicente Jorquera, que es el único autor, revisor y aprobador de las firmas. Consulta la [política de privacidad](PRIVACY_POLICY.md) para saber cómo trata MeetPulse tus datos.

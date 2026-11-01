@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pegar en SignPath → Project → Artifact configurations (slug: windows-installers).
+     Describe el ZIP que sube el workflow Release: los instaladores en la raíz. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file-set>
+      <include path="*.exe" />
+      <authenticode-sign />
+    </pe-file-set>
+    <msi-file-set>
+      <include path="*.msi" />
+      <authenticode-sign />
+    </msi-file-set>
+  </zip-file>
+</artifact-configuration>
