@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Kbd } from '@/components/ui/kbd';
 
 type SemanticHit = { id: string; meetingId?: string; title: string; text: string; start: number; rank?: number };
 
@@ -243,6 +244,9 @@ export default function LibraryPage() {
               </button>
             )}
           </div>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {t('library.globalSearchHint')} <Kbd>Ctrl</Kbd><Kbd>K</Kbd>
+          </p>
           {level === 'meetings' && (
             <Button variant={showFilters || tag || fromDate || toDate ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters}>
               <SlidersHorizontal /> {t('library.filters')}

@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Library, Mic, Monitor, Moon, Search, Settings, Sparkles, Square, Sun, Home, Info as InfoIcon } from 'lucide-react';
+import { Library, Mic, Monitor, Moon, Settings, Sparkles, Square, Sun, Home, Info as InfoIcon } from 'lucide-react';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
 import { useTranslation, useUiPreferences, type ThemePreference } from '@/contexts/UiPreferencesContext';
@@ -108,7 +108,6 @@ export default function Rail() {
         <RailButton label={t('nav.home')} icon={Home} active={pathname === '/'} onClick={() => router.push('/')} />
         <RailButton label={t('nav.library')} icon={Library} active={pathname === '/library' || pathname === '/meeting-details'} onClick={() => router.push('/library')} />
         <RailButton label={t('nav.askShortcut')} icon={Sparkles} active={pathname === '/ask'} onClick={() => router.push('/ask')} />
-        <RailButton label={t('nav.search')} icon={Search} onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))} />
         <RailButton
           label={isRecording ? t('home.ready') : t('nav.recordLive')}
           icon={isRecording ? Square : Mic}

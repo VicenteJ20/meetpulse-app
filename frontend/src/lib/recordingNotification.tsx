@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Radio, ShieldCheck, X } from 'lucide-react';
+import { ShieldCheck, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
@@ -12,9 +12,12 @@ export async function showRecordingNotification(): Promise<void> {
     const showNotification = await store.get<boolean>('show_recording_notification') ?? true;
 
     if (showNotification) {
+      // Es un aviso de consentimiento: se queda hasta que la persona lo confirme o lo cierre.
       toast.custom(toastId => <RecordingConsentToast toastId={toastId} />, {
-        duration: 10000,
+        duration: Infinity,
         position: 'bottom-center',
+        // La tarjeta ya trae su propio estilo: se anula el del contenedor de sonner.
+        classNames: { toast: '!w-auto !border-0 !bg-transparent !p-0 !shadow-none' },
       });
     }
   } catch (notificationError) {
@@ -37,38 +40,39 @@ function RecordingConsentToast({ toastId }: { toastId: string | number }) {
   };
 
   return (
-    <div className="w-[min(24rem,calc(100vw-2rem))] rounded-2xl border border-border bg-popover p-4 text-popover-foreground shadow-xl">
+    <div
+      role="status"
+      className="w-[min(25rem,calc(100vw-2rem))] rounded-[10px] border border-border bg-popover p-3 text-popover-foreground shadow-[0_16px_40px_-12px_rgb(20_30_60_/_0.24)]"
+    >
       <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-recording/12 text-recording">
-          <Radio className="h-4 w-4" />
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-recording/10" aria-hidden>
+          <span className="size-2.5 animate-rec-pulse rounded-full bg-recording" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-foreground">{t('recording.notice.title')}</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">{t('recording.notice.description')}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => toast.dismiss(toastId)}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label={t('common.close')}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted">
-            <Checkbox
-              checked={dontShowAgain}
-              onCheckedChange={checked => setDontShowAgain(checked === true)}
-            />
-            <span className="select-none">{t('recording.notice.dontShowAgain')}</span>
-          </label>
-          <Button size="sm" onClick={() => void acknowledge()} className="mt-3 w-full">
-            <ShieldCheck className="h-4 w-4" />
-            {t('recording.notice.acknowledge')}
-          </Button>
+          <p className="text-sm font-semibold leading-5">{t('recording.notice.title')}</p>
+          <p className="text-xs leading-5 text-muted-foreground">{t('recording.notice.description')}</p>
         </div>
+        <button
+          type="button"
+          onClick={() => toast.dismiss(toastId)}
+          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={t('common.close')}
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3 pl-11">
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+          <Checkbox
+            checked={dontShowAgain}
+            onCheckedChange={checked => setDontShowAgain(checked === true)}
+          />
+          <span className="select-none">{t('recording.notice.dontShowAgain')}</span>
+        </label>
+        <Button size="sm" onClick={() => void acknowledge()}>
+          <ShieldCheck />
+          {t('recording.notice.acknowledge')}
+        </Button>
       </div>
     </div>
   );

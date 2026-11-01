@@ -30,7 +30,7 @@ export function UpdateCheckProvider({ children }: { children: React.ReactNode })
     showNotification: true,
     onUpdateAvailable: (info) => {
       // Show notification, dialog will be shown when user clicks notification
-      showUpdateNotification(info, handleShowDialog);
+      showUpdateNotification(info, t, handleShowDialog);
     },
   });
 
