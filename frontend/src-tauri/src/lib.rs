@@ -536,10 +536,28 @@ pub fn run() {
             // }
 
             // Initialize database (handles first launch detection and conditional setup)
-            tauri::async_runtime::block_on(async {
+            if let Err(e) = tauri::async_runtime::block_on(async {
                 database::setup::initialize_database_on_startup(&_app.handle()).await
-            })
-            .expect("Failed to initialize database");
+            }) {
+                log::error!("Failed to initialize database: {}", e);
+                // El diálogo bloquea; se muestra desde otro hilo para no bloquear el principal.
+                let handle = _app.handle().clone();
+                let message = format!(
+                    "No se pudo abrir la base de datos de MeetPulse.\n\n{}\n\nTus datos no se han modificado. Si el problema continúa, abre un issue en https://github.com/VicenteJ20/meetpulse-app/issues",
+                    e
+                );
+                let _ = std::thread::spawn(move || {
+                    use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+                    handle
+                        .dialog()
+                        .message(message)
+                        .title("MeetPulse no pudo iniciar")
+                        .kind(MessageDialogKind::Error)
+                        .blocking_show();
+                })
+                .join();
+                return Err(e.into());
+            }
 
             // Initialize bundled templates directory for dynamic template discovery
             log::info!("Initializing bundled templates directory...");
