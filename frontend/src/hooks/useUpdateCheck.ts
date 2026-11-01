@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { updateService, UpdateInfo } from '@/services/updateService';
 import { showUpdateNotification } from '@/components/UpdateNotification';
+import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 interface UseUpdateCheckOptions {
   checkOnMount?: boolean;
@@ -15,6 +16,7 @@ export function useUpdateCheck(options: UseUpdateCheckOptions = {}) {
     onUpdateAvailable,
   } = options;
 
+  const { t } = useTranslation();
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
@@ -33,7 +35,7 @@ export function useUpdateCheck(options: UseUpdateCheckOptions = {}) {
         if (onUpdateAvailable) {
           onUpdateAvailable(info);
         } else if (showNotification) {
-          showUpdateNotification(info, () => {
+          showUpdateNotification(info, t, () => {
             // This will be handled by the component that uses this hook
           });
         }
