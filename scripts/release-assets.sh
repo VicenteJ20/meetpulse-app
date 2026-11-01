@@ -4,7 +4,7 @@
 #   update-manifest re-firma los instaladores para el updater y corrige latest.json
 #   publish         crea alias sin versión, SHA256SUMS.txt, sube todo y documenta los hashes
 #
-# Entorno requerido: GH_TOKEN, REPO (owner/repo), RELEASE_ID. Para publish también VERSION y SIGNED.
+# Entorno requerido: GH_TOKEN, REPO (owner/repo), RELEASE_ID. Para publish también VERSION y SIGNED (y TAG, el tag final del release).
 set -euo pipefail
 
 : "${GH_TOKEN:?falta GH_TOKEN}" "${REPO:?falta REPO}" "${RELEASE_ID:?falta RELEASE_ID}"
@@ -112,8 +112,8 @@ publish() {
     upload_asset "$f"
   done
 
-  local tag
-  tag=$(gh api "$api_release" --jq .tag_name)
+  # En un borrador la API devuelve un tag temporal "untagged-…"; el workflow pasa el real.
+  local tag=${TAG:-$(gh api "$api_release" --jq .tag_name)}
   local body_file="${dir}/.body.md"
   gh api "$api_release" --jq '.body // ""' > "${dir}/.generated.md"
   render_notes "$dir" "$tag" "${dir}/.generated.md" > "$body_file"
