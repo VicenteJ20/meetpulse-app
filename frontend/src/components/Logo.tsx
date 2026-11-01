@@ -1,8 +1,7 @@
 import React from "react";
 import Image from "next/image";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { VisuallyHidden } from "./ui/visually-hidden";
-import { About } from "./About";
+import { Dialog, DialogTrigger } from "./ui/dialog";
+import { AboutDialogContent } from "./About";
 
 interface LogoProps {
     isCollapsed: boolean;
@@ -35,12 +34,7 @@ const Logo = React.forwardRef<HTMLButtonElement, LogoProps>(({ isCollapsed }, re
           </button>
         </DialogTrigger>
       )}
-      <DialogContent>
-        <VisuallyHidden>
-          <DialogTitle>About MeetPulse</DialogTitle>
-        </VisuallyHidden>
-        <About />
-      </DialogContent>
+      <AboutDialogContent />
     </Dialog>
   );
 });

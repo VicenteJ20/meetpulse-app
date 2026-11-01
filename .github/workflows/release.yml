@@ -198,7 +198,9 @@ jobs:
       # Publicar crea el tag y hace que funcionen los enlaces releases/download/<tag>/ de las notas.
       - name: Publicar release
         if: inputs.publish
-        run: gh api -X PATCH "repos/${REPO}/releases/${RELEASE_ID}" -F draft=false > /dev/null
+        # Hay que fijar tag_name: un borrador lleva un tag temporal "untagged-…" y publicarlo sin más lo conserva.
+        run: |
+          gh api -X PATCH "repos/${REPO}/releases/${RELEASE_ID}"             -F draft=false -f tag_name="v${{ needs.create-release.outputs.version }}" -f target_commitish="${{ github.sha }}" > /dev/null
 
   # STEP 4: Show release summary
   release-summary:

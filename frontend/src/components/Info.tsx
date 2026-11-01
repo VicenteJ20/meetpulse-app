@@ -1,9 +1,8 @@
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 import React from "react";
 import { Info as InfoIcon } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { VisuallyHidden } from "./ui/visually-hidden";
-import { About } from "./About";
+import { Dialog, DialogTrigger } from "./ui/dialog";
+import { AboutDialogContent } from "./About";
 
 interface InfoProps {
     isCollapsed: boolean;
@@ -29,12 +28,7 @@ const Info = React.forwardRef<HTMLButtonElement, InfoProps>(({ isCollapsed }, re
           )}
         </button>
       </DialogTrigger>
-      <DialogContent>
-        <VisuallyHidden>
-          <DialogTitle>About MeetPulse</DialogTitle>
-        </VisuallyHidden>
-        <About />
-      </DialogContent>
+      <AboutDialogContent />
     </Dialog>
   );
 });

@@ -7,9 +7,8 @@ import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
 import { useTranslation, useUiPreferences, type ThemePreference } from '@/contexts/UiPreferencesContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { About } from '@/components/About';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import { AboutDialogContent } from '@/components/About';
 import { cn } from '@/lib/utils';
 import Analytics from '@/lib/analytics';
 import Image from 'next/image';
@@ -103,12 +102,7 @@ export default function Rail() {
               <Image src="/icon.png" alt="MeetPulse" width={30} height={30} priority />
             </button>
           </DialogTrigger>
-          <DialogContent>
-            <VisuallyHidden>
-              <DialogTitle>MeetPulse</DialogTitle>
-            </VisuallyHidden>
-            <About />
-          </DialogContent>
+          <AboutDialogContent />
         </Dialog>
 
         <RailButton label={t('nav.home')} icon={Home} active={pathname === '/'} onClick={() => router.push('/')} />
@@ -137,12 +131,7 @@ export default function Rail() {
               </TooltipTrigger>
               <TooltipContent side="right">{t('nav.about')}</TooltipContent>
             </Tooltip>
-            <DialogContent>
-              <VisuallyHidden>
-                <DialogTitle>{t('nav.about')}</DialogTitle>
-              </VisuallyHidden>
-              <About />
-            </DialogContent>
+            <AboutDialogContent />
           </Dialog>
         </div>
       </nav>

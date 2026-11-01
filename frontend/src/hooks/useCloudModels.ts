@@ -144,23 +144,37 @@ function mentionsBatch(value: string | null | undefined): boolean {
   return /\bbatch\b/i.test(value ?? '');
 }
 
-/** Chat can use a language or text model that returns text. Batch variants are excluded. */
-export function isChatLanguageModel(model: {
+type TextModelShape = {
   id?: string;
   name?: string;
   label?: string;
   modelType?: string;
+  tags?: string[];
   outputModalities?: string[];
-}): boolean {
+};
+
+/**
+ * A language or text model that answers synchronously with text, so it fits analysis and chat.
+ * Batch variants (asynchronous) and models that also produce images, audio or video are excluded.
+ */
+export function isTextLanguageModel(model: TextModelShape): boolean {
   if (mentionsBatch(model.id) || mentionsBatch(model.name) || mentionsBatch(model.label)) return false;
+  if ((model.tags ?? []).some(mentionsBatch)) return false;
   const type = (model.modelType ?? '').trim().toLowerCase();
   if (type !== 'language' && type !== 'text') return false;
   const outputs = (model.outputModalities ?? []).map((item) => item.toLowerCase());
+  if (outputs.some((item) => item === 'image' || item === 'audio' || item === 'video')) return false;
   return outputs.length === 0 || outputs.includes('text');
 }
 
+/** Chat can use any text model that passes the shared filter. */
+export const isChatLanguageModel = isTextLanguageModel;
+
+/** Analysis (summaries) uses the same text-only, synchronous models. */
+export const isAnalysisLanguageModel = isTextLanguageModel;
+
 /** Keeps the models approved in models.json. Providers without a rule pass through unchanged. */
-export function selectApprovedModels<T extends { id: string; audio?: boolean | null; modelType?: string; tags?: string[]; inputModalities?: string[] }>(
+export function selectApprovedModels<T extends { id: string; name?: string; audio?: boolean | null; modelType?: string; tags?: string[]; inputModalities?: string[]; outputModalities?: string[] }>(
   provider: string,
   purpose: string,
   models: T[],
@@ -177,8 +191,7 @@ export function selectApprovedModels<T extends { id: string; audio?: boolean | n
     });
   }
   if (provider === 'vercel-gateway') {
-    const filtered = models.filter((model) => model.modelType === 'language');
-    return recommendedFirst(filtered, 'analysis');
+    return recommendedFirst(models.filter(isAnalysisLanguageModel), 'analysis');
   }
   const rule = RULES[provider];
   if (!rule) return models;
@@ -197,7 +210,7 @@ export function selectApprovedModels<T extends { id: string; audio?: boolean | n
 /**
  * Cloud models from Vercel AI Gateway.
  * Transcription is the fixed allowlist, with MAI-Transcribe-2 first.
- * Chat keeps language and text models. Analysis keeps language models.
+ * Chat and analysis keep synchronous text models (no batch, image, audio or video output).
  * Recommended entries from model-review.json sort first.
  */
 export function useCloudModels(purpose: CloudPurpose): CloudModel[] {
@@ -212,7 +225,7 @@ export function useCloudModels(purpose: CloudPurpose): CloudModel[] {
     }
     const task = purpose === 'chat' ? 'chat' : 'analysis';
     const filtered = models.filter((model) => (
-      purpose === 'chat' ? isChatLanguageModel(model) : model.modelType === 'language'
+      purpose === 'chat' ? isChatLanguageModel(model) : isAnalysisLanguageModel(model)
     ));
     return recommendedFirst(filtered, task).map((model) => ({
       provider: 'vercel-gateway' as const,
