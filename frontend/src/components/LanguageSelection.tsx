@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Globe } from 'lucide-react';
 import Analytics from '@/lib/analytics';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import { SelectField } from '@/components/ui/select-field';
 
 export interface Language {
@@ -152,12 +153,12 @@ export function LanguageSelection({
 
       // Show success toast
       const languageName = selectedLang?.name || languageCode;
-      toast.success("Language preference saved", {
-        description: `Transcription language set to ${languageName}`
+      toast.success(tStatic('toast.langSaved'), {
+        description: tStatic('toast.langSavedDesc', { name: languageName })
       });
     } catch (error) {
       console.error('Failed to save language preference:', error);
-      toast.error("Failed to save language preference", {
+      toast.error(tStatic('toast.langSaveFailed'), {
         description: error instanceof Error ? error.message : String(error)
       });
     } finally {

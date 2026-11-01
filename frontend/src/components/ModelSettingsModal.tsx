@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/command';
 import { cn, isOllamaNotInstalledError } from '@/lib/utils';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 
 export interface ModelConfig {
   provider: 'ollama' | 'groq' | 'claude' | 'gemini' | 'openai' | 'openrouter' | 'builtin-ai' | 'custom-openai' | 'vercel-gateway';
@@ -502,7 +503,7 @@ export function ModelSettingsModal({
       }
     } catch (err) {
       console.error('Error loading Built-in AI models:', err);
-      toast.error('Failed to load Built-in AI models');
+      toast.error(tStatic('toast.loadBuiltinFailed'));
     }
   };
 
@@ -575,7 +576,7 @@ export function ModelSettingsModal({
         console.log('Custom OpenAI config saved successfully');
       } catch (err) {
         console.error('Failed to save custom OpenAI config:', err);
-        toast.error('Failed to save custom OpenAI configuration');
+        toast.error(tStatic('toast.customOpenAISaveFailed'));
         return;
       }
     }
@@ -617,7 +618,7 @@ export function ModelSettingsModal({
   // Test custom OpenAI connection
   const testCustomOpenAIConnection = async () => {
     if (!customOpenAIEndpoint.trim() || !customOpenAIModel.trim()) {
-      toast.error('Please enter endpoint URL and model name first');
+      toast.error(tStatic('toast.customOpenAIFields'));
       return;
     }
 
@@ -628,7 +629,7 @@ export function ModelSettingsModal({
         apiKey: customOpenAIApiKey.trim() || null,
         model: customOpenAIModel.trim(),
       });
-      toast.success(result.message || 'Connection successful!');
+      toast.success(result.message || tStatic('toast.connectionOk'));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       toast.error(errorMsg);
@@ -650,8 +651,8 @@ export function ModelSettingsModal({
 
     // Prevent duplicate downloads (defense in depth - backend also checks)
     if (isDownloading(recommendedModel)) {
-      toast.info(`${recommendedModel} is already downloading`, {
-        description: `Progress: ${Math.round(getProgress(recommendedModel) || 0)}%`
+      toast.info(tStatic('toast.alreadyDownloading', { name: recommendedModel }), {
+        description: tStatic('toast.progress', { percent: Math.round(getProgress(recommendedModel) || 0) })
       });
       return;
     }
@@ -677,11 +678,11 @@ export function ModelSettingsModal({
 
       // Check if Ollama is not installed and show appropriate error
       if (isOllamaNotInstalledError(errorMsg)) {
-        toast.error('Ollama is not installed', {
-          description: 'Please download and install Ollama before downloading models.',
+        toast.error(tStatic('toast.ollamaMissing'), {
+          description: tStatic('toast.ollamaMissingModels'),
           duration: 7000,
           action: {
-            label: 'Download',
+            label: tStatic('toast.download'),
             onClick: () => invoke('open_external_url', { url: 'https://ollama.com/download' })
           }
         });
@@ -701,7 +702,7 @@ export function ModelSettingsModal({
         endpoint
       });
 
-      toast.success(`Model ${modelName} deleted`);
+      toast.success(tStatic('toast.modelDeleted', { name: modelName }));
       await fetchOllamaModels(true); // Refresh list
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to delete model';

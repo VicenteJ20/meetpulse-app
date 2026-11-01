@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import {
   ModelInfo,
   ModelStatus,
@@ -110,8 +111,8 @@ export function ModelManager({
       } catch (err) {
         console.error('Failed to initialize Whisper:', err);
         setError(err instanceof Error ? err.message : 'Failed to load models');
-        toast.error('Failed to load transcription models', {
-          description: err instanceof Error ? err.message : 'Unknown error',
+        toast.error(tStatic('toast.loadTranscriptionModelsFailed'), {
+          description: err instanceof Error ? err.message : tStatic('toast.unknownError'),
           duration: 5000
         });
       } finally {
@@ -184,8 +185,8 @@ export function ModelManager({
           // Clean up throttle data
           progressThrottleRef.current.delete(modelName);
 
-          toast.success(`${getModelIcon(model?.accuracy || 'Good')} ${displayName} ready!`, {
-            description: 'Model downloaded and ready to use',
+          toast.success(tStatic('toast.modelReady', { name: `${getModelIcon(model?.accuracy || 'Good')} ${displayName}` }), {
+            description: tStatic('toast.modelReadyDesc'),
             duration: 4000
           });
 
@@ -223,11 +224,11 @@ export function ModelManager({
           // Clean up throttle data
           progressThrottleRef.current.delete(modelName);
 
-          toast.error(`Failed to download ${displayName}`, {
+          toast.error(tStatic('toast.downloadFailed', { name: displayName }), {
             description: error,
             duration: 6000,
             action: {
-              label: 'Retry',
+              label: tStatic('toast.retry'),
               onClick: () => downloadModel(modelName)
             }
           });
@@ -280,13 +281,13 @@ export function ModelManager({
       // Clean up throttle data
       progressThrottleRef.current.delete(modelName);
 
-      toast.info(`${displayName} download cancelled`, {
+      toast.info(tStatic('toast.downloadCancelled', { name: displayName }), {
         duration: 3000
       });
     } catch (err) {
       console.error('Failed to cancel download:', err);
-      toast.error('Failed to cancel download', {
-        description: err instanceof Error ? err.message : 'Unknown error',
+      toast.error(tStatic('toast.cancelDownloadFailed'), {
+        description: err instanceof Error ? err.message : tStatic('toast.unknownError'),
         duration: 4000
       });
     }
@@ -308,8 +309,8 @@ export function ModelManager({
         )
       );
 
-      toast.info(`Downloading ${displayName}...`, {
-        description: 'This may take a few minutes',
+      toast.info(tStatic('toast.downloading', { name: displayName }), {
+        description: tStatic('toast.takesMinutes'),
         duration: 5000
       });
 
@@ -343,7 +344,7 @@ export function ModelManager({
     }
 
     const displayName = getDisplayName(modelName);
-    toast.success(`Switched to ${displayName}`, {
+    toast.success(tStatic('toast.switchedTo', { name: displayName }), {
       duration: 3000
     });
   };
@@ -358,8 +359,8 @@ export function ModelManager({
       const modelList = await WhisperAPI.getAvailableModels();
       setModels(modelList);
 
-      toast.success(`${displayName} deleted`, {
-        description: 'Model removed to free up space',
+      toast.success(tStatic('toast.deleted', { name: displayName }), {
+        description: tStatic('toast.freedSpace'),
         duration: 3000
       });
 
@@ -369,8 +370,8 @@ export function ModelManager({
       }
     } catch (err) {
       console.error('Failed to delete model:', err);
-      toast.error(`Failed to delete ${displayName}`, {
-        description: err instanceof Error ? err.message : 'Delete failed',
+      toast.error(tStatic('toast.deleteFailed', { name: displayName }), {
+        description: err instanceof Error ? err.message : tStatic('toast.deleteFailedShort'),
         duration: 4000
       });
     }

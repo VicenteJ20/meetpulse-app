@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useImportAudio, ImportResult } from '@/hooks/useImportAudio';
 import { useRouter } from 'next/navigation';
@@ -95,7 +96,7 @@ export function ImportAudioDialog({
   } = useTranscriptionModels(transcriptModelConfig);
 
   const handleImportComplete = useCallback((result: ImportResult) => {
-    toast.success(`Import complete! ${result.segments_count} segments created.`);
+    toast.success(tStatic('toast.importComplete', { n: result.segments_count }));
 
     // Refresh meetings list then navigate to the imported meeting
     refetchMeetings();
@@ -105,7 +106,7 @@ export function ImportAudioDialog({
   }, [router, refetchMeetings, onComplete, onOpenChange]);
 
   const handleImportError = useCallback((error: string) => {
-    toast.error('Import failed', { description: error });
+    toast.error(tStatic('toast.importFailed'), { description: error });
   }, []);
 
   const {
@@ -199,7 +200,7 @@ export function ImportAudioDialog({
   const handleCancel = async () => {
     if (isProcessing) {
       await cancelImport();
-      toast.info('Import cancelled');
+      toast.info(tStatic('toast.importCancelled'));
     }
     onOpenChange(false);
   };

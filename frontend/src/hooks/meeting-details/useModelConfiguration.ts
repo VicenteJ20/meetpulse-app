@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ModelConfig } from '@/components/ModelSettingsModal';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import Analytics from '@/lib/analytics';
 
 interface UseModelConfigurationProps {
@@ -146,12 +147,12 @@ export function useModelConfiguration({ serverAddress }: UseModelConfigurationPr
       const { emit } = await import('@tauri-apps/api/event');
       await emit('model-config-updated', payload);
 
-      toast.success("Summary settings Saved successfully");
+      toast.success(tStatic('toast.summarySettingsSaved'));
 
       await Analytics.trackSettingsChanged('model_config', `${payload.provider}_${payload.model}`);
     } catch (error) {
       console.error('Failed to save model config:', error);
-      toast.error("Failed to save summary settings", { description: String(error) });
+      toast.error(tStatic('toast.summarySettingsFailed'), { description: String(error) });
       if (error instanceof Error) {
         setError(error.message);
       } else {

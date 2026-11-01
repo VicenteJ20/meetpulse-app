@@ -10,6 +10,7 @@ import { SummaryGeneratorButtonGroup } from './SummaryGeneratorButtonGroup';
 import { SummaryUpdaterButtonGroup } from './SummaryUpdaterButtonGroup';
 import { useEffect, useRef, useState, RefObject } from 'react';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import { Languages, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -140,8 +141,8 @@ export function SummaryPanel({
         }
       } catch (err) {
         console.error('Failed to load summary language:', err);
-        toast.warning('Could not load saved summary language', {
-          description: 'Using Auto until meeting metadata can be read.',
+        toast.warning(tStatic('toast.summaryLangLoadFailed'), {
+          description: tStatic('toast.usingAutoUntil'),
         });
         if (!cancelled && languageLoadVersionRef.current === loadVersion) {
           setSummaryLang(null);
@@ -175,8 +176,8 @@ export function SummaryPanel({
             setSummaryLang(saved.language);
             setSummaryLangStorage(saved.storage);
             if (saved.storage === 'local_fallback') {
-              toast.info('Summary language saved on this device', {
-                description: 'This meeting has no recording folder, so the preference cannot be written to meeting metadata.',
+              toast.info(tStatic('toast.summaryLangSavedLocal'), {
+                description: tStatic('toast.summaryLangSavedLocalDesc'),
               });
             }
             if (request.language) {
@@ -193,7 +194,7 @@ export function SummaryPanel({
             activeMeetingIdRef.current === request.meetingId
           ) {
             console.error('Failed to persist summary language:', err);
-            toast.error('Failed to save summary language');
+            toast.error(tStatic('toast.summaryLangSaveFailed'));
             setSummaryLang(request.rollback.language);
             setSummaryLangStorage(request.rollback.storage);
             return;
