@@ -40,6 +40,7 @@ interface OnboardingContextType {
   parakeetDownloaded: boolean;
   parakeetProgress: number;
   parakeetProgressInfo: ParakeetProgressInfo;
+  parakeetError: string | null;
   summaryModelDownloaded: boolean;
   summaryModelProgress: number;
   summaryModelProgressInfo: SummaryModelProgressInfo;
@@ -85,6 +86,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     totalMb: 0,
     speedMbps: 0,
   });
+  const [parakeetError, setParakeetError] = useState<string | null>(null);
   const [summaryModelDownloaded, setSummaryModelDownloaded] = useState(false);
   const [summaryModelProgress, setSummaryModelProgress] = useState(0);
   const [summaryModelProgressInfo, setSummaryModelProgressInfo] = useState<SummaryModelProgressInfo>({
@@ -164,41 +166,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   };
 
   const performAutoDetection = async () => {
-    // Check Homebrew (macOS only)
-    if (typeof navigator !== 'undefined' && navigator.platform?.toLowerCase().includes('mac')) {
-      const homebrewDbPath = '/usr/local/var/meetily/meeting_minutes.db';
-      try {
-        const homebrewCheck = await invoke<{ exists: boolean; size: number } | null>(
-          'check_homebrew_database',
-          { path: homebrewDbPath }
-        );
-
-        if (homebrewCheck?.exists) {
-          console.log('[OnboardingContext] Found Homebrew database, importing');
-          await invoke('import_and_initialize_database', { legacyDbPath: homebrewDbPath });
-          setDatabaseExists(true);
-          return;
-        }
-      } catch (e) {
-        console.log('[OnboardingContext] Homebrew check failed, continuing:', e);
-      }
-    }
-
-    // Check default legacy database location
-    try {
-      const legacyPath = await invoke<string | null>('check_default_legacy_database');
-      if (legacyPath) {
-        console.log('[OnboardingContext] Found legacy database, importing');
-        await invoke('import_and_initialize_database', { legacyDbPath: legacyPath });
-        setDatabaseExists(true);
-        return;
-      }
-    } catch (e) {
-      console.log('[OnboardingContext] Legacy check failed, continuing:', e);
-    }
-
-    // No legacy database found - initialize fresh
-    console.log('[OnboardingContext] No legacy database found, initializing fresh');
+    // Primer arranque: se crea una base nueva.
     await invoke('initialize_fresh_database');
     setDatabaseExists(true);
   };
@@ -236,6 +204,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       (event) => {
         const { modelName, progress, downloaded_mb, total_mb, speed_mbps, status } = event.payload;
         if (modelName === PARAKEET_MODEL) {
+          setParakeetError(null);
           setParakeetProgress(progress);
           setParakeetProgressInfo({
             percent: progress,
@@ -267,6 +236,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         const { modelName } = event.payload;
         if (modelName === PARAKEET_MODEL) {
           console.error('Parakeet download error:', event.payload.error);
+          setParakeetError(event.payload.error || 'download-failed');
         }
       }
     );
@@ -537,6 +507,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   const retryParakeetDownload = async () => {
     console.log('[OnboardingContext] Retrying Parakeet download');
+    setParakeetError(null);
     try {
       await invoke('parakeet_retry_download', { modelName: PARAKEET_MODEL });
     } catch (error) {
@@ -579,6 +550,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         parakeetDownloaded,
         parakeetProgress,
         parakeetProgressInfo,
+        parakeetError,
         summaryModelDownloaded,
         summaryModelProgress,
         summaryModelProgressInfo,

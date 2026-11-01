@@ -3,14 +3,11 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Info, Loader2, Copy, Check } from 'lucide-react';
 import { AnalyticsContext } from './AnalyticsProvider';
-import { load } from '@tauri-apps/plugin-store';
+import { persistAnalyticsConsent } from '@/lib/analytics-consent';
 import { invoke } from '@tauri-apps/api/core';
 import { Analytics } from '@/lib/analytics';
 import AnalyticsDataModal from './AnalyticsDataModal';
-import { APP_VERSION } from '@/config/app';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
-
-const ANALYTICS_DEFAULT_OFF_MIGRATION_KEY = 'analyticsDefaultOffMigrationV1';
 
 export default function AnalyticsConsentSwitch({ compact = false }: { compact?: boolean }) {
   const { t } = useTranslation();
@@ -73,55 +70,7 @@ export default function AnalyticsConsentSwitch({ compact = false }: { compact?: 
     setIsProcessing(true);
 
     try {
-      const store = await load('analytics.json', {
-        autoSave: false,
-        defaults: {
-          analyticsOptedIn: false
-        }
-      });
-      await store.set('analyticsOptedIn', enabled);
-      await store.set(ANALYTICS_DEFAULT_OFF_MIGRATION_KEY, true);
-      await store.save();
-
-      if (enabled) {
-        // Full analytics initialization (same as AnalyticsProvider)
-        const userId = await Analytics.getPersistentUserId();
-
-        // Initialize analytics
-        await Analytics.init();
-
-        // Identify user with enhanced properties immediately after init
-        const deviceInfo = await Analytics.getDeviceInfo();
-        await Analytics.identify(userId, {
-          app_version: APP_VERSION,
-          platform: deviceInfo.platform,
-          os_version: deviceInfo.os_version,
-          architecture: deviceInfo.architecture,
-          first_seen: new Date().toISOString(),
-        });
-
-        // Start analytics session with the same user ID
-        await Analytics.startSession(userId);
-
-        // Track that user enabled analytics
-        try {
-          await invoke('track_analytics_enabled');
-        } catch (error) {
-          console.error('Failed to track analytics enabled:', error);
-        }
-
-        console.log('Analytics re-enabled successfully');
-      } else {
-        // Track that user disabled analytics BEFORE disabling
-        try {
-          await invoke('track_analytics_disabled');
-        } catch (error) {
-          console.error('Failed to track analytics disabled:', error);
-        }
-
-        await Analytics.disable();
-        console.log('Analytics disabled successfully');
-      }
+      await persistAnalyticsConsent(enabled);
     } catch (error) {
       console.error('Failed to toggle analytics:', error);
       // Revert the optimistic update on error
