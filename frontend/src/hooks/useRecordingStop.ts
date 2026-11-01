@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import { useTranscripts } from '@/contexts/TranscriptContext';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useRecordingState, RecordingStatus } from '@/contexts/RecordingStateContext';
@@ -293,8 +294,8 @@ export function useRecordingStop(
             shouldDetectSummaryLanguage = !(await applyPinnedSummaryLanguageToMeeting(meetingId));
           } catch (error) {
             console.warn('Failed to apply pinned summary language preference for new meeting:', error);
-            toast.warning('Could not apply default summary language', {
-              description: 'The meeting was saved, but the default summary language was not applied.',
+            toast.warning(tStatic('toast.defaultLangNotApplied'), {
+              description: tStatic('toast.savedNoLang'),
             });
           }
 
@@ -306,8 +307,8 @@ export function useRecordingStop(
               );
             } catch (error) {
               console.warn('Failed to detect summary language for new meeting:', error);
-              toast.warning('Could not detect summary language', {
-                description: 'The meeting was saved, but Auto could not detect the summary language.',
+              toast.warning(tStatic('toast.langDetectFailed'), {
+                description: tStatic('toast.langDetectFailedDesc'),
               });
             }
           }
@@ -346,10 +347,10 @@ export function useRecordingStop(
           setStatus(RecordingStatus.COMPLETED);
 
           // Show success toast with navigation option
-          toast.success('Recording saved successfully!', {
-            description: `${freshTranscripts.length} transcript segments saved.`,
+          toast.success(tStatic('toast.recordingSaved'), {
+            description: tStatic('toast.segmentsSaved', { n: freshTranscripts.length }),
             action: {
-              label: 'View Meeting',
+              label: tStatic('toast.viewMeeting'),
               onClick: () => {
                 router.push(`/meeting-details?id=${meetingId}`);
               }
@@ -418,9 +419,9 @@ export function useRecordingStop(
 
         } catch (saveError) {
           console.error('Failed to save meeting to database:', saveError);
-          setStatus(RecordingStatus.ERROR, saveError instanceof Error ? saveError.message : 'Unknown error');
-          toast.error('Failed to save meeting', {
-            description: saveError instanceof Error ? saveError.message : 'Unknown error'
+          setStatus(RecordingStatus.ERROR, saveError instanceof Error ? saveError.message : tStatic('toast.unknownError'));
+          toast.error(tStatic('toast.saveMeetingFailed'), {
+            description: saveError instanceof Error ? saveError.message : tStatic('toast.unknownError')
           });
           throw saveError;
         }

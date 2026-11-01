@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { DeviceSelection, SelectedDevices } from '@/components/DeviceSelection';
 import Analytics from '@/lib/analytics';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import { Button } from '@/components/ui/button';
 import { SettingsSection } from '@/components/ui/settings';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
@@ -128,7 +129,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
       const micDevice = prefs.preferred_mic_device || t('rs.defaultDevice');
       const systemDevice = prefs.preferred_system_device || t('rs.defaultDevice');
       toast.success(t('rs.devSaved'), {
-        description: `Microphone: ${micDevice}, System Audio: ${systemDevice}`
+        description: tStatic('toast.devices', { mic: micDevice, system: systemDevice })
       });
     } catch (error) {
       console.error('Failed to save recording preferences:', error);

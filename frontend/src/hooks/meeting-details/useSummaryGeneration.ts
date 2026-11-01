@@ -5,6 +5,7 @@ import { ModelConfig } from '@/components/ModelSettingsModal';
 import { CurrentMeeting, useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import Analytics from '@/lib/analytics';
 import { isOllamaNotInstalledError } from '@/lib/utils';
 import { BuiltInModelInfo } from '@/lib/builtin-ai';
@@ -23,8 +24,8 @@ async function resolveSummaryLanguage(
     if (perMeeting.language) return perMeeting.language;
   } catch (err) {
     console.warn('Failed to load meeting summary language:', err);
-    toast.warning('Could not load saved summary language', {
-      description: 'Using Auto for this generation.',
+    toast.warning(tStatic('toast.summaryLangLoadFailed'), {
+      description: tStatic('toast.usingAutoGen'),
     });
   }
 
@@ -38,8 +39,8 @@ async function resolveSummaryLanguage(
   try {
     const detection = await detectAndCacheSummaryLanguage(meetingId, transcriptTexts);
     if (detection.reason === 'tie') {
-      toast.warning('Bilingual transcript detected', {
-        description: 'Pick a summary language manually if Auto chooses the wrong fallback.',
+      toast.warning(tStatic('toast.bilingual'), {
+        description: tStatic('toast.bilingualDesc'),
       });
     }
     return detection.language;
@@ -138,8 +139,8 @@ export function useSummaryGeneration({
       }
 
       // Show toast notification for generation start
-      toast.info(`${isRegeneration ? 'Regenerating' : 'Generating'} summary...`, {
-        description: `Using ${modelConfig.provider}/${modelConfig.model}`,
+      toast.info(isRegeneration ? tStatic('toast.regenerating') : tStatic('toast.generating'), {
+        description: tStatic('toast.usingModel', { model: `${modelConfig.provider}/${modelConfig.model}` }),
         duration: 3000,
       });
 
@@ -214,8 +215,8 @@ export function useSummaryGeneration({
                 setSummaryError(null);
 
                 // Show error toast with restoration message
-                toast.error(`Failed to regenerate summary`, {
-                  description: `${errorMessage}. Your previous summary has been restored.`,
+                toast.error(tStatic('toast.regenerateFailed'), {
+                  description: tStatic('toast.previousRestored', { error: errorMessage }),
                 });
 
                 await Analytics.trackSummaryGenerationCompleted(
@@ -242,9 +243,9 @@ export function useSummaryGeneration({
             errorMessage.toLowerCase().includes('model') && errorMessage.toLowerCase().includes('required');
 
           // Show error toast
-          toast.error(`Failed to ${isRegeneration ? 'regenerate' : 'generate'} summary`, {
+          toast.error(isRegeneration ? tStatic('toast.regenerateFailed') : tStatic('toast.generateFailed'), {
             description: errorMessage.includes('Connection refused')
-              ? 'Could not connect to LLM service. Please ensure Ollama or your configured LLM provider is running.'
+              ? tStatic('toast.llmUnreachable')
               : errorMessage,
           });
 
@@ -281,8 +282,8 @@ export function useSummaryGeneration({
             setSummaryStatus('completed');
 
             // Show success toast
-            toast.success('Summary generated successfully!', {
-              description: 'Your meeting summary is ready',
+            toast.success(tStatic('toast.summaryReady'), {
+              description: tStatic('toast.summaryReadyDesc'),
               duration: 4000,
             });
 
@@ -361,8 +362,8 @@ export function useSummaryGeneration({
           setSummaryStatus('completed');
 
           // Show success toast
-          toast.success('Summary generated successfully!', {
-            description: 'Your meeting summary is ready',
+          toast.success(tStatic('toast.summaryReady'), {
+            description: tStatic('toast.summaryReadyDesc'),
             duration: 4000,
           });
 
@@ -387,7 +388,7 @@ export function useSummaryGeneration({
       setSummaryStatus('error');
       // Note: We don't clear the summary here because the backend has already restored from backup
 
-      toast.error(`Failed to ${isRegeneration ? 'regenerate' : 'generate'} summary`, {
+      toast.error(isRegeneration ? tStatic('toast.regenerateFailed') : tStatic('toast.generateFailed'), {
         description: errorMessage,
       });
 
@@ -441,7 +442,7 @@ export function useSummaryGeneration({
       return allData.transcripts;
     } catch (error) {
       console.error('❌ Error fetching all transcripts:', error);
-      toast.error('Failed to fetch transcripts for summary generation');
+      toast.error(tStatic('toast.noTranscriptsForSummary'));
       return [];
     }
   }, []);
@@ -470,7 +471,7 @@ export function useSummaryGeneration({
     // Check if model config is still loading
     if (isModelConfigLoading) {
       console.log('⏳ Model configuration is still loading, please wait...');
-      toast.info('Loading model configuration, please wait...');
+      toast.info(tStatic('toast.loadingModelConfig'));
       return;
     }
 
@@ -501,7 +502,7 @@ export function useSummaryGeneration({
 
         if (!models || models.length === 0) {
           toast.error(
-            'No Ollama models found. Please download gemma3:1b from Model Settings.',
+            tStatic('toast.noOllamaModels', { name: 'gemma3:1b' }),
             { duration: 5000 }
           );
           return;
@@ -513,12 +514,12 @@ export function useSummaryGeneration({
         if (isOllamaNotInstalledError(errorMessage)) {
           // Ollama is not installed - show specific message with download link
           toast.error(
-            'Ollama is not installed',
+            tStatic('toast.ollamaMissing'),
             {
-              description: 'Please download and install Ollama to use local models.',
+              description: tStatic('toast.ollamaMissingDesc'),
               duration: 7000,
               action: {
-                label: 'Download',
+                label: tStatic('toast.download'),
                 onClick: () => invokeTauri('open_external_url', { url: 'https://ollama.com/download' })
               }
             }
@@ -526,7 +527,7 @@ export function useSummaryGeneration({
         } else {
           // Other error - generic message
           toast.error(
-            'Failed to check Ollama models. Please ensure Ollama is running and download a model from Settings.',
+            tStatic('toast.ollamaCheckFailed'),
             { duration: 5000 }
           );
         }
@@ -540,8 +541,8 @@ export function useSummaryGeneration({
         const selectedModel = modelConfig.model;
 
         if (!selectedModel) {
-          toast.error('No built-in AI model selected', {
-            description: 'Please select a model in settings',
+          toast.error(tStatic('toast.noBuiltinModel'), {
+            description: tStatic('toast.pickModelInSettings'),
             duration: 5000,
           });
           if (onOpenModelSettings) {
@@ -566,16 +567,16 @@ export function useSummaryGeneration({
             const status = modelInfo.status;
 
             if (status.type === 'downloading') {
-              toast.info('Model download in progress', {
-                description: `${selectedModel} is downloading (${status.progress}%). Please wait until download completes.`,
+              toast.info(tStatic('toast.modelDownloading'), {
+                description: tStatic('toast.modelDownloadingDesc', { name: selectedModel, progress: status.progress }),
                 duration: 5000,
               });
               return;
             }
 
             if (status.type === 'not_downloaded') {
-              toast.error('Built-in AI model not downloaded', {
-                description: `${selectedModel} needs to be downloaded. Please download it in model settings.`,
+              toast.error(tStatic('toast.builtinNotDownloaded'), {
+                description: tStatic('toast.builtinNotDownloadedDesc', { name: selectedModel }),
                 duration: 7000,
               });
               if (onOpenModelSettings) {
@@ -588,8 +589,8 @@ export function useSummaryGeneration({
               const errorDesc = status.type === 'error'
                 ? status.Error || 'The model file has an error'
                 : 'The model file is corrupted';
-              toast.error('Built-in AI model not available', {
-                description: `${errorDesc}. Please check model settings.`,
+              toast.error(tStatic('toast.builtinUnavailable'), {
+                description: tStatic('toast.builtinUnavailableDesc', { error: errorDesc }),
                 duration: 7000,
               });
               if (onOpenModelSettings) {
@@ -600,8 +601,8 @@ export function useSummaryGeneration({
           }
 
           // Fallback if we couldn't get model info
-          toast.error('Built-in AI model not ready', {
-            description: 'Please ensure the model is downloaded in settings',
+          toast.error(tStatic('toast.builtinNotReady'), {
+            description: tStatic('toast.builtinNotReadyDesc'),
             duration: 5000,
           });
           if (onOpenModelSettings) {
@@ -613,7 +614,7 @@ export function useSummaryGeneration({
         // Model is ready, continue to backend call
       } catch (error) {
         console.error('Error validating built-in AI model:', error);
-        toast.error('Failed to validate built-in AI model', {
+        toast.error(tStatic('toast.builtinValidateFailed'), {
           description: error instanceof Error ? error.message : String(error),
           duration: 5000,
         });
@@ -624,8 +625,8 @@ export function useSummaryGeneration({
     if (modelConfig.provider === 'vercel-gateway') {
       const key = await invokeTauri<string>('api_get_api_key', { provider: 'vercel-gateway' }).catch(() => '');
       if (!key.trim()) {
-        toast.error('Vercel AI Gateway API key is required', {
-          description: 'Add it in Settings, on the AI models page.',
+        toast.error(tStatic('toast.gatewayKeyRequired'), {
+          description: tStatic('toast.gatewayKeyHint'),
           duration: 5000,
         });
         return;
@@ -646,7 +647,7 @@ export function useSummaryGeneration({
 
     if (!allTranscripts.length) {
       console.error('No transcripts available for regeneration');
-      toast.error('No transcripts available for summary regeneration');
+      toast.error(tStatic('toast.noTranscriptsToRegenerate'));
       return;
     }
 
@@ -679,8 +680,8 @@ export function useSummaryGeneration({
     setSummaryError(null);
 
     // Show toast notification
-    toast.info('Summary generation stopped', {
-      description: 'You can generate a new summary anytime',
+    toast.info(tStatic('toast.summaryStopped'), {
+      description: tStatic('toast.summaryStoppedDesc'),
       duration: 3000,
     });
   }, [meeting.id, stopSummaryPolling]);

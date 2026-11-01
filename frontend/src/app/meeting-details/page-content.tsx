@@ -4,6 +4,7 @@ import { Summary, SummaryResponse, Transcript } from '@/types';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import { TranscriptPanel } from '@/components/MeetingDetails/TranscriptPanel';
 import { SummaryPanel } from '@/components/MeetingDetails/SummaryPanel';
 import { ModelConfig } from '@/components/ModelSettingsModal';
@@ -170,10 +171,10 @@ export default function PageContent({
       const { emit } = await import('@tauri-apps/api/event');
       await emit('model-config-updated', config);
 
-      toast.success('Model settings saved successfully');
+      toast.success(tStatic('toast.modelSettingsSaved'));
     } catch (error) {
       console.error('Failed to save model config:', error);
-      toast.error('Failed to save model settings');
+      toast.error(tStatic('toast.modelSettingsFailed'));
     }
   };
 

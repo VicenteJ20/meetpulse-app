@@ -19,6 +19,7 @@ import { useTranscriptRecovery } from '@/hooks/useTranscriptRecovery';
 import { TranscriptRecovery } from '@/components/TranscriptRecovery';
 import { indexedDBService } from '@/services/indexedDBService';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import { useRouter } from 'next/navigation';
 import { HomeWorkspace } from '@/components/HomeWorkspace';
 
@@ -123,12 +124,12 @@ export default function Home() {
       const result = await recoverMeeting(meetingId);
 
       if (result.success) {
-        toast.success('Meeting recovered successfully!', {
+        toast.success(tStatic('toast.meetingRecovered'), {
           description: result.audioRecoveryStatus?.status === 'success'
-            ? 'Transcripts and audio recovered'
-            : 'Transcripts recovered (no audio available)',
+            ? tStatic('toast.recoveredFull')
+            : tStatic('toast.recoveredNoAudio'),
           action: result.meetingId ? {
-            label: 'View Meeting',
+            label: tStatic('toast.viewMeeting'),
             onClick: () => {
               router.push(`/meeting-details?id=${result.meetingId}`);
             }
@@ -152,8 +153,8 @@ export default function Home() {
         }
       }
     } catch (error) {
-      toast.error('Failed to recover meeting', {
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
+      toast.error(tStatic('toast.recoverFailed'), {
+        description: error instanceof Error ? error.message : tStatic('toast.unknownError'),
       });
       throw error;
     }

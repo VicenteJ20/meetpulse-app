@@ -8,6 +8,7 @@ import { recordingService } from '@/services/recordingService';
 import Analytics from '@/lib/analytics';
 import { showRecordingNotification } from '@/lib/recordingNotification';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 
 interface UseRecordingStartReturn {
   handleRecordingStart: () => Promise<void>;
@@ -92,14 +93,14 @@ export function useRecordingStart(
       if (!parakeetReady) {
         const isDownloading = await checkIfModelDownloading();
         if (isDownloading) {
-          toast.info('Model download in progress', {
-            description: 'Please wait for the transcription model to finish downloading before recording.',
+          toast.info(tStatic('toast.modelDownloading'), {
+            description: tStatic('toast.waitForModel'),
             duration: 5000,
           });
           Analytics.trackRecordingStart('home_page', 'blocked_downloading');
         } else {
-          toast.error('Transcription model not ready', {
-            description: 'Please download a transcription model before recording.',
+          toast.error(tStatic('toast.transcriptionModelNotReady'), {
+            description: tStatic('toast.downloadTranscriptionModel'),
             duration: 5000,
           });
           showModal?.('modelSelector', 'Transcription model setup required');
@@ -163,14 +164,14 @@ export function useRecordingStart(
           if (!parakeetReady) {
             const isDownloading = await checkIfModelDownloading();
             if (isDownloading) {
-              toast.info('Model download in progress', {
-                description: 'Please wait for the transcription model to finish downloading before recording.',
+              toast.info(tStatic('toast.modelDownloading'), {
+                description: tStatic('toast.waitForModel'),
                 duration: 5000,
               });
               Analytics.trackRecordingStart('sidebar_auto', 'blocked_downloading');
             } else {
-              toast.error('Transcription model not ready', {
-                description: 'Please download a transcription model before recording.',
+              toast.error(tStatic('toast.transcriptionModelNotReady'), {
+                description: tStatic('toast.downloadTranscriptionModel'),
                 duration: 5000,
               });
               showModal?.('modelSelector', 'Transcription model setup required');
@@ -251,14 +252,14 @@ export function useRecordingStart(
       if (!parakeetReady) {
         const isDownloading = await checkIfModelDownloading();
         if (isDownloading) {
-          toast.info('Model download in progress', {
-            description: 'Please wait for the transcription model to finish downloading before recording.',
+          toast.info(tStatic('toast.modelDownloading'), {
+            description: tStatic('toast.waitForModel'),
             duration: 5000,
           });
           Analytics.trackRecordingStart('sidebar_direct', 'blocked_downloading');
         } else {
-          toast.error('Transcription model not ready', {
-            description: 'Please download a transcription model before recording.',
+          toast.error(tStatic('toast.transcriptionModelNotReady'), {
+            description: tStatic('toast.downloadTranscriptionModel'),
             duration: 5000,
           });
           showModal?.('modelSelector', 'Transcription model setup required');

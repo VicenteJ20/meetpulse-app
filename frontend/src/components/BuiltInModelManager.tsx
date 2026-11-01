@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Download, RefreshCw, BadgeAlert, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import { formatSummaryModelSizeLabelFromMb } from '@/lib/onboarding-summary-model';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
 
@@ -81,7 +82,7 @@ export function BuiltInModelManager({
       }
     } catch (error) {
       console.error('Failed to fetch built-in AI models:', error);
-      toast.error('Failed to load models');
+      toast.error(tStatic('toast.loadModelsFailed'));
     } finally {
       setIsLoading(false);
       setHasFetched(true);
@@ -146,7 +147,7 @@ export function BuiltInModelManager({
           });
           // Refresh models list
           fetchModels();
-          toast.success(`Model ${model} downloaded successfully`);
+          toast.success(tStatic('toast.modelDownloaded', { name: model }));
         }
 
         // Handle cancelled status
@@ -235,7 +236,7 @@ export function BuiltInModelManager({
       }
 
       // For real errors, show toast and remove from downloading
-      toast.error(`Failed to download ${modelName}`);
+      toast.error(tStatic('toast.downloadFailed', { name: modelName }));
 
       setDownloadingModels((prev) => {
         const newSet = new Set(prev);
@@ -251,7 +252,7 @@ export function BuiltInModelManager({
   const cancelDownload = async (modelName: string) => {
     try {
       await invoke('builtin_ai_cancel_download', { modelName });
-      toast.info(`Download of ${modelName} cancelled`);
+      toast.info(tStatic('toast.downloadCancelled', { name: modelName }));
       setDownloadingModels((prev) => {
         const newSet = new Set(prev);
         newSet.delete(modelName);
@@ -265,11 +266,11 @@ export function BuiltInModelManager({
   const deleteModel = async (modelName: string) => {
     try {
       await invoke('builtin_ai_delete_model', { modelName });
-      toast.success(`Model ${modelName} deleted`);
+      toast.success(tStatic('toast.modelDeleted', { name: modelName }));
       fetchModels();
     } catch (error) {
       console.error('Failed to delete model:', error);
-      toast.error(`Failed to delete ${modelName}`);
+      toast.error(tStatic('toast.deleteFailed', { name: modelName }));
     }
   };
 

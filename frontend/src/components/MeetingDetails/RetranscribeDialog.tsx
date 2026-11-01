@@ -19,6 +19,7 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { toast } from 'sonner';
+import { tStatic } from '@/lib/i18n-static';
 import { useConfig } from '@/contexts/ConfigContext';
 import { LANGUAGES } from '@/constants/languages';
 import { useTranscriptionModels, ModelOption } from '@/hooks/useTranscriptionModels';
@@ -154,7 +155,7 @@ export function RetranscribeDialog({
 
             setIsProcessing(false);
             toast.success(
-              `Retranscription complete! ${event.payload.segments_count} segments created.`
+              tStatic('toast.retranscribeComplete', { n: event.payload.segments_count })
             );
             onCompleteRef.current?.();
             onOpenChangeRef.current(false);
@@ -236,7 +237,7 @@ export function RetranscribeDialog({
         await invoke('cancel_retranscription_command');
         setIsProcessing(false);
         setProgress(null);
-        toast.info('Retranscription cancelled');
+        toast.info(tStatic('toast.retranscribeCancelled'));
       } catch (err) {
         console.error('Failed to cancel retranscription:', err);
       }
