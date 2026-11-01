@@ -12,6 +12,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { SelectField } from "@/components/ui/select-field";
 import { ChatDisclaimer, ChatThread, type PendingReply } from "@/components/chat/ChatMessages";
 import { AssistantModelSelect } from "@/components/AssistantModelSelect";
+import { BetaBadge } from "@/components/BetaBadge";
 import { MeetingTranscriptSearch } from "@/components/MeetingDetails/MeetingTranscriptSearch";
 import type { TranslationKey } from "@/i18n/catalogs";
 import type { Message, Prefs, SearchStatus, Source, Target } from "./AssistantContext";
@@ -180,7 +181,7 @@ export function AssistantPanel(props: Props) {
       {!host && <div role="separator" aria-label={t("assistant.width")} aria-orientation="vertical" aria-valuenow={width} aria-valuemin={320} aria-valuemax={560} tabIndex={0} className="absolute bottom-0 left-0 top-0 z-10 w-1 cursor-col-resize transition-colors hover:bg-brand/40 focus:bg-brand" onKeyDown={(event) => { if (event.key === "ArrowLeft") setWidth((value) => Math.min(560, value + 20)); if (event.key === "ArrowRight") setWidth((value) => Math.max(320, value - 20)); }} onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)} onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) setWidth(() => Math.max(320, Math.min(560, window.innerWidth - event.clientX))); }} />}
       <header className="shrink-0 px-5 pb-4 pt-5">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="flex min-w-0 items-center gap-2.5 text-base font-semibold tracking-[-0.01em]"><Sparkles className="size-[1.1rem] shrink-0 text-brand" /><span className="truncate">{t("assistant.title")}</span></h2>
+          <h2 className="flex min-w-0 items-center gap-2.5 text-base font-semibold tracking-[-0.01em]"><Sparkles className="size-[1.1rem] shrink-0 text-brand" /><span className="truncate">{t("assistant.title")}</span><BetaBadge className="shrink-0" /></h2>
           <div className="-mr-2 flex shrink-0 items-center gap-1">
             {tab === "chat" && <Button size="icon" variant="ghost" aria-label={t("chat.newChat")} title={t("chat.newChat")} disabled={!session || (!visibleMessages.length && !pending)} onClick={onNewChat}><SquarePen /></Button>}
             <Button size="icon" variant="ghost" aria-label={t("assistant.close")} title={t("assistant.close")} onClick={onClose}><X /></Button>

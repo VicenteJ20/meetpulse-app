@@ -110,6 +110,7 @@ export function AssistantButton() {
     >
       <MessageSquare size={16} />
       {t("assistant.title")}
+      <span className="rounded-full bg-warning/20 px-1.5 text-[0.65rem] font-semibold uppercase leading-4 tracking-wide text-warning">{t("assistant.beta")}</span>
       {coach && (
         <span
           aria-label="Coach active"

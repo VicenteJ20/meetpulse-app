@@ -9,7 +9,7 @@ import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { SettingsSection } from '@/components/ui/settings';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
-import { isChatLanguageModel, useGatewayCatalog, type GatewayModel } from '@/hooks/useCloudModels';
+import { isAnalysisLanguageModel, isChatLanguageModel, useGatewayCatalog, type GatewayModel } from '@/hooks/useCloudModels';
 import type { TranslationKey } from '@/i18n/catalogs';
 import { complianceMark, formatTokenPrice, recommendedFirst } from '@/lib/model-review';
 import { cn } from '@/lib/utils';
@@ -127,7 +127,7 @@ export function LanguageTaskSettings({ task }: { task: Task }) {
     }
 
     const language = gateway.models.filter((model) => (
-      task === 'chat' ? isChatLanguageModel(model) : model.modelType === 'language'
+      task === 'chat' ? isChatLanguageModel(model) : isAnalysisLanguageModel(model)
     ));
     const ranked = recommendedFirst(language, task);
     const cloud: ComboboxItem[] = ranked.map((model) => cloudItem(model, hasKey, current, t));

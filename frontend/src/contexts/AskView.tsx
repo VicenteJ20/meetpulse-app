@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Lock, Sparkles, Square } from "lucide-react";
 import { ChatDisclaimer, ChatThread, type PendingReply } from "@/components/chat/ChatMessages";
 import { AssistantModelSelect } from "@/components/AssistantModelSelect";
+import { BetaBadge } from "@/components/BetaBadge";
 import { Button } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/select-field";
 import { cn } from "@/lib/utils";
@@ -206,6 +207,7 @@ export function AskView(props: Props) {
             className="mb-6 flex flex-col items-center gap-3 px-6 text-center"
           >
             <span className="grid size-12 place-items-center rounded-2xl bg-accent text-brand"><Sparkles className="size-6" /></span>
+            <BetaBadge />
             <h1 className="text-2xl font-semibold tracking-[-0.03em]">{t("ask.heroTitle")}</h1>
             <p className="max-w-md text-sm text-muted-foreground">{t("ask.heroText")}</p>
           </motion.div>

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SettingsSection } from '@/components/ui/settings';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
-import { isChatLanguageModel, useGatewayCatalog, type GatewayModel } from '@/hooks/useCloudModels';
+import { isAnalysisLanguageModel, isChatLanguageModel, useGatewayCatalog, type GatewayModel } from '@/hooks/useCloudModels';
 import { canonicalGatewayTranscriptionModel, isGatewayTranscriptionModel } from '@/lib/gateway-transcription';
 import { complianceMark, formatHourlyPrice, formatTokenPrice, reviewFor } from '@/lib/model-review';
 import type { ModelConfig } from '@/services/configService';
@@ -241,7 +241,7 @@ export function ProvidersSettings() {
                 const chatInUse = chatModelConfig.provider === 'vercel-gateway' && chatModelConfig.model === model.id;
                 const transcriptionInUse = transcriptModelConfig.provider === 'vercel-gateway' && canonicalGatewayTranscriptionModel(transcriptModelConfig.model) === canonicalGatewayTranscriptionModel(model.id);
                 const canTranscribe = isGatewayTranscriptionModel(model.id);
-                const canAnalyze = model.modelType === 'language';
+                const canAnalyze = isAnalysisLanguageModel(model);
                 const canChat = isChatLanguageModel(model);
                 const capabilities = [...model.inputModalities, ...model.outputModalities, ...model.tags].filter(Boolean);
                 return (

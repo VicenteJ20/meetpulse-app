@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
 interface SuggestInputProps
@@ -13,9 +14,11 @@ interface SuggestInputProps
 }
 
 // Campo de texto libre con sugerencias propias (reemplaza <datalist>, que usa el estilo nativo del sistema).
+// La lista se dibuja en un portal: dentro de la página quedaba por debajo del contenido que anima con transform.
 function SuggestInput({ value, onValueChange, options, wrapperClassName, className, onFocus, onBlur, onKeyDown, ...props }: SuggestInputProps) {
   const [open, setOpen] = React.useState(false)
   const [active, setActive] = React.useState(-1)
+  const anchorRef = React.useRef<HTMLDivElement>(null)
   const needle = value.trim().toLowerCase()
   const matches = React.useMemo(
     () => Array.from(new Set(options.filter(Boolean))).filter((option) => option.toLowerCase().includes(needle) && option !== value).slice(0, 8),
@@ -30,63 +33,74 @@ function SuggestInput({ value, onValueChange, options, wrapperClassName, classNa
   }
 
   return (
-    <div className={cn("relative", wrapperClassName)}>
-      <Input
-        {...props}
-        className={className}
-        value={value}
-        autoComplete="off"
-        role="combobox"
-        aria-expanded={visible}
-        aria-autocomplete="list"
-        onChange={(event) => {
-          onValueChange(event.target.value)
-          setOpen(true)
-          setActive(-1)
-        }}
-        onFocus={(event) => {
-          setOpen(true)
-          onFocus?.(event)
-        }}
-        onBlur={(event) => {
-          setOpen(false)
-          onBlur?.(event)
-        }}
-        onKeyDown={(event) => {
-          if (visible && event.key === "ArrowDown") {
-            event.preventDefault()
-            setActive((index) => (index + 1) % matches.length)
-          } else if (visible && event.key === "ArrowUp") {
-            event.preventDefault()
-            setActive((index) => (index <= 0 ? matches.length - 1 : index - 1))
-          } else if (visible && event.key === "Enter" && active >= 0) {
-            event.preventDefault()
-            choose(matches[active])
-          } else if (event.key === "Escape") {
+    <Popover open={visible} onOpenChange={(next) => !next && setOpen(false)}>
+      <PopoverAnchor asChild>
+        <div ref={anchorRef} className={cn("relative", wrapperClassName)}>
+        <Input
+          {...props}
+          className={className}
+          value={value}
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={visible}
+          aria-autocomplete="list"
+          onChange={(event) => {
+            onValueChange(event.target.value)
+            setOpen(true)
+            setActive(-1)
+          }}
+          onFocus={(event) => {
+            setOpen(true)
+            onFocus?.(event)
+          }}
+          onBlur={(event) => {
             setOpen(false)
-          }
-          onKeyDown?.(event)
+            onBlur?.(event)
+          }}
+          onKeyDown={(event) => {
+            if (visible && event.key === "ArrowDown") {
+              event.preventDefault()
+              setActive((index) => (index + 1) % matches.length)
+            } else if (visible && event.key === "ArrowUp") {
+              event.preventDefault()
+              setActive((index) => (index <= 0 ? matches.length - 1 : index - 1))
+            } else if (visible && event.key === "Enter" && active >= 0) {
+              event.preventDefault()
+              choose(matches[active])
+            } else if (event.key === "Escape") {
+              setOpen(false)
+            }
+            onKeyDown?.(event)
+          }}
+        />
+        </div>
+      </PopoverAnchor>
+      <PopoverContent
+        role="listbox"
+        align="start"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onInteractOutside={(event) => {
+          if (anchorRef.current?.contains(event.target as Node)) event.preventDefault()
         }}
-      />
-      {visible && (
-        <ul role="listbox" className="absolute left-0 top-full z-50 mt-1 max-h-48 min-w-full overflow-auto animate-pop rounded-[10px] border border-border bg-popover p-1 text-sm shadow-[0_16px_40px_-12px_rgb(20_30_60_/_0.24)]">
-          {matches.map((option, index) => (
-            <li
-              key={option}
-              role="option"
-              aria-selected={index === active}
-              onMouseDown={(event) => {
-                event.preventDefault()
-                choose(option)
-              }}
-              className={cn("cursor-pointer truncate rounded-md px-2 py-1.5 transition-colors", index === active ? "bg-accent text-accent-foreground" : "hover:bg-muted")}
-            >
-              {option}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+        className="max-h-48 w-[var(--radix-popover-trigger-width)] min-w-[10rem] overflow-auto p-1 text-sm"
+      >
+        {matches.map((option, index) => (
+          <div
+            key={option}
+            role="option"
+            aria-selected={index === active}
+            onMouseDown={(event) => {
+              event.preventDefault()
+              choose(option)
+            }}
+            className={cn("cursor-pointer truncate rounded-md px-2 py-1.5 transition-colors", index === active ? "bg-accent text-accent-foreground" : "hover:bg-muted")}
+          >
+            {option}
+          </div>
+        ))}
+      </PopoverContent>
+    </Popover>
   )
 }
 

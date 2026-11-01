@@ -5,6 +5,8 @@ import { ChevronRight, Mic, RefreshCw } from "lucide-react";
 import { useTranslation } from "@/contexts/UiPreferencesContext";
 import modelCatalog from "@/config/models.json";
 import { selectApprovedModels } from "@/hooks/useCloudModels";
+import { reviewFor } from "@/lib/model-review";
+import { ModelComplianceMarks } from "@/components/ModelComplianceMarks";
 import { gatewayTranscriptionChoices, gatewayTranscriptionModel } from "@/lib/gateway-transcription";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +20,13 @@ export interface ProviderModel {
   audio: boolean | null;
   inputTokens?: number;
   outputTokens?: number;
+  // Solo el Vercel AI Gateway informa estos campos.
+  modelType?: string;
+  tags?: string[];
+  inputModalities?: string[];
+  outputModalities?: string[];
+  zdr?: string | null;
+  noTraining?: string | null;
 }
 type Catalog = {
   models: ProviderModel[];
@@ -83,7 +92,7 @@ export function ProviderModelPicker({
     };
   }, [provider, purpose, apiKey, endpoint]);
 
-  const approved = useMemo(() => {
+  const approved = useMemo<ProviderModel[]>(() => {
     if (!catalog) return [] as ProviderModel[];
     const filtered = selectApprovedModels(provider, purpose, catalog.models ?? []);
     const hasRule = Object.prototype.hasOwnProperty.call(modelCatalog.providers, provider);
@@ -116,18 +125,22 @@ export function ProviderModelPicker({
       if (seen.has(id)) continue;
       seen.add(id);
       const name = model.name.replace(/^models\//, "");
+      const gatewayText = provider === "vercel-gateway" && purpose !== "transcription";
       list.push({
         value: id,
         label: name === id ? id : name,
         description: name === id ? undefined : id,
-        trailing: purpose === "transcription" && model.audio ? <Badge variant="accent"><Mic />audio</Badge> : undefined,
+        group: gatewayText ? (reviewFor(id).analysis ? t("pv.recommended") : t("picker.others")) : undefined,
+        trailing: gatewayText ? (
+          <ModelComplianceMarks zdr={model.zdr} noTraining={model.noTraining} zdrLabel={t("pv.zdrTitle")} noTrainingLabel={t("pv.noTrainingTitle")} />
+        ) : purpose === "transcription" && model.audio ? <Badge variant="accent"><Mic />audio</Badge> : undefined,
       });
     }
     if (value && !list.some((item) => item.value === value)) {
       list.unshift({ value, label: value, description: t("picker.saved") });
     }
     return list;
-  }, [approved, catalog?.models, gatewayTranscription, value, purpose, t]);
+  }, [approved, catalog?.models, gatewayTranscription, provider, value, purpose, t]);
 
   return (
     <div className="w-full min-w-0 space-y-2">

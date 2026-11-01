@@ -6,6 +6,7 @@ import { useTranslation } from "@/contexts/UiPreferencesContext";
 import { cn } from "@/lib/utils";
 import type { Message, Source } from "@/contexts/AssistantContext";
 import { ChatMarkdown, citedNumbers, CopyButton } from "./ChatMarkdown";
+import { BetaBadge } from "@/components/BetaBadge";
 
 const mmss = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 const COLLAPSED = 3;
@@ -135,7 +136,12 @@ function PendingBubble({ stage }: { stage: PendingReply["stage"] }) {
 
 export function ChatDisclaimer({ className }: { className?: string }) {
   const { t } = useTranslation();
-  return <p className={cn("text-center text-xs text-muted-foreground", className)}>{t("chat.disclaimer")}</p>;
+  return (
+    <p className={cn("flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground", className)}>
+      <BetaBadge />
+      {t("chat.disclaimer")}
+    </p>
+  );
 }
 
 // Hilo de la conversación. Se pega al final mientras llega contenido, salvo que la persona suba a leer.

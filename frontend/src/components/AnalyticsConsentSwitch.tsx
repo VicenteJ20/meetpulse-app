@@ -12,7 +12,7 @@ import { useTranslation } from '@/contexts/UiPreferencesContext';
 
 const ANALYTICS_DEFAULT_OFF_MIGRATION_KEY = 'analyticsDefaultOffMigrationV1';
 
-export default function AnalyticsConsentSwitch() {
+export default function AnalyticsConsentSwitch({ compact = false }: { compact?: boolean }) {
   const { t } = useTranslation();
   const { setIsAnalyticsOptedIn, isAnalyticsOptedIn } = useContext(AnalyticsContext);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -154,8 +154,8 @@ export default function AnalyticsConsentSwitch() {
       <div>
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0">
-            <h3 className="text-[0.95rem] font-semibold tracking-tight">{t('mx.analytics')}</h3>
-            <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">{t('mx.analyticsDesc')}</p>
+            <h3 className={compact ? "text-sm font-semibold tracking-tight" : "text-[0.95rem] font-semibold tracking-tight"}>{t('mx.analytics')}</h3>
+            <p className={compact ? "mt-0.5 max-w-[62ch] text-xs leading-5 text-muted-foreground" : "mt-1 max-w-[62ch] text-sm text-muted-foreground"}>{t('mx.analyticsDesc')}</p>
           </div>
           <div className="flex items-center gap-2">
             {isProcessing && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
@@ -164,7 +164,7 @@ export default function AnalyticsConsentSwitch() {
         </div>
 
         {isAnalyticsOptedIn && userId && (
-          <div className="mt-4 rounded-xl border border-border bg-card p-4">
+          <div className={compact ? "mt-3 rounded-lg bg-muted/50 p-3" : "mt-4 rounded-xl border border-border bg-card p-4"}>
             <div className="text-sm font-medium">{t('mx.userId')}</div>
             <p className="mt-1 text-xs text-muted-foreground">{t('mx.userIdDesc')}</p>
             <div className="mt-2 flex items-center gap-2">
@@ -177,7 +177,7 @@ export default function AnalyticsConsentSwitch() {
           </div>
         )}
 
-        <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
+        <p className={compact ? "mt-3 flex items-start gap-2 text-xs text-muted-foreground" : "mt-4 flex items-start gap-2 text-xs text-muted-foreground"}>
           <Info className="mt-0.5 size-3.5 shrink-0" />
           <span>
             {t('mx.privateNote')}{' '}
