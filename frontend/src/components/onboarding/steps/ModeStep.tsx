@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Compass, Zap } from 'lucide-react';
+import { Compass, Sparkles, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from '@/contexts/UiPreferencesContext';
@@ -16,7 +16,16 @@ export function ModeStep({ onSelect, onBack }: { onSelect: (mode: SetupMode) => 
   const { t } = useTranslation();
 
   return (
-    <OnboardingShell title={t('ob2.mode.title')} description={t('ob2.mode.subtitle')} onBack={onBack}>
+    <OnboardingShell
+      hero={
+        <motion.span initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 18 }} className="grid size-20 place-items-center rounded-3xl bg-brand/10 text-brand">
+          <Sparkles className="size-9" strokeWidth={1.6} />
+        </motion.span>
+      }
+      title={t('ob2.mode.title')}
+      description={t('ob2.mode.subtitle')}
+      onBack={onBack}
+    >
       <motion.div variants={stagger} initial="hidden" animate="show" className="grid w-full gap-4">
         <motion.div
           variants={fadeUp}

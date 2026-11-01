@@ -4,18 +4,20 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { screenVariants } from './shared/motion';
-import { EngineStep, ModeStep, PermissionsStep, PrivacyStep, ReadyStep, WelcomeStep, type SetupMode } from './steps';
+import { CloudStep, EngineStep, MeetyStep, ModeStep, PermissionsStep, PrivacyStep, ReadyStep, WelcomeStep, type SetupMode } from './steps';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
 }
 
-type Screen = 'welcome' | 'mode' | 'engine' | 'permissions' | 'privacy' | 'ready';
+type Screen = 'welcome' | 'mode' | 'engine' | 'permissions' | 'meety' | 'cloud' | 'privacy' | 'ready';
 
 // Pasos numerados de cada modo, después de elegirlo. Bienvenida y elección no llevan puntos de progreso.
 function stepsFor(mode: SetupMode, isMac: boolean): Screen[] {
-  const common: Screen[] = ['engine', ...(isMac ? (['permissions'] as Screen[]) : []), 'privacy', 'ready'];
-  return mode === 'express' ? common : common;
+  const permissions: Screen[] = isMac ? ['permissions'] : [];
+  return mode === 'express'
+    ? ['engine', ...permissions, 'privacy', 'ready']
+    : ['engine', ...permissions, 'meety', 'cloud', 'privacy', 'ready'];
 }
 
 function usePlatformIsMac(): boolean {
@@ -85,10 +87,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         }}
       />
     );
-  } else if (screen === 'engine') content = <EngineStep step={step} total={total} onNext={goNextStep} onBack={back} />;
+  } else if (screen === 'engine') content = <EngineStep step={step} total={total} onNext={goNextStep} onBack={back} variant={mode} />;
+  else if (screen === 'meety') content = <MeetyStep step={step} total={total} onNext={goNextStep} onBack={back} />;
+  else if (screen === 'cloud') content = <CloudStep step={step} total={total} onNext={goNextStep} onBack={back} />;
   else if (screen === 'permissions') content = <PermissionsStep step={step} total={total} onNext={goNextStep} onBack={back} />;
   else if (screen === 'privacy') content = <PrivacyStep step={step} total={total} onNext={goNextStep} onBack={back} />;
-  else if (screen === 'ready') content = <ReadyStep step={step} total={total} onFinish={finish} onBack={back} />;
+  else if (screen === 'ready') content = <ReadyStep step={step} total={total} onFinish={finish} onBack={back} mode={mode} />;
 
   return (
     <MotionConfig reducedMotion="user">
