@@ -29,8 +29,13 @@ pub async fn analytics_configured() -> bool {
 
 #[command]
 pub async fn disable_analytics() -> Result<(), String> {
-    let mut guard = ANALYTICS_CLIENT.lock().unwrap();
-    *guard = None;
+    let previous = {
+        let mut guard = ANALYTICS_CLIENT.lock().unwrap();
+        guard.take()
+    };
+    if let Some(client) = previous {
+        client.shutdown().await;
+    }
     Ok(())
 }
 

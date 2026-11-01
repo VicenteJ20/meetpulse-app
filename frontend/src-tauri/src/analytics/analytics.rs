@@ -72,9 +72,10 @@ impl AnalyticsConfig {
         }
     }
 
-    fn capture_endpoint(&self) -> String {
+    /// Ingestion host handed to the SDK, which appends its own capture path.
+    fn ingestion_host(&self) -> String {
         let host = self.host.as_deref().unwrap_or(DEFAULT_POSTHOG_HOST);
-        format!("{}/i/v0/e/", host.trim_end_matches('/'))
+        host.trim_end_matches('/').to_string()
     }
 }
 
@@ -110,11 +111,18 @@ pub struct AnalyticsClient {
 }
 
 impl AnalyticsClient {
+    /// Sends what is still queued and stops the SDK worker. Call before dropping the client.
+    pub async fn shutdown(&self) {
+        if let Some(client) = &self.client {
+            client.shutdown().await;
+        }
+    }
+
     pub async fn new(config: AnalyticsConfig) -> Self {
         let client = if config.enabled && !config.api_key.is_empty() {
             let options = posthog_rs::ClientOptionsBuilder::default()
                 .api_key(config.api_key.clone())
-                .api_endpoint(config.capture_endpoint())
+                .host(config.ingestion_host())
                 .build()
                 .ok();
             match options {
@@ -153,9 +161,8 @@ impl AnalyticsClient {
             }
         }
         
-        if let Err(e) = client.capture(event).await {
-            eprintln!("Failed to identify user: {}", e);
-        }
+        // The SDK queues the event and delivers it in the background.
+        client.capture(event);
         
         Ok(())
     }
@@ -196,9 +203,7 @@ impl AnalyticsClient {
             }
         }
         
-        if let Err(e) = client.capture(event).await {
-            log::warn!("Failed to track event {}: {}", event_name, e);
-        }
+        client.capture(event);
         
         Ok(())
     }
@@ -479,9 +484,7 @@ impl AnalyticsClient {
             }
         }
         
-        if let Err(e) = client.capture(event).await {
-            eprintln!("Failed to set user properties: {}", e);
-        }
+        client.capture(event);
         
         Ok(())
     }
@@ -546,13 +549,14 @@ mod tests {
     }
 
     #[test]
-    fn capture_endpoint_follows_configured_host() {
+    fn ingestion_host_follows_configured_host() {
         let mut config = AnalyticsConfig::default();
-        assert_eq!(config.capture_endpoint(), "https://us.i.posthog.com/i/v0/e/");
+        assert_eq!(config.ingestion_host(), "https://us.i.posthog.com");
 
         config.host = Some("https://eu.i.posthog.com/".to_string());
-        assert_eq!(config.capture_endpoint(), "https://eu.i.posthog.com/i/v0/e/");
+        assert_eq!(config.ingestion_host(), "https://eu.i.posthog.com");
     }
+
 
     #[test]
     fn default_config_is_disabled_without_a_key() {

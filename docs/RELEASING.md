@@ -19,6 +19,20 @@ Get-Content "$HOME\.tauri\meetpulse.key.password" -Raw | Set-Clipboard
 
 Guarda una copia de ambos archivos en un gestor de contraseñas: sin ellos no se pueden firmar actualizaciones y habría que reinstalar la app a mano.
 
+### Analítica (PostHog)
+La clave del proyecto de PostHog se incrusta al compilar. Sin ella el instalador sale **sin destino de analítica** y no envía nada, aunque la persona active el interruptor (la pantalla *Acerca de* lo indica).
+
+| Tipo | Nombre | Valor |
+|---|---|---|
+| Secreto | `MEETPULSE_POSTHOG_KEY` | clave pública del proyecto (`phc_…`) |
+| Variable (opcional) | `MEETPULSE_POSTHOG_HOST` | `https://us.i.posthog.com` (por defecto) o `https://eu.i.posthog.com` |
+
+```bash
+gh secret set MEETPULSE_POSTHOG_KEY --repo VicenteJ20/meetpulse-app
+```
+
+En local la toma de `frontend/.env.local` (ver `.env.example`).
+
 ### 2. Seguridad del repositorio
 - *Settings → Code security*: activa **Secret scanning**, **Push protection** y **Dependabot alerts**.
 - *Settings → Actions → General*: permisos de workflow en **Read repository contents**; exige aprobación para PRs de colaboradores externos.
