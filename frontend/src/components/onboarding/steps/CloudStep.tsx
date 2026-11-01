@@ -22,7 +22,9 @@ export function CloudStep({ step, total, onNext, onBack }: { step: number; total
   const { providerApiKeys, updateProviderApiKey, saveChatModel, modelConfig, setModelConfig, transcriptModelConfig, setTranscriptModelConfig } = useConfig();
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(false);
+  type Problem = 'invalid' | 'unverified' | 'offline' | 'failed' | null;
+  const [problem, setProblem] = useState<Problem>(null);
+  const [checked, setChecked] = useState(false);
   const [applying, setApplying] = useState(false);
   const [use, setUse] = useState<Record<Role, boolean>>({ chat: false, transcription: false, insights: false });
   const saved = !!providerApiKeys['vercel-gateway']?.trim();
@@ -33,18 +35,42 @@ export function CloudStep({ step, total, onNext, onBack }: { step: number; total
   const picks: Record<Role, CloudModel | undefined> = { chat, transcription, insights };
   const labels: Record<Role, string> = { chat: t('ob2.meety.chat.title'), transcription: t('ob2.meety.transcription.title'), insights: t('ob2.meety.insights.title') };
 
-  const saveKey = async () => {
+  const persistKey = async (key: string, wasChecked: boolean) => {
+    await invoke('api_save_api_key', { provider: 'vercel-gateway', apiKey: key });
+    updateProviderApiKey('vercel-gateway', key);
+    setChecked(wasChecked);
+    setDraft('');
+    setProblem(null);
+  };
+
+  // Comprueba la clave con Vercel antes de guardarla; si no se puede confirmar, la persona decide.
+  const verifyAndSave = async () => {
     const key = draft.trim();
     if (!key) return;
     setSaving(true);
-    setError(false);
+    setProblem(null);
     try {
-      await invoke('api_save_api_key', { provider: 'vercel-gateway', apiKey: key });
-      updateProviderApiKey('vercel-gateway', key);
-      setDraft('');
+      const result = await invoke<string>('desktop_validate_gateway_key', { apiKey: key }).catch(() => 'offline');
+      if (result === 'valid') await persistKey(key, true);
+      else if (result === 'invalid') setProblem('invalid');
+      else setProblem(result === 'offline' ? 'offline' : 'unverified');
     } catch (err) {
       console.error('[Onboarding] Could not save the gateway key:', err);
-      setError(true);
+      setProblem('failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveAnyway = async () => {
+    const key = draft.trim();
+    if (!key) return;
+    setSaving(true);
+    try {
+      await persistKey(key, false);
+    } catch (err) {
+      console.error('[Onboarding] Could not save the gateway key:', err);
+      setProblem('failed');
     } finally {
       setSaving(false);
     }
@@ -96,19 +122,28 @@ export function CloudStep({ step, total, onNext, onBack }: { step: number; total
           <AnimatePresence mode="wait" initial={false}>
             {saved ? (
               <motion.p key="saved" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 text-sm font-medium text-success">
-                <Check className="size-4" /> {t('ob2.cloud.saved')}
+                <Check className="size-4" /> {checked ? t('ob2.cloud.savedValid') : t('ob2.cloud.savedUnchecked')}
               </motion.p>
             ) : (
               <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid gap-2">
                 <label htmlFor="ob-gateway-key" className="flex items-center gap-2 text-sm font-medium"><KeyRound className="size-4 text-muted-foreground" />{t('ob2.cloud.keyLabel')}</label>
                 <div className="flex gap-2">
                   <Input id="ob-gateway-key" type="password" autoComplete="off" spellCheck={false} value={draft} onChange={(event) => setDraft(event.target.value)} className="font-mono text-xs" />
-                  <Button onClick={() => void saveKey()} disabled={!draft.trim() || saving}>
+                  <Button onClick={() => void verifyAndSave()} disabled={!draft.trim() || saving}>
                     {saving && <Loader2 className="animate-spin" />}
-                    {t('ob2.cloud.save')}
+                    {saving ? t('ob2.cloud.checking') : t('ob2.cloud.save')}
                   </Button>
                 </div>
-                {error && <p role="alert" className="text-xs text-destructive">{t('ob2.cloud.failed')}</p>}
+                {problem && (
+                  <div role="alert" className="grid gap-1.5 text-xs">
+                    <p className={problem === 'invalid' || problem === 'failed' ? 'text-destructive' : 'text-warning'}>
+                      {problem === 'invalid' ? t('ob2.cloud.invalid') : problem === 'failed' ? t('ob2.cloud.failed') : problem === 'offline' ? t('ob2.cloud.offline') : t('ob2.cloud.unverified')}
+                    </p>
+                    {(problem === 'unverified' || problem === 'offline') && (
+                      <button type="button" onClick={() => void saveAnyway()} className="w-fit font-medium text-brand hover:underline">{t('ob2.cloud.saveAnyway')}</button>
+                    )}
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

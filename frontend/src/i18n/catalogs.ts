@@ -901,7 +901,7 @@ export const en = {
   'ob2.cloud.assurance': 'Your key is stored only on this device. It is never sent to MeetPulse or to the developer; it is only used to talk to Vercel AI Gateway when you pick a cloud model.',
   'ob2.cloud.failed': 'Could not save the key. Try again.',
   'ob2.cloud.keyLabel': 'Vercel AI Gateway API key',
-  'ob2.cloud.save': 'Save key',
+  'ob2.cloud.save': 'Verify and save',
   'ob2.cloud.saved': 'Key saved on this device',
   'ob2.cloud.skip': 'Stay local only',
   'ob2.cloud.subtitle': 'MeetPulse works fully on your computer. Connect Vercel AI Gateway for more powerful models.',
@@ -934,6 +934,13 @@ export const en = {
   'ob2.ready.insights': 'Insights: {model}',
   'ob2.ready.meety': '{assistant}: {model}',
   'ob2.ready.notChosen': 'not chosen yet',
+  'ob2.cloud.checking': 'Checking…',
+  'ob2.cloud.invalid': 'That key is not valid. Check it and try again.',
+  'ob2.cloud.offline': 'No connection to check the key.',
+  'ob2.cloud.saveAnyway': 'Save anyway',
+  'ob2.cloud.savedUnchecked': 'Key saved on this device, not checked',
+  'ob2.cloud.savedValid': 'Valid key, saved on this device',
+  'ob2.cloud.unverified': 'We could not confirm the key right now.',
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -1841,7 +1848,7 @@ export const es: Record<TranslationKey, string> = {
   'ob2.cloud.assurance': 'Tu clave se guarda solo en este dispositivo. Nunca se envía a MeetPulse ni al desarrollador; solo se usa para hablar con Vercel AI Gateway cuando eliges un modelo de nube.',
   'ob2.cloud.failed': 'No se pudo guardar la clave. Inténtalo de nuevo.',
   'ob2.cloud.keyLabel': 'Clave de API de Vercel AI Gateway',
-  'ob2.cloud.save': 'Guardar clave',
+  'ob2.cloud.save': 'Comprobar y guardar',
   'ob2.cloud.saved': 'Clave guardada en este dispositivo',
   'ob2.cloud.skip': 'Seguir solo en local',
   'ob2.cloud.subtitle': 'MeetPulse funciona completo en tu equipo. Conecta Vercel AI Gateway para usar modelos más potentes.',
@@ -1874,6 +1881,13 @@ export const es: Record<TranslationKey, string> = {
   'ob2.ready.insights': 'Insights: {model}',
   'ob2.ready.meety': '{assistant}: {model}',
   'ob2.ready.notChosen': 'sin elegir',
+  'ob2.cloud.checking': 'Comprobando…',
+  'ob2.cloud.invalid': 'La clave no es válida. Revísala e inténtalo de nuevo.',
+  'ob2.cloud.offline': 'No hay conexión para comprobar la clave.',
+  'ob2.cloud.saveAnyway': 'Guardar de todos modos',
+  'ob2.cloud.savedUnchecked': 'Clave guardada en este dispositivo, sin comprobar',
+  'ob2.cloud.savedValid': 'Clave válida, guardada en este dispositivo',
+  'ob2.cloud.unverified': 'No se pudo confirmar la clave en este momento.',
 };
 
 export const catalogs = { en, es } as const;
